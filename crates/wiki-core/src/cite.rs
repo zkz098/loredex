@@ -14,7 +14,7 @@ pub struct Citation {
     pub span: (usize, usize),
 }
 
-pub async fn parse_citations_v2(body: &str) -> Result<Vec<Citation>> {
+pub fn parse_citations(body: &str) -> Result<Vec<Citation>> {
     let re = Regex::new(r"\[\[cite:([^\]\s]+?)(?::L(\d+)-L(\d+))?\]\]")
         .map_err(|e| WikiError::FrontmatterParse("cite-regex".into(), e.to_string()))?;
     let mut out = Vec::new();
