@@ -2,30 +2,30 @@
 id: engine-freshness
 title: wiki-engine：过期检测、内容校验与漂移投影
 status: verified
-generated_at: 2026-10-31T10:08:06Z
-commit: aa235362bbd98253ac936f90f5959a1599fdaebc
+generated_at: 2026-10-31T10:10:53Z
+commit: 6fbcd9636a4d01a534e61920acc5758c98aef7b4
 evidence:
 - path: crates/wiki-engine/src/lib.rs
   lines:
   - 80
   - 99
-  blob: 9bd86f9acda138cf86b41c68b32db0c4b428ba10
+  blob: c4ecfd9459348311c218185ba0056ff9c391bf3e
   snippet_sha1: f76a6e2717d20841af87dda437988cda828eadda
-  note: drift-projected L78-L97@c65597f3 -> L80-L99 (similarity 1.00)
+  note: drift-projected L80-L99@9bd86f9a -> L80-L99 (similarity 1.00)
 - path: crates/wiki-engine/src/lib.rs
   lines:
   - 119
   - 182
-  blob: 9bd86f9acda138cf86b41c68b32db0c4b428ba10
+  blob: c4ecfd9459348311c218185ba0056ff9c391bf3e
   snippet_sha1: 6bf3ce89311733fadeec8bc6e287be190c3b2deb
-  note: drift-projected L117-L180@c65597f3 -> L119-L182 (similarity 1.00)
+  note: drift-projected L119-L182@9bd86f9a -> L119-L182 (similarity 1.00)
 - path: crates/wiki-engine/src/lib.rs
   lines:
   - 205
   - 219
-  blob: 9bd86f9acda138cf86b41c68b32db0c4b428ba10
+  blob: c4ecfd9459348311c218185ba0056ff9c391bf3e
   snippet_sha1: ba6b3906fa868db06a16382dfa1fc9d704460794
-  note: drift-projected L203-L217@c65597f3 -> L205-L219 (similarity 1.00)
+  note: drift-projected L205-L219@9bd86f9a -> L205-L219 (similarity 1.00)
 - path: crates/wiki-engine/src/drift.rs
   lines:
   - 31
