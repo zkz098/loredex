@@ -26,6 +26,8 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
+      - name: install nextest
+        uses: taiki-e/install-action@nextest
       - name: sanity build + tests
         run: |
           cargo build --workspace --locked
