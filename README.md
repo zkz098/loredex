@@ -31,6 +31,9 @@ repowiki modules               # 模块发现（cargo targets / 目录分组）
 repowiki put core --title "核心层" --body notes.md
 repowiki list / show core / search "关键词"
 repowiki check --mark          # 过期扫描，exit code 非 0 = 有 stale（可挂 CI）
+repowiki plan [--json]         # 生成计划：未覆盖模块(New) + stale页(Refresh)，写入 .wiki/runs.json 账本
+repowiki index                 # 重新生成分层导航页 pages/index.md
+repowiki lint                  # 断链 / stale-but-verified / 正文-frontmatter 漂移，有问题 exit 1
 repowiki verify core           # 内容哈希级校验（不依赖 commit 号）
 repowiki refresh core          # 漂移投影刷新
 ```
@@ -78,6 +81,7 @@ Server 在 `initialize` 时下发协议契约（先查新鲜度、stale 视为�
 | `wiki_put_page` | 提交 agent 撰写的内容（零引用拒绝） |
 | `wiki_refresh_page` | 漂移投影刷新，逐条返回投影结果 |
 | `wiki_attach_repo` / `wiki_current_repo` | 挂载/切换仓库、自省解析状态 |
+| `wiki_plan` / `wiki_mark_task` | 打开/续传生成计划 run、销账（put/refresh 自动销账） |
 
 ## 工作流
 
@@ -90,8 +94,8 @@ Server 在 `initialize` 时下发协议契约（先查新鲜度、stale 视为�
                                                 └─ 内容丢失     → draft，agent 重写
 ```
 
-- 页面与 `.wiki/` 一起提交进 git，团队共享、PR 可 review
-- `repowiki check` 适合挂 CI 或 `post-merge` hook
+- 页面与 `.wiki/` 一起提交进 git，团队共享、PR 可 review；`runs.json` 账本同样入库，agent 中断后 `wiki_plan` 自动续传 pending 任务
+- `repowiki lint`（断链/stale/漂移）适合挂 CI；页面 id 支持 `architecture/overview` 式分层，`--type` 标注页面种类
 
 ## 架构
 

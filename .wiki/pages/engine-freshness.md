@@ -2,57 +2,58 @@
 id: engine-freshness
 title: wiki-engine：过期检测、内容校验与漂移投影
 status: verified
-generated_at: 2026-10-31T08:59:53Z
-commit: 0f60abeec631b68b376d721d411064df074d5950
+generated_at: 2026-10-31T09:20:20Z
+commit: 5fe5c2dc04b8fc113e1131e941939b6d327704cf
 evidence:
 - path: crates/wiki-engine/src/lib.rs
   lines:
-  - 76
-  - 95
-  blob: ebb3f7e5e419e62bd5f4d73789b8a330f7df41f8
+  - 86
+  - 105
+  blob: f2a1f0d8da6d83757e2ef7dd594a64f84837e1fe
   snippet_sha1: b3929d9f21ad47cf8f9df27bf649e8fb24f42200
-  note: drift-projected L76-L95@4fc0060e -> L76-L95 (similarity 1.00)
+  note: drift-projected L76-L95@ebb3f7e5 -> L86-L105 (similarity 1.00)
 - path: crates/wiki-engine/src/lib.rs
   lines:
-  - 115
-  - 198
-  blob: ebb3f7e5e419e62bd5f4d73789b8a330f7df41f8
+  - 125
+  - 208
+  blob: f2a1f0d8da6d83757e2ef7dd594a64f84837e1fe
   snippet_sha1: 82adea9c441275e383a930c410b267c1820348af
-  note: drift-projected L115-L178@4fc0060e -> L115-L198 (similarity 0.98)
+  note: drift-projected L115-L198@ebb3f7e5 -> L125-L208 (similarity 1.00)
 - path: crates/wiki-engine/src/lib.rs
   lines:
-  - 221
-  - 235
-  blob: ebb3f7e5e419e62bd5f4d73789b8a330f7df41f8
+  - 231
+  - 245
+  blob: f2a1f0d8da6d83757e2ef7dd594a64f84837e1fe
   snippet_sha1: 2e0cf9a049d9041bbefaa4517ce90d31a1489ea7
-  note: drift-projected L201-L215@4fc0060e -> L221-L235 (similarity 1.00)
+  note: drift-projected L221-L235@ebb3f7e5 -> L231-L245 (similarity 1.00)
 - path: crates/wiki-engine/src/drift.rs
   lines:
   - 40
   - 79
-  blob: c57febdf0b90675dd0a0f4dd2f85e1190604516a
+  blob: 6e32729050d9b6119de47c04813a45825ed45cbf
   snippet_sha1: ad6c8ce1ba654f5491dbe3c72c6063d1a187ce02
-  note: drift-projected L31-L70@50c4749b -> L40-L79 (similarity 1.00)
+  note: drift-projected L40-L79@c57febdf -> L40-L79 (similarity 1.00)
 - path: crates/wiki-engine/src/drift.rs
   lines:
   - 29
   - 36
-  blob: c57febdf0b90675dd0a0f4dd2f85e1190604516a
+  blob: 6e32729050d9b6119de47c04813a45825ed45cbf
   snippet_sha1: cdcc975c5d3700ad16e50c1a12dc27e1dd0c44a7
-  note: drift-projected L20-L27@50c4749b -> L29-L36 (similarity 1.00)
+  note: drift-projected L29-L36@c57febdf -> L29-L36 (similarity 1.00)
 - path: crates/wiki-engine/src/drift.rs
   lines:
   - 217
-  - 264
-  blob: c57febdf0b90675dd0a0f4dd2f85e1190604516a
-  snippet_sha1: af0059c058b23109622aa13ddae55913da069b28
-  note: drift-projected L148-L190@50c4749b -> L217-L264 (similarity 0.98)
+  - 269
+  blob: 6e32729050d9b6119de47c04813a45825ed45cbf
+  snippet_sha1: 1d0ae10a29f08fa1ac2ddc4884e094ff6c8a1298
+  note: drift-projected L217-L264@c57febdf -> L217-L269 (similarity 1.00)
 - path: crates/wiki-engine/src/put.rs
   lines:
   - 18
-  - 60
-  blob: f3a81528bc7d063cfe51209a5057dc35a23957a9
-  snippet_sha1: 5454865c617ae541d39724e13756562d1a609f67
+  - 59
+  blob: 7620e01ae59ef0a21e7880d0de5516f4b6682e33
+  snippet_sha1: 2c283b898c8909ad858149c3b5e70bf94dbcbf4d
+  note: drift-projected L18-L60@f3a81528 -> L18-L59 (similarity 0.88)
 ---
 # wiki-engine：过期检测、内容校验与漂移投影
 
