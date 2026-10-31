@@ -1,3 +1,5 @@
+use std::collections::BTreeMap;
+
 use similar::{ChangeTag, TextDiff};
 use wiki_core::{Evidence, WikiPage};
 use wiki_git::GitRepo;
@@ -14,6 +16,13 @@ pub enum DriftOutcome {
     Projected {
         lines: [u32; 2],
         score: f64,
+    },
+    /// The cited path is gone but its content was found elsewhere in HEAD.
+    /// `exact` = same blob oid (plain `git mv`); otherwise mv + edit, adopted
+    /// only after line projection.
+    Renamed {
+        new_path: String,
+        exact: bool,
     },
     /// Could not find the cited content in the new revision.
     Lost,
@@ -77,6 +86,59 @@ pub fn project_range(old_content: &str, new_content: &str, lo: u32, hi: u32) -> 
     ([nlo as u32 + 1, nhi as u32 + 1], score)
 }
 
+/// Recover evidence whose recorded path vanished from HEAD.
+/// Tier 1: content-addressed exact match (plain `git mv`).
+/// Tier 2: git similarity rename + line projection (mv + edit).
+fn recover_renamed(
+    repo: &GitRepo,
+    ev: &Evidence,
+    renames: &BTreeMap<String, String>,
+) -> Result<(DriftOutcome, Option<Evidence>)> {
+    if let Some(found) = repo.path_of_blob_in_head(&ev.blob)? {
+        let mut adopted = ev.clone();
+        adopted.path = found.clone();
+        adopted.note = Some(format!(
+            "rename-detected {} -> {} (identical blob)",
+            ev.path, found
+        ));
+        return Ok((DriftOutcome::Renamed { new_path: found, exact: true }, Some(adopted)));
+    }
+    if let Some(new_path) = renames.get(&ev.path) {
+        let old_content = repo.blob_content(&ev.blob)?;
+        let new_content = repo.head_file_content(new_path)?;
+        if let (Some(o), Some(n)) = (old_content, new_content) {
+            if let Some([lo, hi]) = ev.lines {
+                let (range, score) = project_range(&o, &n, lo, hi);
+                if score >= DRIFT_THRESHOLD {
+                    let blob = repo
+                        .head_blob_oid(new_path)?
+                        .ok_or_else(|| WikiError::Git(format!("{new_path} vanished")))?;
+                    let snippet = head_lines_string(repo, new_path, range[0], range[1])?;
+                    let adopted = Evidence {
+                        path: new_path.clone(),
+                        lines: Some(range),
+                        blob,
+                        snippet_sha1: Some(sha1_hex(snippet.as_bytes())),
+                        note: Some(format!(
+                            "renamed {} -> {}, drift-projected L{lo}-L{hi} -> L{}-L{} (similarity {score:.2})",
+                            ev.path, new_path, range[0], range[1]
+                        )),
+                    };
+                    return Ok((
+                        DriftOutcome::Renamed { new_path: new_path.clone(), exact: false },
+                        Some(adopted),
+                    ));
+                }
+            }
+            // moved but the snippet itself is gone: re-pin at the new location so
+            // the page stays editable; caller still sees Lost -> draft rewrite
+            let repinned = record_evidence(repo, new_path, ev.lines)?;
+            return Ok((DriftOutcome::Lost, Some(repinned)));
+        }
+    }
+    Err(WikiError::Git(format!("{} missing at HEAD", ev.path)))
+}
+
 fn similarity(a: &str, b: &str) -> f64 {
     if a == b {
         return 1.0;
@@ -95,10 +157,17 @@ fn similarity(a: &str, b: &str) -> f64 {
 }
 
 /// Attempt to re-point one evidence item at HEAD without re-pinning blindly.
-pub fn project_evidence(repo: &GitRepo, ev: &Evidence) -> Result<(DriftOutcome, Option<Evidence>)> {
-    let current = repo
-        .head_blob_oid(&ev.path)?
-        .ok_or_else(|| WikiError::Git(format!("{} missing at HEAD", ev.path)))?;
+/// `renames` maps old->new paths detected between the page's commit and HEAD.
+pub fn project_evidence(
+    repo: &GitRepo,
+    ev: &Evidence,
+    renames: &BTreeMap<String, String>,
+) -> Result<(DriftOutcome, Option<Evidence>)> {
+    let current = repo.head_blob_oid(&ev.path)?;
+    let current = match current {
+        Some(oid) => oid,
+        None => return recover_renamed(repo, ev, renames),
+    };
     if current == ev.blob {
         return Ok((DriftOutcome::Unchanged, None));
     }
@@ -151,8 +220,13 @@ pub fn refresh_page_with_drift(
 ) -> Result<Vec<(String, DriftOutcome)>> {
     let mut outcomes = Vec::new();
     let mut evidence = Vec::new();
+    let renames: BTreeMap<String, String> = if repo.commit_exists(&page.meta.commit) {
+        repo.renames_since(&page.meta.commit).into_iter().collect()
+    } else {
+        BTreeMap::new()
+    };
     for ev in &page.meta.evidence {
-        let (outcome, adopted) = project_evidence(repo, ev)?;
+        let (outcome, adopted) = project_evidence(repo, ev, &renames)?;
         outcomes.push((ev.path.clone(), outcome.clone()));
         match adopted {
             Some(new_ev) => evidence.push(new_ev),

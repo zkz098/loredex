@@ -8,7 +8,8 @@ Agent 读仓库的痛点：上下文贵、过期文档误导。repowiki 的答�
 
 - **Evidence 钉定** — 页面正文里的每个声明都携带 `[[cite:path:Lx-Ly]]` 标记，落库时解析为 `(路径, 行区间, git blob sha, 片段内容 sha1)` 四元组。没有引用的内容拒绝入库。
 - **Git 自动追踪过期** — 不信任 commit 号本身：对比 HEAD blob、用 tree diff 交叉验证、校验时直接重算行区间内容哈希。代码一改，相关页面即判 stale。
-- **行号漂移投影** — 源文件增删行后，旧引用通过行级 diff 自动映射到新位置（相似度达标就采纳并在 note 留痕），页面保持 verified；确实丢失的降级 draft 强制重写。
+- **行号漂移投影** — 源文件增删行后，旧引用通过行级 diff 自动映射到新位置（相似度达标就采纳并在 note 留痕），页面保持 verified；确实丢失的降级 draft 强制重写
+- **重命名自动恢复** — `git mv` 不改内容时按 blob oid 在 HEAD 反查新路径（内容寻址，比重命名启发式更精确）；mv+小改走 git 相似度改名检测 + 行投影；两步都失败的才要求人工重写。
 - **零数据库** — frontmatter 就是数据库。`.wiki/pages/*.md` 随 git 提交、可 review、可手改，不存在可损坏的权威索引；搜索索引每次从文件毫秒级重建。
 
 ## 安装
@@ -82,9 +83,11 @@ Server 在 `initialize` 时下发协议契约（先查新鲜度、stale 视为�
 
 ```
 模块发现 → 读源码 → put_page(带引用) → [代码演进] → check/刷新投影
-                                                ├─ blob 未变  → verified 保持
-                                                ├─ 行号漂移   → 自动投影，verified + note
-                                                └─ 内容丢失   → draft，agent 重写
+                                                ├─ blob 未变    → verified 保持
+                                                ├─ 行号漂移     → 自动投影，verified + note
+                                                ├─ git mv       → 内容寻址反查新路径，verified
+                                                ├─ mv + 小改    → 相似度改名 + 投影，verified
+                                                └─ 内容丢失     → draft，agent 重写
 ```
 
 - 页面与 `.wiki/` 一起提交进 git，团队共享、PR 可 review

@@ -134,16 +134,36 @@ pub fn check_page(page: &WikiPage, repo: &GitRepo) -> Result<PageReport> {
         changed_paths = repo.changed_paths_since(&page.meta.commit, &refs)?;
     }
 
+    let mut renames: Option<std::collections::BTreeMap<String, String>> = None;
     for e in &page.meta.evidence {
         let current = repo.head_blob_oid(&e.path)?;
         let in_diff = changed_paths.iter().any(|p| p == &e.path);
         match current {
             None => {
                 stale = true;
+                if renames.is_none() {
+                    renames = Some(
+                        if repo.commit_exists(&page.meta.commit) {
+                            repo.renames_since(&page.meta.commit).into_iter().collect()
+                        } else {
+                            Default::default()
+                        },
+                    );
+                }
+                let map = renames.as_ref().unwrap();
+                let detail = match (repo.path_of_blob_in_head(&e.blob)?, map.get(&e.path)) {
+                    (Some(found), _) => {
+                        format!("renamed to {found} (identical blob; recoverable via refresh)")
+                    }
+                    (None, Some(new_path)) => {
+                        format!("renamed to {new_path} (recoverable via refresh)")
+                    }
+                    _ => "file no longer exists at HEAD".to_string(),
+                };
                 reports.push(EvidenceReport {
                     path: e.path.clone(),
                     ok: false,
-                    detail: "file no longer exists at HEAD".into(),
+                    detail,
                 });
             }
             Some(oid) if oid != e.blob || in_diff => {

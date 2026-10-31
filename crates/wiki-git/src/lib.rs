@@ -182,6 +182,95 @@ impl GitRepo {
         }
     }
 
+    /// Find a path at HEAD whose blob has the given oid (content-addressed
+    /// rename lookup: an unchanged `git mv` keeps the same oid at the new path).
+    pub fn path_of_blob_in_head(&self, oid_str: &str) -> Result<Option<String>> {
+        let oid = git2::Oid::from_str(oid_str).map_err(|e| WikiError::Git(e.to_string()))?;
+        let commit = self
+            .repo
+            .head()
+            .and_then(|h| h.peel_to_commit())
+            .map_err(|e| WikiError::Git(e.to_string()))?;
+        let tree = commit.tree().map_err(|e| WikiError::Git(e.to_string()))?;
+        let mut found: Option<String> = None;
+        Self::find_blob_walk(&self.repo, &tree, "", &oid, &mut found);
+        Ok(found)
+    }
+
+    fn find_blob_walk(
+        repo: &Repository,
+        tree: &git2::Tree,
+        prefix: &str,
+        want: &git2::Oid,
+        found: &mut Option<String>,
+    ) {
+        if found.is_some() {
+            return;
+        }
+        let mut entries: Vec<_> = tree.iter().collect();
+        entries.sort_by_key(|e| e.name().unwrap_or("").to_string());
+        for entry in entries {
+            if found.is_some() {
+                return;
+            }
+            let Some(name) = entry.name() else { continue };
+            let full = if prefix.is_empty() {
+                name.to_string()
+            } else {
+                format!("{prefix}/{name}")
+            };
+            if entry.kind() == Some(git2::ObjectType::Tree) {
+                if let Ok(obj) = entry.to_object(repo) {
+                    if let Ok(subtree) = obj.into_tree() {
+                        Self::find_blob_walk(repo, &subtree, &full, want, found);
+                    }
+                }
+            } else if entry.id() == *want {
+                *found = Some(full);
+                return;
+            }
+        }
+    }
+
+    /// old -> new path pairs renamed between `from_commit` and HEAD
+    /// (git similarity rename detection).
+    pub fn renames_since(&self, from_commit: &str) -> Vec<(String, String)> {
+        let Ok(old) = self
+            .repo
+            .revparse_single(from_commit)
+            .and_then(|o| o.peel_to_commit())
+        else {
+            return Vec::new();
+        };
+        let Ok(old_tree) = old.tree() else { return Vec::new() };
+        let Ok(head_commit) = self.repo.head().and_then(|h| h.peel_to_commit()) else {
+            return Vec::new();
+        };
+        let Ok(head_tree) = head_commit.tree() else {
+            return Vec::new();
+        };
+        let Ok(mut diff) = self
+            .repo
+            .diff_tree_to_tree(Some(&old_tree), Some(&head_tree), None)
+        else {
+            return Vec::new();
+        };
+        let mut find = git2::DiffFindOptions::new();
+        find.renames(true);
+        if diff.find_similar(Some(&mut find)).is_err() {
+            return Vec::new();
+        }
+        let mut out = Vec::new();
+        for delta in diff.deltas() {
+            if delta.status() == git2::Delta::Renamed {
+                if let (Some(o), Some(n)) = (delta.old_file().path(), delta.new_file().path()) {
+                    out.push((o.display().to_string(), n.display().to_string()));
+                }
+            }
+        }
+        out
+    }
+
     /// True if tracked files have uncommitted changes (ignores untracked files).
     pub fn is_dirty(&self) -> Result<bool> {
         let statuses = self

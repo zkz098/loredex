@@ -60,6 +60,21 @@ impl Fixture {
         commit_all(self.tmp.path(), "delete");
     }
 
+    fn mv(&self, from: &str, to: &str) {
+        let f = self.tmp.path().join(from);
+        let t = self.tmp.path().join(to);
+        std::fs::create_dir_all(t.parent().unwrap()).unwrap();
+        std::fs::rename(f, t).unwrap();
+        commit_all(self.tmp.path(), "mv");
+    }
+
+    fn commit_file(&self, path: &str, content: &str) {
+        let p = self.tmp.path().join(path);
+        std::fs::create_dir_all(p.parent().unwrap()).unwrap();
+        std::fs::write(p, content).unwrap();
+        commit_all(self.tmp.path(), "add");
+    }
+
     fn wiki_dir(&self) -> std::path::PathBuf {
         self.repo.wiki_dir()
     }
@@ -228,7 +243,104 @@ fn modules_cargo_targets_discovered() {
     assert_eq!(lib.kind, "rust-lib");
 }
 
-// ---------- put_page rejection matrix ----------
+// ---------- rename recovery ----------
+
+#[test]
+fn plain_git_mv_recovered_by_content_addressing() {
+    let fx = Fixture::new(&[("src/api.rs", API_RS)]);
+    make_page(&fx);
+    fx.mv("src/api.rs", "src/store/api.rs");
+
+    let stale = find_page(&fx.wiki_dir(), "entry").unwrap();
+    let report = check_page(&stale, &fx.repo).unwrap();
+    assert!(report.is_stale);
+    assert!(report
+        .evidence_reports
+        .iter()
+        .any(|r| r.detail.contains("renamed to src/store/api.rs")
+            && r.detail.contains("identical blob")));
+
+    let mut page = stale;
+    let outcomes = refresh_page_with_drift(&mut page, &fx.repo).unwrap();
+    assert!(outcomes
+        .iter()
+        .all(|(_, o)| matches!(o, DriftOutcome::Renamed { new_path, exact: true }
+            if new_path == "src/store/api.rs")));
+    assert_eq!(page.meta.status, Status::Verified);
+    assert!(page.meta.evidence.iter().all(|e| e.path == "src/store/api.rs"));
+    assert!(verify_page(&find_page(&fx.wiki_dir(), "entry").unwrap(), &fx.repo)
+        .unwrap()
+        .all_ok);
+}
+
+#[test]
+fn mv_with_minor_edit_renamed_and_projected() {
+    let fx = Fixture::new(&[("src/api.rs", API_RS)]);
+    make_page(&fx);
+    fx.mv("src/api.rs", "moved_api.rs");
+    // one-line tweak at the top after the move (below the git rename threshold work)
+    fx.rewrite("moved_api.rs", &format!("// touched\n{API_RS}"));
+
+    let stale = find_page(&fx.wiki_dir(), "entry").unwrap();
+    assert!(check_page(&stale, &fx.repo).unwrap().is_stale);
+
+    let mut page = stale;
+    let outcomes = refresh_page_with_drift(&mut page, &fx.repo).unwrap();
+    // tier-1 exact fails (blob changed); similarity rename + projection wins
+    assert!(outcomes.iter().all(|(_, o)| matches!(
+        o,
+        DriftOutcome::Renamed { new_path, exact: false } if new_path == "moved_api.rs"
+    )) || outcomes.iter().any(|(_, o)| matches!(o, DriftOutcome::Projected { .. })),
+        "{outcomes:?}");
+    assert_eq!(page.meta.status, Status::Verified);
+    assert!(page.meta.evidence.iter().all(|e| e.path == "moved_api.rs"));
+    // first citation shifted down by the inserted header line
+    assert_eq!(page.meta.evidence[0].lines, Some([2, 6]));
+    assert!(verify_page(&find_page(&fx.wiki_dir(), "entry").unwrap(), &fx.repo)
+        .unwrap()
+        .all_ok);
+}
+
+#[test]
+fn mv_with_minor_edit_then_total_rewrite_recovers_at_move_target() {
+    let fx = Fixture::new(&[("src/api.rs", API_RS)]);
+    make_page(&fx);
+    // step 1: plain mv -> tier-1 content-addressed recovery re-points path
+    fx.mv("src/api.rs", "new/api.rs");
+    let mut page = find_page(&fx.wiki_dir(), "entry").unwrap();
+    refresh_page_with_drift(&mut page, &fx.repo).unwrap();
+    assert_eq!(page.meta.status, Status::Verified);
+    assert!(page.meta.evidence.iter().all(|e| e.path == "new/api.rs"));
+
+    // step 2: total rewrite at the new path -> Lost, draft, but path anchors hold
+    fx.rewrite("new/api.rs", "pub fn totally_different() {}\n");
+    let mut page = find_page(&fx.wiki_dir(), "entry").unwrap();
+    let outcomes = refresh_page_with_drift(&mut page, &fx.repo).unwrap();
+    assert!(
+        outcomes.iter().any(|(_, o)| *o == DriftOutcome::Lost),
+        "{outcomes:?}"
+    );
+    assert_eq!(page.meta.status, Status::Draft);
+    assert!(page.meta.evidence.iter().all(|e| e.path == "new/api.rs"));
+}
+
+#[test]
+fn heavy_rewrite_without_rename_hint_stays_unresolvable() {
+    // documented boundary: mv + complete rewrite in ONE commit is neither
+    // content-identical nor similar enough for git rename detection; refresh
+    // must error rather than silently mis-adopt a path
+    let fx = Fixture::new(&[("src/api.rs", API_RS)]);
+    make_page(&fx);
+    {
+        let f = fx.tmp.path().join("src/api.rs");
+        std::fs::remove_file(f).unwrap();
+    }
+    fx.commit_file("new/api.rs", "pub fn totally_different() {}\n");
+    let page = find_page(&fx.wiki_dir(), "entry").unwrap();
+    assert!(refresh_page_with_drift(&mut page.clone(), &fx.repo).is_err());
+}
+
+// ---------- put rejection matrix ----------
 
 #[test]
 fn reject_body_without_citations() {

@@ -446,13 +446,20 @@ impl WikiServer {
         for p in &pages {
             let report = engine::check_page(p, &repo).map_err(Self::err)?;
             let projectable: Vec<String> = if report.is_stale {
+                let renames: std::collections::BTreeMap<String, String> =
+                    repo.renames_since(&p.meta.commit).into_iter().collect();
                 p.meta
                     .evidence
                     .iter()
                     .filter_map(|e| {
-                        let (outcome, _) = engine::project_evidence(&repo, e).ok()?;
-                        matches!(outcome, DriftOutcome::Projected { .. } | DriftOutcome::Unchanged)
-                            .then(|| e.path.clone())
+                        let (outcome, _) = engine::project_evidence(&repo, e, &renames).ok()?;
+                        matches!(
+                            outcome,
+                            DriftOutcome::Projected { .. }
+                                | DriftOutcome::Unchanged
+                                | DriftOutcome::Renamed { .. }
+                        )
+                        .then(|| e.path.clone())
                     })
                     .collect()
             } else {
@@ -645,6 +652,15 @@ impl WikiServer {
                         path,
                         outcome: format!("projected (similarity {score:.2})"),
                         new_lines: Some(vec![lines[0], lines[1]]),
+                    },
+                    DriftOutcome::Renamed { new_path, exact } => RefreshOutcomeOut {
+                        path,
+                        outcome: if exact {
+                            format!("renamed -> {new_path} (identical blob)")
+                        } else {
+                            format!("renamed -> {new_path} + projected")
+                        },
+                        new_lines: None,
                     },
                     DriftOutcome::Lost => RefreshOutcomeOut { path, outcome: "lost".into(), new_lines: None },
                     DriftOutcome::NoOldBlob => RefreshOutcomeOut { path, outcome: "old-blob-missing".into(), new_lines: None },
