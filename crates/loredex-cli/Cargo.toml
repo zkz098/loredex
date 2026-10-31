@@ -14,6 +14,7 @@ path = "src/main.rs"
 [dependencies]
 anyhow = { workspace = true }
 clap = { workspace = true }
+mimalloc = { workspace = true }
 loredex-core = { workspace = true }
 loredex-git = { workspace = true }
 loredex-engine = { workspace = true }

@@ -5,6 +5,10 @@ use clap::{Parser, Subcommand};
 use loredex_core::{Status, WikiPage};
 use loredex_engine::{self as engine};
 use loredex_git::GitRepo;
+use mimalloc::MiMalloc;
+
+#[global_allocator]
+static GLOBAL: MiMalloc = MiMalloc;
 
 #[derive(Parser)]
 #[command(

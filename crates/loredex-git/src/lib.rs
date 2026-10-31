@@ -3,8 +3,12 @@ use std::collections::{BTreeMap, BTreeSet, HashMap};
 use std::path::{Path, PathBuf};
 use std::rc::Rc;
 
+use foldhash::fast::RandomState as FastState;
 use git2::{DiffOptions, Oid, Repository};
 use loredex_core::WikiError;
+
+/// Local git metadata only: foldhash is fast but not HashDoS-resistant.
+type FastMap<K, V> = HashMap<K, V, FastState>;
 
 pub type Result<T> = std::result::Result<T, WikiError>;
 
@@ -147,9 +151,9 @@ impl GitRepo {
 /// first path for each distinct blob (DFS with name-sorted entries).
 #[derive(Default)]
 struct TreeIndex {
-    paths: HashMap<String, PathKind>,
+    paths: FastMap<String, PathKind>,
     files: Vec<String>,
-    blobs: HashMap<String, String>,
+    blobs: FastMap<String, String>,
 }
 
 enum PathKind {
@@ -200,15 +204,15 @@ pub struct GitView<'a> {
     repo: &'a GitRepo,
     head: OnceCell<String>,
     tree: OnceCell<TreeIndex>,
-    contents: RefCell<HashMap<String, Option<Rc<String>>>>,
-    blob_contents: RefCell<HashMap<String, Option<Rc<String>>>>,
-    changed: RefCell<HashMap<String, Rc<BTreeSet<String>>>>,
+    contents: RefCell<FastMap<String, Option<Rc<String>>>>,
+    blob_contents: RefCell<FastMap<String, Option<Rc<String>>>>,
+    changed: RefCell<FastMap<String, Rc<BTreeSet<String>>>>,
     /// Paths already covered by the cached diff for a commit. Batch callers
     /// prime this with the union of all evidence paths for that commit; a
     /// single-page caller re-diffs only the newly requested paths.
-    changed_coverage: RefCell<HashMap<String, BTreeSet<String>>>,
-    renames: RefCell<HashMap<String, Rc<BTreeMap<String, String>>>>,
-    commit_exists: RefCell<HashMap<String, bool>>,
+    changed_coverage: RefCell<FastMap<String, BTreeSet<String>>>,
+    renames: RefCell<FastMap<String, Rc<BTreeMap<String, String>>>>,
+    commit_exists: RefCell<FastMap<String, bool>>,
     dirty: OnceCell<bool>,
 }
 
@@ -218,12 +222,12 @@ impl<'a> GitView<'a> {
             repo,
             head: OnceCell::new(),
             tree: OnceCell::new(),
-            contents: RefCell::new(HashMap::new()),
-            blob_contents: RefCell::new(HashMap::new()),
-            changed: RefCell::new(HashMap::new()),
-            changed_coverage: RefCell::new(HashMap::new()),
-            renames: RefCell::new(HashMap::new()),
-            commit_exists: RefCell::new(HashMap::new()),
+            contents: RefCell::new(FastMap::default()),
+            blob_contents: RefCell::new(FastMap::default()),
+            changed: RefCell::new(FastMap::default()),
+            changed_coverage: RefCell::new(FastMap::default()),
+            renames: RefCell::new(FastMap::default()),
+            commit_exists: RefCell::new(FastMap::default()),
             dirty: OnceCell::new(),
         }
     }

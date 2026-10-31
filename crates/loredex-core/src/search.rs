@@ -1,5 +1,10 @@
 use std::collections::{BTreeMap, HashMap};
 
+use foldhash::fast::RandomState as FastState;
+
+/// Local page tokens only: foldhash is fast but not HashDoS-resistant.
+type FastMap<K, V> = HashMap<K, V, FastState>;
+
 /// Token count above which a token is treated as a word rather than a CJK char run.
 fn is_cjk(c: char) -> bool {
     matches!(c as u32,
@@ -108,7 +113,7 @@ impl InvertedIndex {
             text.push_str(&page.id);
             text.push(' ');
             text.push_str(&page.body);
-            let mut tf: HashMap<String, usize> = HashMap::new();
+            let mut tf: FastMap<String, usize> = FastMap::default();
             for t in tokenize(&text) {
                 *tf.entry(t).or_insert(0) += 1;
             }
@@ -130,8 +135,8 @@ impl InvertedIndex {
         if qtokens.is_empty() {
             return Vec::new();
         }
-        let mut scores: HashMap<usize, usize> = HashMap::new();
-        let mut coverage: HashMap<usize, usize> = HashMap::new();
+        let mut scores: FastMap<usize, usize> = FastMap::default();
+        let mut coverage: FastMap<usize, usize> = FastMap::default();
         for t in &qtokens {
             // prefix match on latin tokens keeps `wik` -> `wiki` usable
             let mut candidates: Vec<&(usize, usize)> = Vec::new();
