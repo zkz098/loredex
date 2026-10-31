@@ -546,11 +546,38 @@ impl<'a> GitView<'a> {
 }
 
 fn lines_of(content: &str, lo: u32, hi: u32) -> Option<String> {
-    let lines: Vec<&str> = content.split('\n').collect();
     let lo = lo.max(1) as usize;
-    let hi = (hi as usize).min(lines.len());
-    if lo > lines.len() {
+    let hi = hi as usize;
+    if hi < lo {
         return Some(String::new());
     }
-    Some(lines[lo - 1..hi].join("\n"))
+    Some(
+        content
+            .split('\n')
+            .skip(lo - 1)
+            .take(hi - lo + 1)
+            .collect::<Vec<_>>()
+            .join("\n"),
+    )
+}
+
+#[cfg(test)]
+mod tests {
+    use super::lines_of;
+
+    #[test]
+    fn extracts_requested_window() {
+        let content = "a\nb\nc\nd\n";
+        assert_eq!(lines_of(content, 2, 3).as_deref(), Some("b\nc"));
+        assert_eq!(lines_of(content, 1, 99).as_deref(), Some("a\nb\nc\nd\n"));
+    }
+
+    #[test]
+    fn keeps_split_newline_semantics_at_edges() {
+        let content = "a\nb\n";
+        // split('\n') yields a trailing empty segment
+        assert_eq!(lines_of(content, 3, 3).as_deref(), Some(""));
+        assert_eq!(lines_of(content, 4, 6).as_deref(), Some(""));
+        assert_eq!(lines_of(content, 3, 1).as_deref(), Some(""));
+    }
 }
