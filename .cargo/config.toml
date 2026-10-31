@@ -1,0 +1,21 @@
+# Default codegen baseline: x86-64-v3 (AVX2 era, 2013+).
+# [build] rustflags is used for host builds and any x86 target without an
+# explicit table; aarch64 tables below override it so cross builds never
+# receive an x86 cpu flag. To pin an older CPU, unset this and use defaults.
+[build]
+rustflags = ["-C", "target-cpu=x86-64-v3"]
+
+[target.x86_64-unknown-linux-gnu]
+rustflags = ["-C", "target-cpu=x86-64-v3"]
+
+[target.x86_64-pc-windows-msvc]
+rustflags = ["-C", "target-cpu=x86-64-v3"]
+
+[target.x86_64-apple-darwin]
+rustflags = ["-C", "target-cpu=x86-64-v3"]
+
+[target.aarch64-unknown-linux-gnu]
+rustflags = ["-C", "target-cpu=generic"]
+
+[target.aarch64-apple-darwin]
+rustflags = ["-C", "target-cpu=apple-m1"]

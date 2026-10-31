@@ -9,11 +9,15 @@ members = [
 ]
 
 [workspace.package]
-version = "0.1.0"
+version = "0.1.1"
 edition = "2021"
 license = "GPL-3.0-or-later"
 repository = "https://github.com/zkz098/loredex"
 rust-version = "1.85"
+
+[profile.release]
+opt-level = 3
+lto = "thin"
 
 [workspace.dependencies]
 anyhow = "1"
@@ -29,9 +33,9 @@ clap = { version = "4", features = ["derive"] }
 tokio = { version = "1", features = ["macros", "rt-multi-thread", "io-std", "io-util"] }
 rmcp = { version = "3", features = ["server", "macros", "transport-io"] }
 toml = "0.9"
-loredex-core = { path = "crates/loredex-core", version = "0.1.0" }
-loredex-git = { path = "crates/loredex-git", version = "0.1.0" }
-loredex-engine = { path = "crates/loredex-engine", version = "0.1.0" }
+loredex-core = { path = "crates/loredex-core", version = "0.1.1" }
+loredex-git = { path = "crates/loredex-git", version = "0.1.1" }
+loredex-engine = { path = "crates/loredex-engine", version = "0.1.1" }
 
 # The profile that 'dist' will build with
 [profile.dist]
