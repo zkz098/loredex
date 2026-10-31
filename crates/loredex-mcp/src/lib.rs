@@ -3,6 +3,7 @@ use std::sync::{Arc, Mutex};
 
 use rmcp::handler::server::wrapper::{Json, Parameters};
 use rmcp::model::{ServerCapabilities, ServerConfig};
+use clap::Parser;
 use rmcp::{schemars, tool, tool_handler, tool_router, ErrorData, Peer, RoleServer, ServiceExt, transport::stdio};
 use serde::{Deserialize, Serialize};
 use loredex_core::search::{IndexedPage, InvertedIndex};
@@ -769,6 +770,7 @@ impl rmcp::ServerHandler for WikiServer {
 }
 
 #[derive(clap::Parser)]
+#[command(name = "loredex-mcp", version)]
 pub struct Args {
     /// Pin the served repository (skips env/roots/cwd resolution and disables attach)
     #[arg(long)]

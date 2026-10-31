@@ -8,7 +8,7 @@ use loredex_engine::{self as engine};
 use loredex_git::GitRepo;
 
 #[derive(Parser)]
-#[command(name = "loredex", about = "Loredex: evidence-backed repository wiki for coding agents")]
+#[command(name = "loredex", version, about = "Loredex: evidence-backed repository wiki for coding agents")]
 struct Cli {
     /// Repository root (defaults to discovery from current directory)
     #[arg(long, global = true)]
