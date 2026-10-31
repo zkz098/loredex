@@ -38,7 +38,6 @@ jobs:
         uses: rust-lang/crates-io-auth-action@v1
         id: auth
       - name: sanity build + tests
-      - name: sanity build + tests
         run: |
           cargo build --workspace --locked
           cargo nextest run --workspace
