@@ -294,3 +294,29 @@ mod tests {
         assert!(score < 0.6);
     }
 }
+
+#[cfg(test)]
+mod research {
+    use super::project_range;
+
+    /// 调研#9 关键实验：重复代码块中引用第二副本，第二副本被删后，
+    /// 纯锚点哈希（firstLine/lastLine/context）同样无法区分两个副本
+    /// （上下文行也相同）——此时正确行为是诚实判 Lost，而非误adopt。
+    #[test]
+    fn duplicate_copies_fail_honestly() {
+        let old = "A\nB\nC\nA\nB\nC\nD\n";
+        let new = "A\nB\nC\nD\n";
+        let (_, score) = project_range(old, new, 5, 6);
+        assert!(score < 0.6, "must not silently adopt the look-alike copy: {score}");
+    }
+
+    /// 而区分度足够时（上下文不同），现有 diff 投影已经做对：
+    #[test]
+    fn distinct_context_projection_works() {
+        let old = "x1\nx2\nB\nC\ny1\ny2\n";
+        let new = "zz\nx1\nx2\nB\nC\ny1\n";
+        let (range, score) = project_range(old, new, 3, 4);
+        assert_eq!(range, [4, 5]);
+        assert_eq!(score, 1.0);
+    }
+}
