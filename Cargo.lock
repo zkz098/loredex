@@ -1353,6 +1353,7 @@ dependencies = [
  "serde",
  "serde_json",
  "tokio",
+ "url",
  "wiki-core",
  "wiki-engine",
  "wiki-git",
