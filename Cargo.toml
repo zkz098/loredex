@@ -20,6 +20,7 @@ sha1 = "0.10"
 hex = "0.4"
 clap = { version = "4", features = ["derive"] }
 tokio = { version = "1", features = ["macros", "rt-multi-thread", "io-std", "io-util"] }
+rmcp = { version = "3", features = ["server", "macros", "transport-io"] }
 wiki-core = { path = "crates/wiki-core" }
 wiki-git = { path = "crates/wiki-git" }
 wiki-engine = { path = "crates/wiki-engine" }

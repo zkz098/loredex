@@ -3,6 +3,10 @@ name = "wiki-mcp"
 version = "0.1.0"
 edition = "2021"
 
+[lib]
+name = "wiki_mcp"
+path = "src/lib.rs"
+
 [[bin]]
 name = "repowiki-mcp"
 path = "src/main.rs"
@@ -17,4 +21,9 @@ wiki-core = { workspace = true }
 wiki-engine = { workspace = true }
 wiki-git = { workspace = true }
 url = "2"
-rmcp = { version = "3", features = ["server", "macros", "transport-io"] }
+rmcp = { workspace = true }
+
+[dev-dependencies]
+rmcp = { workspace = true, features = ["client"] }
+tempfile = "3"
+git2 = { workspace = true }

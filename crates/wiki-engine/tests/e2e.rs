@@ -7,7 +7,8 @@ use git2::{Repository, Signature};
 use tempfile::TempDir;
 use wiki_core::{Status, WikiPage};
 use wiki_engine::{
-    check_page, find_page, put_page, refresh_page_with_drift, verify_page, DriftOutcome,
+    check_page, discover_modules, find_page, put_page, refresh_page_with_drift,
+    verify_page, DriftOutcome,
 };
 use wiki_git::GitRepo;
 
@@ -195,6 +196,36 @@ fn unknown_base_commit_is_stale() {
         .evidence_reports
         .iter()
         .any(|r| r.detail.contains("unknown commit")));
+}
+
+// ---------- module discovery ----------
+
+#[test]
+fn modules_dir_fallback_for_non_cargo_repo() {
+    let fx = Fixture::new(&[("src/api.rs", API_RS), ("docs/readme.md", "hi\n")]);
+    let mods = discover_modules(&fx.repo).unwrap();
+    assert!(mods.iter().all(|m| m.kind == "dir"));
+    let src = mods.iter().find(|m| m.name == "src").expect("src group");
+    assert_eq!(src.files, vec!["src/api.rs".to_string()]);
+    assert!(mods.iter().any(|m| m.name == "docs"));
+}
+
+#[test]
+fn modules_cargo_targets_discovered() {
+    let fx = Fixture::new(&[
+        (
+            "Cargo.toml",
+            "[package]\nname = \"probe\"\nversion = \"0.1.0\"\nedition = \"2021\"\n[workspace]\n",
+        ),
+        ("src/lib.rs", "pub fn g() {}\n"),
+    ]);
+    let mods = discover_modules(&fx.repo).unwrap();
+    let lib = mods
+        .iter()
+        .find(|m| m.kind.starts_with("rust-") && m.files.contains(&"src/lib.rs".to_string()))
+        .expect("cargo target should cover src/lib.rs");
+    assert_eq!(lib.name, "probe/probe");
+    assert_eq!(lib.kind, "rust-lib");
 }
 
 // ---------- put_page rejection matrix ----------

@@ -123,3 +123,14 @@ crates/
 - M4：按 commit range 增量重建受影响页面、`post-commit` hook 集成
 - 正文内联标记同步重写
 - `.wiki/.cache/` 持久搜索索引（超大 wiki 场景）
+
+## 开发
+
+```bash
+cargo nextest run --workspace          # 30 个测试（单测 + git-fixture 集成 + MCP 协议内测试）
+cargo llvm-cov nextest --workspace --summary-only   # 覆盖率基线
+```
+
+- 测试栈：cargo-nextest（每测试独立进程，env 操纵安全；`.config/nextest.toml` 配 15s slow-timeout，死锁会失败而非挂起）+ cargo-llvm-cov
+- 当前覆盖：总计 ~75% 区域 / 79% 行；核心层（core/engine/git/modules）80-98%，`wiki-mcp` 77%（进程内 duplex client↔server 走真实协议栈验证四层解析链、roots 能力门控、全生命周期），CLI 入口为薄参数映射未单测
+- wiki-mcp 拆为 lib+bin：集成测试直接构造 `WikiServer::new_open()/pinned()`
