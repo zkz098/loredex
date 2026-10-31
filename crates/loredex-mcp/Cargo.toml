@@ -1,0 +1,33 @@
+[package]
+name = "loredex-mcp"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+description = "Loredex MCP server: serve an evidence-backed repository wiki to agents"
+
+[lib]
+name = "loredex_mcp"
+path = "src/lib.rs"
+
+[[bin]]
+name = "loredex-mcp"
+path = "src/main.rs"
+
+[dependencies]
+anyhow = { workspace = true }
+clap = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+tokio = { workspace = true }
+loredex-core = { workspace = true }
+loredex-engine = { workspace = true }
+loredex-git = { workspace = true }
+url = "2"
+rmcp = { workspace = true }
+
+[dev-dependencies]
+rmcp = { workspace = true, features = ["client"] }
+tempfile = "3"
+git2 = { workspace = true }

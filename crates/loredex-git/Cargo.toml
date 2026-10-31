@@ -1,0 +1,14 @@
+[package]
+name = "loredex-git"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+description = "Read-only git evidence layer for Loredex (libgit2 bindings)"
+
+[dependencies]
+anyhow = { workspace = true }
+thiserror = { workspace = true }
+git2 = { workspace = true }
+loredex-core = { workspace = true }

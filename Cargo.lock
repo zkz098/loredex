@@ -700,6 +700,75 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "5d15f86d12da44cd8d4ec3c73984537eb7f4cadcb9776a575a0a8a05ca11005c"
 
 [[package]]
+name = "loredex-cli"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "clap",
+ "loredex-core",
+ "loredex-engine",
+ "loredex-git",
+ "serde_json",
+]
+
+[[package]]
+name = "loredex-core"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "regex",
+ "serde",
+ "serde_yaml",
+ "thiserror",
+]
+
+[[package]]
+name = "loredex-engine"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "git2",
+ "hex",
+ "loredex-core",
+ "loredex-git",
+ "serde",
+ "serde_json",
+ "sha1",
+ "similar",
+ "tempfile",
+ "thiserror",
+ "toml",
+]
+
+[[package]]
+name = "loredex-git"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "git2",
+ "loredex-core",
+ "thiserror",
+]
+
+[[package]]
+name = "loredex-mcp"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "clap",
+ "git2",
+ "loredex-core",
+ "loredex-engine",
+ "loredex-git",
+ "rmcp",
+ "serde",
+ "serde_json",
+ "tempfile",
+ "tokio",
+ "url",
+]
+
+[[package]]
 name = "memchr"
 version = "2.8.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1402,75 +1471,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "3b1f9c3798725016c6ee5f2f57869ec0831e8bbc0ab0310a86e787e97f41389e"
 dependencies = [
  "unicode-ident",
-]
-
-[[package]]
-name = "wiki-cli"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "clap",
- "serde_json",
- "wiki-core",
- "wiki-engine",
- "wiki-git",
-]
-
-[[package]]
-name = "wiki-core"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "regex",
- "serde",
- "serde_yaml",
- "thiserror",
-]
-
-[[package]]
-name = "wiki-engine"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "git2",
- "hex",
- "serde",
- "serde_json",
- "sha1",
- "similar",
- "tempfile",
- "thiserror",
- "toml",
- "wiki-core",
- "wiki-git",
-]
-
-[[package]]
-name = "wiki-git"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "git2",
- "thiserror",
- "wiki-core",
-]
-
-[[package]]
-name = "wiki-mcp"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "clap",
- "git2",
- "rmcp",
- "serde",
- "serde_json",
- "tempfile",
- "tokio",
- "url",
- "wiki-core",
- "wiki-engine",
- "wiki-git",
 ]
 
 [[package]]

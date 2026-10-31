@@ -1,0 +1,9 @@
+#!/bin/sh
+# loredex post-merge/post-checkout reminder hook.
+# Install: cp templates/loredex-post-merge .git/hooks/post-merge && chmod +x .git/hooks/post-merge
+# (or use core.hooksPath). Silent when loredex or .wiki is absent.
+if command -v loredex >/dev/null 2>&1 && [ -d .wiki ]; then
+  if ! loredex auto >/dev/null 2>&1; then
+    echo "loredex: wiki needs author attention after this merge -> run: loredex plan"
+  fi
+fi

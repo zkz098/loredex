@@ -1,0 +1,58 @@
+# loredex scheduled maintenance template.
+# The algorithmic half runs here (drift/rename projection + ledger plan);
+# when authoring work remains it opens an issue carrying the plan JSON,
+# which any coding agent can consume via `wiki_plan`/`wiki_mark_task`.
+#
+# Setup: put this in .github/workflows/, replace the install step with your
+# binary source (a release asset is cheaper than a cargo build), and keep
+# `contents: write` only if you allow the bot to push projected .wiki updates.
+name: loredex refresh check
+on:
+  schedule:
+    - cron: "17 3 * * 1" # Mondays, off-peak; tune freely
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  issues: write
+
+jobs:
+  auto:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # evidence checks diff across history
+
+      - name: install loredex
+        run: |
+          set -euo pipefail
+          # TODO: pin your release. Building from source:
+          # cargo install --git https://github.com/OWNER/loredex --bin loredex
+          command -v loredex || { echo "loredex missing: fix the install step" >&2; exit 127; }
+
+      - name: loredex auto (project known drifts, open plan for the rest)
+        id: auto
+        run: |
+          set +e
+          loredex auto --json > auto.json
+          code=$?
+          set -e
+          echo "exit=$code" >> "$GITHUB_OUTPUT"
+          if [ -n "$(git status --porcelain .wiki)" ]; then
+            git config user.name "loredex[bot]"
+            git config user.email "loredex@localhost"
+            git add .wiki
+            git commit -m "wiki: auto-project drifts (loredex auto)"
+            git push
+          fi
+
+      - name: open attention issue when authoring work remains
+        if: steps.auto.outputs.exit != '0'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          body="``\`json"
+          { echo "loredex found pending work:"; echo '```json'; cat auto.json; echo '```'; } > body.md
+          gh issue create --title "[loredex] wiki needs author attention" \
+            --body-file body.md --label wiki || true

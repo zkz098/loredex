@@ -1,0 +1,15 @@
+[package]
+name = "loredex-core"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+description = "Loredex data model: evidence-backed wiki pages, citation syntax, tokenizer"
+
+[dependencies]
+anyhow = { workspace = true }
+thiserror = { workspace = true }
+serde = { workspace = true }
+serde_yaml = { workspace = true }
+regex = { version = "1", default-features = false, features = ["std", "unicode-perl"] }

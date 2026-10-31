@@ -1,10 +1,10 @@
-# repowiki
+# Loredex
 
 给 AI coding agent 提供**可信的仓库 wiki**：纯 Markdown 存储、git 驱动的新鲜度追踪、每条声明钉住可验证的代码出处。Rust 实现，双入口（CLI + MCP server）。
 
 ## 为什么
 
-Agent 读仓库的痛点：上下文贵、过期文档误导。repowiki 的答案是：
+Agent 读仓库的痛点：上下文贵、过期文档误导。Loredex 的答案是：
 
 - **Evidence 钉定** — 页面正文里的每个声明都携带 `[[cite:path:Lx-Ly]]` 标记，落库时解析为 `(路径, 行区间, git blob sha, 片段内容 sha1)` 四元组。没有引用的内容拒绝入库。
 - **Git 自动追踪过期** — 不信任 commit 号本身：对比 HEAD blob、用 tree diff 交叉验证、校验时直接重算行区间内容哈希。代码一改，相关页面即判 stale。
@@ -14,32 +14,36 @@ Agent 读仓库的痛点：上下文贵、过期文档误导。repowiki 的答�
 
 ## 安装
 
+**从源码（cargo）**，需要 Rust 1.85+（git2 会 vendored 编译 libgit2，几分钟）：
+
 ```bash
+cargo install loredex-cli loredex-mcp   # 发布到 crates.io 后
+# 或本地：
 cargo build --release
-# 两个二进制：
-#   target/release/repowiki        CLI
-#   target/release/repowiki-mcp    MCP stdio server
+# 二进制：target/release/loredex（CLI）、target/release/loredex-mcp（MCP server）
 ```
+
+**预编译二进制**：见 GitHub Releases（`loredex-<os>-<arch>` 归档 + 安装脚本；发布工程由 cargo-dist 承担，配置随仓库提供）。发布后可用 `cargo binstall loredex-cli` 秒装。
 
 ## 快速上手（CLI）
 
 ```bash
 cd /path/to/your-repo          # 需至少有一个 commit
-repowiki init                  # 创建 .wiki/，gitignore .wiki/.cache/
+loredex init                  # 创建 .wiki/，gitignore .wiki/.cache/
 
-repowiki modules               # 模块发现（cargo targets / 目录分组）
-repowiki put core --title "核心层" --body notes.md
-repowiki list / show core / search "关键词"
-repowiki check --mark          # 过期扫描，exit code 非 0 = 有 stale（可挂 CI）
-repowiki plan [--json]         # 生成计划：未覆盖模块(New) + stale页(Refresh)，写入 .wiki/runs.json 账本
-repowiki index                 # 重新生成 pages/index.md + pages/quickstart.md（按类型读序 + agent 协议）
-repowiki playbooks             # 页面类型写作指南（内置5类 + wiki.toml 扩展）
-repowiki lint                  # 断链 / stale-but-verified / 正文-frontmatter 漂移 / 未知 type，有问题 exit 1
-repowiki auto [--json]         # 一条命令维护：投影自愈 -> lint -> 剩余工作开 plan（exit 1 = 有撰写工作）
-repowiki task <id> skipped     # 手工销账 plan 任务（skip 会被记住，不再复发；plan --reset 重新暴露）
-repowiki templates --out contrib   # 导出 GitHub Action 模板 + post-merge hook 模板
-repowiki verify core           # 内容哈希级校验（不依赖 commit 号）
-repowiki refresh core          # 漂移投影刷新
+loredex modules               # 模块发现（cargo targets / 目录分组）
+loredex put core --title "核心层" --body notes.md
+loredex list / show core / search "关键词"
+loredex check --mark          # 过期扫描，exit code 非 0 = 有 stale（可挂 CI）
+loredex plan [--json]         # 生成计划：未覆盖模块(New) + stale页(Refresh)，写入 .wiki/runs.json 账本
+loredex index                 # 重新生成 pages/index.md + pages/quickstart.md（按类型读序 + agent 协议）
+loredex playbooks             # 页面类型写作指南（内置5类 + wiki.toml 扩展）
+loredex lint                  # 断链 / stale-but-verified / 正文-frontmatter 漂移 / 未知 type，有问题 exit 1
+loredex auto [--json]         # 一条命令维护：投影自愈 -> lint -> 剩余工作开 plan（exit 1 = 有撰写工作）
+loredex task <id> skipped     # 手工销账 plan 任务（skip 会被记住，不再复发；plan --reset 重新暴露）
+loredex templates --out contrib   # 导出 GitHub Action 模板 + post-merge hook 模板
+loredex verify core           # 内容哈希级校验（不依赖 commit 号）
+loredex refresh core          # 漂移投影刷新
 ```
 
 `--body -` 从 stdin 读取。页面正文示例：
@@ -55,7 +59,7 @@ serve() 在循环中处理请求 [[cite:src/api.rs:L1-L5]]，main 先初始化 d
 ```json
 {
   "mcpServers": {
-    "repowiki": { "command": "repowiki-mcp" }
+    "loredex": { "command": "loredex-mcp" }
   }
 }
 ```
@@ -65,8 +69,8 @@ serve() 在循环中处理请求 [[cite:src/api.rs:L1-L5]]，main 先初始化 d
 ```json
 {
   "mcpServers": {
-    "repowiki": {
-      "command": "repowiki-mcp",
+    "loredex": {
+      "command": "loredex-mcp",
       "args": ["--repo", "/path/to/your-repo"]
     }
   }
@@ -102,19 +106,19 @@ Server 在 `initialize` 时下发协议契约（先查新鲜度、stale 视为�
 
 - 页面与 `.wiki/` 一起提交进 git，团队共享、PR 可 review；`runs.json` 账本同样入库，agent 中断后 `wiki_plan` 自动续传 pending 任务
 - plan 任务自带 `suggested_type` 与 playbook `instructions`（该类型页面应有哪些章节、回答哪些问题），生产 agent 无需隐藏 prompt 也能写出结构一致的页面；类型可在 `.wiki/wiki.toml [page_types.<name>]` 扩展，未注册的 type 会被 `lint` 标出
-- `repowiki lint`（断链/stale/漂移）适合挂 CI；页面 id 支持 `architecture/overview` 式分层，`--type` 标注页面种类
+- `loredex lint`（断链/stale/漂移）适合挂 CI；页面 id 支持 `architecture/overview` 式分层，`--type` 标注页面种类
 
 ## 架构
 
 ```
 crates/
-├── wiki-core     数据模型（Status/Evidence/PageMeta）、Markdown 解析、
+├── loredex-core     数据模型（Status/Evidence/PageMeta）、Markdown 解析、
 │                 引用语法解析器、分词 + 倒排索引（无 IO）
-├── wiki-git      git2 只读封装：HEAD blob、行区间、tree diff、对象库直读
-├── wiki-engine   业务层：check_page（双重过期判定）、verify_page（sha1 校验）、
+├── loredex-git      git2 只读封装：HEAD blob、行区间、tree diff、对象库直读
+├── loredex-engine   业务层：check_page（双重过期判定）、verify_page（sha1 校验）、
 │                 drift 投影（similar 行级 diff）、put_page、modules 发现
-├── wiki-cli      clap 入口（repowiki）
-└── wiki-mcp      rmcp 3.8 stdio server（repowiki-mcp）
+├── loredex-cli   clap 入口（loredex）
+└── loredex-mcp   rmcp 3.8 stdio server（loredex-mcp）
 ```
 
 关键实现细节：
@@ -138,10 +142,14 @@ crates/
 - 正文内联标记同步重写
 - `.wiki/.cache/` 持久搜索索引（超大 wiki 场景）
 
+## 许可
+
+GNU GPL v3.0 或更新版本（见 [LICENSE](LICENSE)）。`.wiki/` 中的 wiki 数据不受影响——它只是你仓库里的普通 Markdown 文件。
+
 ## 开发
 
 ```bash
-cargo nextest run --workspace          # 30 个测试（单测 + git-fixture 集成 + MCP 协议内测试）
+cargo nextest run --workspace          # 54 个测试（单测 + git-fixture 集成 + MCP 协议内测试）
 cargo llvm-cov nextest --workspace --summary-only   # 覆盖率基线
 ```
 
