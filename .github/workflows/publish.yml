@@ -9,13 +9,11 @@
 #     Environment: release      (optional but recommended: add required
 #                 reviewers in repo Settings -> Environments -> release)
 #
-# GitHub side (REQUIRED, one time, UI only - no REST endpoint for this):
-#   repo Settings -> Actions -> General -> OpenID Connect / External Identities
-#   add: issuer   https://token.actions.githubusercontent.com
-#        audience https://github.com/rust-lang/crates.io
-#   Without it the runner refuses to mint crates.io-audience tokens
-#   ("Can't issue ID_TOKEN for audience ..."), and cargo falls back to
-#   "no token found".
+# Mechanism (differs from npm/PyPI): stable `cargo publish` has no native OIDC
+# exchange. The official rust-lang/crates-io-auth-action mints a short-lived
+# (~30 min) crates.io token from this workflow's OIDC identity, passed to cargo
+# via CARGO_REGISTRY_TOKEN. crates.io validates it against the trusted-publisher
+# config (repo + workflow filename + environment) you added on the crate pages.
 #
 # Then bump [workspace.package].version, tag, and dispatch this workflow
 # (or let a future release-plz automation call it).
@@ -36,6 +34,10 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
       - name: install nextest
         uses: taiki-e/install-action@nextest
+      - name: exchange OIDC for a short-lived crates.io token
+        uses: rust-lang/crates-io-auth-action@v1
+        id: auth
+      - name: sanity build + tests
       - name: sanity build + tests
         run: |
           cargo build --workspace --locked
@@ -44,11 +46,21 @@ jobs:
       # between each so the next crate can resolve it
       - name: publish loredex-core
         run: cargo publish -p loredex-core --no-verify
+        env:
+          CARGO_REGISTRY_TOKEN: ${{ steps.auth.outputs.token }}
       - name: publish loredex-git
         run: cargo publish -p loredex-git --no-verify
+        env:
+          CARGO_REGISTRY_TOKEN: ${ steps.auth.outputs.token }
       - name: publish loredex-engine
         run: cargo publish -p loredex-engine --no-verify
+        env:
+          CARGO_REGISTRY_TOKEN: ${ steps.auth.outputs.token }
       - name: publish loredex-cli
         run: cargo publish -p loredex-cli --no-verify
+        env:
+          CARGO_REGISTRY_TOKEN: ${ steps.auth.outputs.token }
       - name: publish loredex-mcp
         run: cargo publish -p loredex-mcp --no-verify
+        env:
+          CARGO_REGISTRY_TOKEN: ${ steps.auth.outputs.token }
