@@ -9,6 +9,14 @@
 #     Environment: release      (optional but recommended: add required
 #                 reviewers in repo Settings -> Environments -> release)
 #
+# GitHub side (REQUIRED, one time, UI only - no REST endpoint for this):
+#   repo Settings -> Actions -> General -> OpenID Connect / External Identities
+#   add: issuer   https://token.actions.githubusercontent.com
+#        audience https://github.com/rust-lang/crates.io
+#   Without it the runner refuses to mint crates.io-audience tokens
+#   ("Can't issue ID_TOKEN for audience ..."), and cargo falls back to
+#   "no token found".
+#
 # Then bump [workspace.package].version, tag, and dispatch this workflow
 # (or let a future release-plz automation call it).
 name: publish to crates.io
@@ -28,20 +36,6 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
       - name: install nextest
         uses: taiki-e/install-action@nextest
-      - name: OIDC diagnostics
-        run: |
-          echo "== crates.io audience =="
-          curl -s -H "Authorization: bearer ${ACTIONS_ID_TOKEN_REQUEST_TOKEN}" \
-            "$ACTIONS_ID_TOKEN_REQUEST_URL&audience=https://github.com/rust-lang/crates.io" | head -c 300
-          echo
-          echo "== default audience =="
-          curl -s -H "Authorization: bearer ${ACTIONS_ID_TOKEN_REQUEST_TOKEN}" \
-            "$ACTIONS_ID_TOKEN_REQUEST_URL" | head -c 60
-          echo
-          echo "== empty audience =="
-          curl -s -H "Authorization: bearer ${ACTIONS_ID_TOKEN_REQUEST_TOKEN}" \
-            "$ACTIONS_ID_TOKEN_REQUEST_URL&audience=" | head -c 60
-          echo
       - name: sanity build + tests
         run: |
           cargo build --workspace --locked
