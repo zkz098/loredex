@@ -2,8 +2,8 @@
 id: core-model
 title: wiki-core：数据模型与解析
 status: verified
-generated_at: 2026-10-31T06:13:49Z
-commit: aac4996f46e9a540934b4917901b7ff5e72e5afb
+generated_at: 2026-10-31T06:25:08Z
+commit: ab925999364ec18ebd81e65c0fccaa6af60aecfd
 evidence:
 - path: crates/wiki-core/src/page.rs
   lines:
@@ -27,16 +27,16 @@ evidence:
   lines:
   - 16
   - 46
-  blob: 37a4ef221f977756d1b60cba2cd0a629375e0082
-  snippet_sha1: c6527518436ed4c14ef544647749cc72b326a488
-  note: drift-projected L17-L46@3cfb4e68 -> L16-L46 (similarity 0.97)
+  blob: 3cfb4e6899991afb98fe3d93c06ddbcc71205f3e
+  snippet_sha1: 099e32768fe19812faf60a2ea1bda7ee2dfa2f4c
+  note: drift-projected L16-L46@37a4ef22 -> L16-L46 (similarity 0.97)
 - path: crates/wiki-core/src/cite.rs
   lines:
   - 47
   - 55
-  blob: 37a4ef221f977756d1b60cba2cd0a629375e0082
+  blob: 3cfb4e6899991afb98fe3d93c06ddbcc71205f3e
   snippet_sha1: 9f49ae32804dc6f0860f79e80e8d796286e2ddf0
-  note: drift-projected L47-L55@3cfb4e68 -> L47-L55 (similarity 1.00)
+  note: drift-projected L47-L55@37a4ef22 -> L47-L55 (similarity 1.00)
 - path: crates/wiki-core/src/search.rs
   lines:
   - 16
