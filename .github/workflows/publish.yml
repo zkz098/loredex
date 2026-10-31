@@ -1,0 +1,44 @@
+# crates.io publishing via Trusted Publishing (OIDC) — no long-lived API token.
+#
+# One-time setup per crate on https://crates.io (do this for all five:
+# loredex-core, loredex-git, loredex-engine, loredex-cli, loredex-mcp):
+#   crate page -> " crate owners " -> "Add trusted publishing owner"
+#     Provider  : GitHub
+#     Repository: zkz098/loredex
+#     Workflow  : publish.yml   (this file)
+#     Environment: release      (optional but recommended: add required
+#                 reviewers in repo Settings -> Environments -> release)
+#
+# Then bump [workspace.package].version, tag, and dispatch this workflow
+# (or let a future release-plz automation call it).
+name: publish to crates.io
+on:
+  workflow_dispatch:
+
+permissions:
+  id-token: write   # Trusted Publishing: exchanges OIDC for a short-lived credential
+  contents: read
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    environment: release
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - name: sanity build + tests
+        run: |
+          cargo build --workspace --locked
+          cargo nextest run --workspace
+      # publish in strict dependency order; cargo waits for index availability
+      # between each so the next crate can resolve it
+      - name: publish loredex-core
+        run: cargo publish -p loredex-core --registry crates-io --no-verify
+      - name: publish loredex-git
+        run: cargo publish -p loredex-git --registry crates-io --no-verify
+      - name: publish loredex-engine
+        run: cargo publish -p loredex-engine --registry crates-io --no-verify
+      - name: publish loredex-cli
+        run: cargo publish -p loredex-cli --registry crates-io --no-verify
+      - name: publish loredex-mcp
+        run: cargo publish -p loredex-mcp --registry crates-io --no-verify
