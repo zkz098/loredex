@@ -315,9 +315,10 @@ mod tests {
 mod research {
     use super::project_range;
 
-    /// 调研#9 关键实验：重复代码块中引用第二副本，第二副本被删后，
-    /// 纯锚点哈希（firstLine/lastLine/context）同样无法区分两个副本
-    /// （上下文行也相同）——此时正确行为是诚实判 Lost，而非误adopt。
+    /// Research experiment (#9 line anchors): when a cited copy of a
+    /// duplicated block is deleted, anchor hashes (firstLine/lastLine/context)
+    /// cannot distinguish the copies either (identical context) — the honest
+    /// outcome is Lost, never a silent mis-adopt.
     #[test]
     fn duplicate_copies_fail_honestly() {
         let old = "A\nB\nC\nA\nB\nC\nD\n";
@@ -329,7 +330,8 @@ mod research {
         );
     }
 
-    /// 而区分度足够时（上下文不同），现有 diff 投影已经做对：
+    /// With distinguishable context, the existing diff projection already
+    /// locates correctly:
     #[test]
     fn distinct_context_projection_works() {
         let old = "x1\nx2\nB\nC\ny1\ny2\n";
