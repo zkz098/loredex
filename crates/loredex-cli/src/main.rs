@@ -96,6 +96,40 @@ enum Command {
         #[arg(long)]
         json: bool,
     },
+    /// Show or set the skeleton text language for generated pages ([wiki] language in .wiki/wiki.toml)
+    Config {
+        /// Set the language (en | zh); omit to just show the current one
+        #[arg(long)]
+        language: Option<String>,
+    },
+    /// Insert or refresh the loredex managed block in AGENTS.md
+    AgentsMd {
+        /// Remove the managed block instead of writing it
+        #[arg(long)]
+        remove: bool,
+        /// Only report state (exit 1 when missing or drifted; CI-friendly)
+        #[arg(long)]
+        check: bool,
+        /// Target file, relative to the repo root (e.g. CLAUDE.md)
+        #[arg(long, default_value = "AGENTS.md")]
+        file: PathBuf,
+    },
+    /// Import an existing wiki from another format (currently: openwiki / OKF bundle)
+    Import {
+        /// Directory containing the bundle (e.g. ./openwiki)
+        dir: PathBuf,
+        #[arg(long, default_value = "openwiki")]
+        format: String,
+        /// Namespace imported ids under this page-id prefix
+        #[arg(long)]
+        prefix: Option<String>,
+        /// Report what would happen without touching .wiki/
+        #[arg(long)]
+        dry_run: bool,
+        /// Overwrite existing pages with the same id
+        #[arg(long)]
+        force: bool,
+    },
 }
 
 fn open_repo(cli: &Cli) -> anyhow::Result<GitRepo> {
@@ -129,6 +163,9 @@ fn main() -> anyhow::Result<()> {
             println!(
                 "initialized wiki at {} (pages are committed; .wiki/.cache/ is gitignored)",
                 wiki_dir.display()
+            );
+            println!(
+                "tip: run `loredex agents-md` to register the wiki in AGENTS.md for coding agents"
             );
         }
         Command::Put {
@@ -434,6 +471,120 @@ fn main() -> anyhow::Result<()> {
                 if m.files.len() > 12 {
                     println!("   ... {} more", m.files.len() - 12);
                 }
+            }
+        }
+        Command::Config { language } => match language {
+            None => {
+                let loc = engine::wiki_locale(&wiki_dir);
+                println!(
+                    "wiki language: {} (set with `loredex config --language en|zh`)",
+                    loc.as_str()
+                );
+            }
+            Some(tag) => {
+                let loc = match tag.to_lowercase().as_str() {
+                    t if t.starts_with("en") => engine::Locale::En,
+                    t if t.starts_with("zh") => engine::Locale::Zh,
+                    other => anyhow::bail!("unknown language `{other}` (supported: en, zh)"),
+                };
+                engine::set_language(&wiki_dir, loc.as_str())?;
+                println!(
+                    "wiki language set to {}; run `loredex index` to regenerate skeleton pages",
+                    loc.as_str()
+                );
+            }
+        },
+        Command::AgentsMd {
+            remove,
+            check,
+            file,
+        } => {
+            let path = if file.is_absolute() {
+                file.clone()
+            } else {
+                repo.workdir().join(file)
+            };
+            if remove {
+                if engine::agents_block_remove(&path)? {
+                    println!("removed loredex block from {}", path.display());
+                } else {
+                    println!("no loredex block in {}", path.display());
+                }
+                return Ok(());
+            }
+            let locale = engine::wiki_locale(&wiki_dir);
+            if check {
+                use engine::AgentsMdStatus as S;
+                match engine::agents_block_check(&path, locale)? {
+                    S::InPlace => println!("in place: {}", path.display()),
+                    S::Drifted => {
+                        println!("drifted: {} (re-run `loredex agents-md`)", path.display());
+                        std::process::exit(1);
+                    }
+                    S::Missing => {
+                        println!("no loredex block in {}", path.display());
+                        std::process::exit(1);
+                    }
+                    S::FileMissing => {
+                        println!("{} does not exist", path.display());
+                        std::process::exit(1);
+                    }
+                }
+                return Ok(());
+            }
+            use engine::UpsertAction as A;
+            match engine::agents_block_upsert(&path, locale)? {
+                A::Created => println!("created {} with the loredex block", path.display()),
+                A::Updated => println!("refreshed loredex block in {}", path.display()),
+                A::Appended => println!("appended loredex block to {}", path.display()),
+                A::Unchanged => println!("loredex block already current in {}", path.display()),
+            }
+        }
+        Command::Import {
+            dir,
+            format,
+            prefix,
+            dry_run,
+            force,
+        } => {
+            let Some(fmt) = engine::ImportFormat::parse(&format) else {
+                anyhow::bail!("unknown import format `{format}` (supported: openwiki)");
+            };
+            let report = engine::import_dir(
+                &repo,
+                &wiki_dir,
+                &dir,
+                fmt,
+                prefix.as_deref(),
+                dry_run,
+                force,
+            )?;
+            let verb = if dry_run { "would import" } else { "imported" };
+            println!(
+                "{verb} {} page(s) from {}{}",
+                report.imported.len(),
+                dir.display(),
+                if report.registered_types.is_empty() {
+                    String::new()
+                } else {
+                    format!(", registered types: {}", report.registered_types.join(", "))
+                }
+            );
+            for p in &report.imported {
+                println!(
+                    "  [{}] {} — {} ({} evidence{})",
+                    p.status.as_str(),
+                    p.id,
+                    p.title,
+                    p.evidence,
+                    if p.overwritten { ", overwritten" } else { "" }
+                );
+            }
+            for s in &report.skipped {
+                println!("  [skipped] {}: {}", s.path, s.reason);
+            }
+            if report.imported.iter().any(|p| p.status == Status::Draft) && !dry_run {
+                println!("draft pages await citation backfill — see `loredex plan`");
             }
         }
     }

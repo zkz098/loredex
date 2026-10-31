@@ -11,6 +11,8 @@ use std::path::Path;
 
 use serde::{Deserialize, Serialize};
 
+use crate::config::Locale;
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct TypePlaybook {
     pub name: String,
@@ -23,17 +25,32 @@ pub struct TypePlaybook {
 
 impl TypePlaybook {
     /// Authoring instructions embedded into plan tasks.
-    pub fn instructions_for(&self, subject: &str) -> String {
-        format!(
-            "Write page `{subject}` of type `{}`. Sections: {}. Answer concretely, each claim cited: {}. Close with an inline [[cite:path:Lx-Ly]] for every statement.",
-            self.name,
-            self.sections.join(" -> "),
-            self.checklist.join(" ")
-        )
+    pub fn instructions_for(&self, subject: &str, locale: Locale) -> String {
+        match locale {
+            Locale::En => format!(
+                "Write page `{subject}` of type `{}`. Sections: {}. Answer concretely, each claim cited: {}. Close with an inline [[cite:path:Lx-Ly]] for every statement.",
+                self.name,
+                self.sections.join(" -> "),
+                self.checklist.join(" ")
+            ),
+            Locale::Zh => format!(
+                "为 `{subject}` 撰写类型为 `{}` 的页面。章节:{}。逐条具体回答并配引用:{}。每个论断后面都要有行内 [[cite:path:Lx-Ly]]。",
+                self.name,
+                self.sections.join(" -> "),
+                self.checklist.join(" ")
+            ),
+        }
     }
 }
 
-fn builtin() -> Vec<TypePlaybook> {
+fn builtin(locale: Locale) -> Vec<TypePlaybook> {
+    match locale {
+        Locale::En => builtin_en(),
+        Locale::Zh => builtin_zh(),
+    }
+}
+
+fn builtin_en() -> Vec<TypePlaybook> {
     [
         TypePlaybook {
             name: "architecture".into(),
@@ -114,11 +131,96 @@ fn builtin() -> Vec<TypePlaybook> {
     .into()
 }
 
-/// Built-ins merged with repo-local `[page_types.<name>]` overrides from
-/// `.wiki/wiki.toml` (same name: toml wins field-wise).
+fn builtin_zh() -> Vec<TypePlaybook> {
+    [
+        TypePlaybook {
+            name: "architecture".into(),
+            description: "系统如何划分以及为什么这样划分".into(),
+            sections: vec![
+                "系统目标".into(),
+                "模块地图与分层".into(),
+                "数据流".into(),
+                "故障域".into(),
+                "关键不变量".into(),
+            ],
+            checklist: vec![
+                "顶层单元有哪些?各自负责什么?".into(),
+                "依赖允许朝哪个方向?".into(),
+                "X 失败时最先崩的是什么?".into(),
+            ],
+        },
+        TypePlaybook {
+            name: "workflow".into(),
+            description: "一项用户可见能力的端到端路径".into(),
+            sections: vec![
+                "触发点".into(),
+                "步骤序列".into(),
+                "状态迁移".into(),
+                "错误处理".into(),
+                "可观测性".into(),
+            ],
+            checklist: vec![
+                "追踪一个具体请求/任务从入口到完成.".into(),
+                "可能在哪失败?用户当时看到什么?".into(),
+            ],
+        },
+        TypePlaybook {
+            name: "system".into(),
+            description: "单个组件/crate 的运行时机制".into(),
+            sections: vec![
+                "职责".into(),
+                "公开接口".into(),
+                "内部机制".into(),
+                "配置".into(),
+                "资源与生命周期".into(),
+            ],
+            checklist: vec![
+                "这个组件向谁暴露了什么?".into(),
+                "它持有什么状态?持久化在哪里?".into(),
+                "有哪些开关?默认值是什么?".into(),
+            ],
+        },
+        TypePlaybook {
+            name: "integration".into(),
+            description: "与外部系统或协议的边界".into(),
+            sections: vec![
+                "对接方与契约".into(),
+                "适配层布局".into(),
+                "兼容性与版本".into(),
+                "错误映射".into(),
+            ],
+            checklist: vec![
+                "实现的是哪个外部契约?在哪里有偏差?".into(),
+                "外部错误如何映射为本地错误?".into(),
+            ],
+        },
+        TypePlaybook {
+            name: "testing".into(),
+            description: "如何断言正确性".into(),
+            sections: vec![
+                "测试分层".into(),
+                "如何运行".into(),
+                "夹具与测试架".into(),
+                "值得注意的回归".into(),
+            ],
+            checklist: vec![
+                "哪条命令验证哪种风险?".into(),
+                "测试套件编码了哪些回归?".into(),
+            ],
+        },
+    ]
+    .into()
+}
+
+/// Built-ins (locale follows `[wiki] language` in `.wiki/wiki.toml`) merged
+/// with repo-local `[page_types.<name>]` overrides from the same file
+/// (same name: toml wins field-wise).
 pub fn registry(wiki_dir: &Path) -> BTreeMap<String, TypePlaybook> {
-    let mut map: BTreeMap<String, TypePlaybook> =
-        builtin().into_iter().map(|p| (p.name.clone(), p)).collect();
+    let locale = crate::config::locale(wiki_dir);
+    let mut map: BTreeMap<String, TypePlaybook> = builtin(locale)
+        .into_iter()
+        .map(|p| (p.name.clone(), p))
+        .collect();
     let text = match std::fs::read_to_string(wiki_dir.join("wiki.toml")) {
         Ok(t) => t,
         Err(_) => return map,

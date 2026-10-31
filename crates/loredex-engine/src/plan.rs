@@ -90,14 +90,18 @@ fn save_ledger(wiki_dir: &Path, ledger: &RunLedger) -> Result<()> {
 pub fn compute_tasks(repo: &GitRepo, wiki_dir: &Path) -> Result<Vec<PlanTask>> {
     let mut tasks = Vec::new();
     let reg = playbook::registry(wiki_dir);
+    let locale = crate::config::locale(wiki_dir);
     let pages = load_pages(wiki_dir)?;
     let mut cited: BTreeSet<String> = BTreeSet::new();
 
     let instr = |t: &str, subject: &str| {
         reg.get(t)
-            .map(|pb| pb.instructions_for(subject))
-            .unwrap_or_else(|| {
-                format!("Write page `{subject}` with cited claims (unknown type `{t}`).")
+            .map(|pb| pb.instructions_for(subject, locale))
+            .unwrap_or_else(|| match locale {
+                crate::config::Locale::Zh => {
+                    format!("为 `{subject}` 撰写带引用的页面(未知类型 `{t}`)。")
+                }
+                _ => format!("Write page `{subject}` with cited claims (unknown type `{t}`)."),
             })
     };
 

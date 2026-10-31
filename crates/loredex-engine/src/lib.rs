@@ -4,8 +4,11 @@ use loredex_core::{list_page_files, Evidence, Status, WikiError, WikiPage};
 use loredex_git::GitRepo;
 use sha1::{Digest, Sha1};
 
+pub mod agents_md;
 pub mod auto;
+pub mod config;
 pub mod drift;
+pub mod import;
 pub mod index;
 pub mod lint;
 pub mod modules;
@@ -13,8 +16,13 @@ pub mod plan;
 pub mod playbook;
 pub mod put;
 
+pub use agents_md::{
+    agents_block_check, agents_block_remove, agents_block_upsert, AgentsMdStatus, UpsertAction,
+};
 pub use auto::{auto_refresh, AutoReport};
+pub use config::{locale as wiki_locale, set_language, Locale};
 pub use drift::{project_evidence, project_range, refresh_page_with_drift, DriftOutcome};
+pub use import::{import_dir, import_openwiki, ImportFormat, ImportReport};
 pub use index::{all_wiki_links, generate_index, is_generated, INDEX_ID, QUICKSTART_ID};
 pub use lint::{lint, LintIssue};
 pub use modules::{discover as discover_modules, ModuleInfo};
@@ -311,7 +319,7 @@ pub fn init_wiki_layout(wiki_dir: &Path) -> Result<()> {
     if !config.exists() {
         std::fs::write(
             &config,
-            "# loredex configuration\n[wiki]\npages = \"pages\"\n# cache directory is gitignored; rebuildable, never committed\n",
+            "# loredex configuration\n[wiki]\npages = \"pages\"\n# skeleton text locale for generated pages/playbooks: \"en\" | \"zh\"\nlanguage = \"en\"\n# cache directory is gitignored; rebuildable, never committed\n",
         )?;
     }
     std::fs::create_dir_all(wiki_dir.join(".cache"))?;

@@ -11,7 +11,9 @@ description = "Loredex engine: freshness checks, snippet verification, drift pro
 anyhow = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
+serde_yaml = { workspace = true }
 similar = { workspace = true }
+regex = { workspace = true }
 thiserror = { workspace = true }
 sha1 = { workspace = true }
 hex = { workspace = true }
