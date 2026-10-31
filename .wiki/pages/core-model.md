@@ -3,7 +3,7 @@ id: core-model
 title: wiki-core：数据模型与解析
 status: verified
 generated_at: 2026-10-31T06:13:37Z
-commit: 64a4260cee243a555fdd403318b9add663e171cb
+commit: e3027cd3a60bc0b433860ebc35bbdbf781cf3af1
 evidence:
 - path: crates/wiki-core/src/page.rs
   lines:
@@ -25,18 +25,18 @@ evidence:
   snippet_sha1: 5eef3fa63d88110703d4d0e7e36bb9fe699292c5
 - path: crates/wiki-core/src/cite.rs
   lines:
-  - 17
+  - 16
   - 46
-  blob: 3cfb4e6899991afb98fe3d93c06ddbcc71205f3e
-  snippet_sha1: 1b78c4261e39cb422c6384d65c1ee1abd9d8b77f
-  note: drift-projected L15-L44@4677365f -> L17-L46 (similarity 1.00)
+  blob: 37a4ef221f977756d1b60cba2cd0a629375e0082
+  snippet_sha1: c6527518436ed4c14ef544647749cc72b326a488
+  note: drift-projected L17-L46@3cfb4e68 -> L16-L46 (similarity 0.97)
 - path: crates/wiki-core/src/cite.rs
   lines:
   - 47
   - 55
-  blob: 3cfb4e6899991afb98fe3d93c06ddbcc71205f3e
+  blob: 37a4ef221f977756d1b60cba2cd0a629375e0082
   snippet_sha1: 9f49ae32804dc6f0860f79e80e8d796286e2ddf0
-  note: drift-projected L45-L53@4677365f -> L47-L55 (similarity 1.00)
+  note: drift-projected L47-L55@3cfb4e68 -> L47-L55 (similarity 1.00)
 - path: crates/wiki-core/src/search.rs
   lines:
   - 16
