@@ -374,8 +374,8 @@ fn main() -> anyhow::Result<()> {
         }
         Command::Templates { out } => {
             std::fs::create_dir_all(&out)?;
-            let action = include_str!("../../../templates/loredex-refresh.yml");
-            let hook = include_str!("../../../templates/loredex-post-merge");
+            let action = include_str!("../templates/loredex-refresh.yml");
+            let hook = include_str!("../templates/loredex-post-merge");
             let a = out.join("loredex-refresh.yml");
             let h = out.join("loredex-post-merge");
             std::fs::write(&a, action)?;

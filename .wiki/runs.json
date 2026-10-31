@@ -1375,6 +1375,14 @@
       "started_at": "2026-10-31T12:43:35Z",
       "base_commit": "1d2863aaea11c84a442cdbf282fb7da8211225cd",
       "target_commit": "1d2863aaea11c84a442cdbf282fb7da8211225cd",
+      "status": "superseded",
+      "tasks": []
+    },
+    {
+      "id": "run-15-36830a4b",
+      "started_at": "2026-10-31T12:48:00Z",
+      "base_commit": "1d2863aaea11c84a442cdbf282fb7da8211225cd",
+      "target_commit": "36830a4b7c71fb5e8d12b7287d7db0358971805f",
       "status": "active",
       "tasks": []
     }
