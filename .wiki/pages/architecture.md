@@ -1,9 +1,9 @@
 ---
 id: architecture
 title: 总体架构
-status: verified
-generated_at: 2026-10-31T08:50:59Z
-commit: 11fb67f355bd5b29a6b5a6187382ac22bff485ef
+status: draft
+generated_at: 2026-10-31T08:59:53Z
+commit: 0f60abeec631b68b376d721d411064df074d5950
 evidence:
 - path: Cargo.toml
   lines:
@@ -16,8 +16,8 @@ evidence:
   lines:
   - 264
   - 276
-  blob: 4fc0060eaf8d8f508bd1bc9740871f091420daab
-  snippet_sha1: 9dbe75483ba6a7831324b4204d4136d61c920987
+  blob: ebb3f7e5e419e62bd5f4d73789b8a330f7df41f8
+  snippet_sha1: 6868d15af20453a2d80cbe56de6950153900bc3f
 - path: crates/wiki-core/src/page.rs
   lines:
   - 29

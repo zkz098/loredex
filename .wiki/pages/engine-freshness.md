@@ -2,45 +2,51 @@
 id: engine-freshness
 title: wiki-engine：过期检测、内容校验与漂移投影
 status: verified
-generated_at: 2026-10-31T06:11:59Z
-commit: 5cd7de119ad6c36ea4d26a6135f5c455a10d6470
+generated_at: 2026-10-31T08:59:53Z
+commit: 0f60abeec631b68b376d721d411064df074d5950
 evidence:
 - path: crates/wiki-engine/src/lib.rs
   lines:
   - 76
   - 95
-  blob: 4fc0060eaf8d8f508bd1bc9740871f091420daab
+  blob: ebb3f7e5e419e62bd5f4d73789b8a330f7df41f8
   snippet_sha1: b3929d9f21ad47cf8f9df27bf649e8fb24f42200
+  note: drift-projected L76-L95@4fc0060e -> L76-L95 (similarity 1.00)
 - path: crates/wiki-engine/src/lib.rs
   lines:
   - 115
-  - 178
-  blob: 4fc0060eaf8d8f508bd1bc9740871f091420daab
-  snippet_sha1: cfb80d566b7057d11ac2a2f75a26ae9514077106
+  - 198
+  blob: ebb3f7e5e419e62bd5f4d73789b8a330f7df41f8
+  snippet_sha1: 82adea9c441275e383a930c410b267c1820348af
+  note: drift-projected L115-L178@4fc0060e -> L115-L198 (similarity 0.98)
 - path: crates/wiki-engine/src/lib.rs
   lines:
-  - 201
-  - 215
-  blob: 4fc0060eaf8d8f508bd1bc9740871f091420daab
+  - 221
+  - 235
+  blob: ebb3f7e5e419e62bd5f4d73789b8a330f7df41f8
   snippet_sha1: 2e0cf9a049d9041bbefaa4517ce90d31a1489ea7
+  note: drift-projected L201-L215@4fc0060e -> L221-L235 (similarity 1.00)
 - path: crates/wiki-engine/src/drift.rs
   lines:
-  - 31
-  - 70
-  blob: 50c4749bdf9c7b096e16b1a50587bba5a42444ab
+  - 40
+  - 79
+  blob: c57febdf0b90675dd0a0f4dd2f85e1190604516a
   snippet_sha1: ad6c8ce1ba654f5491dbe3c72c6063d1a187ce02
+  note: drift-projected L31-L70@50c4749b -> L40-L79 (similarity 1.00)
 - path: crates/wiki-engine/src/drift.rs
   lines:
-  - 20
-  - 27
-  blob: 50c4749bdf9c7b096e16b1a50587bba5a42444ab
+  - 29
+  - 36
+  blob: c57febdf0b90675dd0a0f4dd2f85e1190604516a
   snippet_sha1: cdcc975c5d3700ad16e50c1a12dc27e1dd0c44a7
+  note: drift-projected L20-L27@50c4749b -> L29-L36 (similarity 1.00)
 - path: crates/wiki-engine/src/drift.rs
   lines:
-  - 148
-  - 190
-  blob: 50c4749bdf9c7b096e16b1a50587bba5a42444ab
-  snippet_sha1: fb3404b5ffad92101af3e5f95e91ce91b7abd7d8
+  - 217
+  - 264
+  blob: c57febdf0b90675dd0a0f4dd2f85e1190604516a
+  snippet_sha1: af0059c058b23109622aa13ddae55913da069b28
+  note: drift-projected L148-L190@50c4749b -> L217-L264 (similarity 0.98)
 - path: crates/wiki-engine/src/put.rs
   lines:
   - 18

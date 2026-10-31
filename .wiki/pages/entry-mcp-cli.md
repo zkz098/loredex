@@ -2,39 +2,44 @@
 id: entry-mcp-cli
 title: 入口层：MCP server 与 CLI
 status: verified
-generated_at: 2026-10-31T08:50:59Z
-commit: 11fb67f355bd5b29a6b5a6187382ac22bff485ef
+generated_at: 2026-10-31T08:59:53Z
+commit: 0f60abeec631b68b376d721d411064df074d5950
 evidence:
 - path: crates/wiki-mcp/src/lib.rs
   lines:
   - 13
   - 27
-  blob: 60348614a0a09cbcd050cd0aa3255d27ede64ece
+  blob: bfa09fefbc9896a997e1edd61f74f69a56d0c65b
   snippet_sha1: 7126f3da20da71e3801d1cb78e365b136bd8e30e
+  note: drift-projected L13-L27@60348614 -> L13-L27 (similarity 1.00)
 - path: crates/wiki-mcp/src/lib.rs
   lines:
   - 434
-  - 460
-  blob: 60348614a0a09cbcd050cd0aa3255d27ede64ece
-  snippet_sha1: 11be1fe73a971bfcedd160e45c32918ceea9868a
+  - 467
+  blob: bfa09fefbc9896a997e1edd61f74f69a56d0c65b
+  snippet_sha1: 31f245ff3e87dcca02ea51a48a3045753a05e0a4
+  note: drift-projected L434-L460@60348614 -> L434-L467 (similarity 0.89)
 - path: crates/wiki-mcp/src/lib.rs
   lines:
   - 281
   - 330
-  blob: 60348614a0a09cbcd050cd0aa3255d27ede64ece
+  blob: bfa09fefbc9896a997e1edd61f74f69a56d0c65b
   snippet_sha1: e047f0e999076e9190db745ff4c9312f7dd2b0c5
+  note: drift-projected L281-L330@60348614 -> L281-L330 (similarity 1.00)
 - path: crates/wiki-mcp/src/lib.rs
   lines:
-  - 463
-  - 490
-  blob: 60348614a0a09cbcd050cd0aa3255d27ede64ece
+  - 470
+  - 497
+  blob: bfa09fefbc9896a997e1edd61f74f69a56d0c65b
   snippet_sha1: cfbfd4ce826b8c4a48ce70de3e7c18f9c05ba032
+  note: drift-projected L463-L490@60348614 -> L470-L497 (similarity 1.00)
 - path: crates/wiki-mcp/src/lib.rs
   lines:
   - 365
   - 405
-  blob: 60348614a0a09cbcd050cd0aa3255d27ede64ece
+  blob: bfa09fefbc9896a997e1edd61f74f69a56d0c65b
   snippet_sha1: 89afa4e23e1ab7723774678b501c35ff13e49061
+  note: drift-projected L365-L405@60348614 -> L365-L405 (similarity 1.00)
 - path: crates/wiki-cli/src/main.rs
   lines:
   - 21
