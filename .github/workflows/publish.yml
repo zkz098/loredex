@@ -35,12 +35,12 @@ jobs:
       # publish in strict dependency order; cargo waits for index availability
       # between each so the next crate can resolve it
       - name: publish loredex-core
-        run: cargo publish -p loredex-core --registry crates-io --no-verify
+        run: cargo publish -p loredex-core --no-verify
       - name: publish loredex-git
-        run: cargo publish -p loredex-git --registry crates-io --no-verify
+        run: cargo publish -p loredex-git --no-verify
       - name: publish loredex-engine
-        run: cargo publish -p loredex-engine --registry crates-io --no-verify
+        run: cargo publish -p loredex-engine --no-verify
       - name: publish loredex-cli
-        run: cargo publish -p loredex-cli --registry crates-io --no-verify
+        run: cargo publish -p loredex-cli --no-verify
       - name: publish loredex-mcp
-        run: cargo publish -p loredex-mcp --registry crates-io --no-verify
+        run: cargo publish -p loredex-mcp --no-verify
