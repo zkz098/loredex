@@ -1022,7 +1022,7 @@
       "started_at": "2026-10-31T10:11:09Z",
       "base_commit": "6fbcd9636a4d01a534e61920acc5758c98aef7b4",
       "target_commit": "6fbcd9636a4d01a534e61920acc5758c98aef7b4",
-      "status": "active",
+      "status": "superseded",
       "tasks": [
         {
           "page_id": "wiki-core-page_extra",
@@ -1133,6 +1133,14 @@
           "instructions": "Write page `templates` of type `system`. Sections: responsibility -> public surface -> internal mechanics -> configuration -> resources & lifecycle. Answer concretely, each claim cited: What does this component expose and to whom? What state does it own and where is it persisted? What knobs exist and what are their defaults?. Close with an inline [[cite:path:Lx-Ly]] for every statement."
         }
       ]
+    },
+    {
+      "id": "run-9-8ad1b31b",
+      "started_at": "2026-10-31T10:11:31Z",
+      "base_commit": "6fbcd9636a4d01a534e61920acc5758c98aef7b4",
+      "target_commit": "8ad1b31b81e67eda6f2d06f9600a3da9de012c40",
+      "status": "active",
+      "tasks": []
     }
   ]
 }

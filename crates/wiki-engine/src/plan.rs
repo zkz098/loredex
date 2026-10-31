@@ -218,17 +218,17 @@ pub fn plan_with(repo: &GitRepo, wiki_dir: &Path, reset: bool) -> Result<RunReco
     let fresh = compute_tasks(repo, wiki_dir)?;
 
     let prev = ledger.runs.last();
+    // resolutions are remembered across the whole ledger, not just the last run
     let resolved_new: BTreeSet<String> = if reset {
         BTreeSet::new()
     } else {
-        prev.map(|r| {
-            r.tasks
-                .iter()
-                .filter(|t| t.kind == TaskKind::New && t.status != TaskStatus::Pending)
-                .map(|t| t.page_id.clone())
-                .collect()
-        })
-        .unwrap_or_default()
+        ledger
+            .runs
+            .iter()
+            .flat_map(|r| r.tasks.iter())
+            .filter(|t| t.kind == TaskKind::New && t.status != TaskStatus::Pending)
+            .map(|t| t.page_id.clone())
+            .collect()
     };
     let carried: Vec<PlanTask> = prev
         .map(|r| {
