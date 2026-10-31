@@ -1,0 +1,4 @@
+# repowiki configuration
+[wiki]
+pages = "pages"
+# cache directory is gitignored; rebuildable, never committed
