@@ -19,16 +19,18 @@ Agent 读仓库的痛点：上下文贵、过期文档误导。Loredex 的答案
 
 ## 安装
 
-**从源码（cargo）**，需要 Rust 1.85+（git2 会 vendored 编译 libgit2，几分钟）：
+**从 crates.io（cargo）**，需要 Rust 1.85+（git2 会 vendored 编译 libgit2，几分钟）：
 
 ```bash
-cargo install loredex-cli loredex-mcp   # 发布到 crates.io 后
-# 或本地：
+cargo install loredex-cli loredex-mcp
+# 或在仓库检出中：
 cargo build --release
 # 二进制：target/release/loredex（CLI）、target/release/loredex-mcp（MCP server）
 ```
 
-**预编译二进制**：见 GitHub Releases（`loredex-<os>-<arch>` 归档 + 安装脚本；发布工程由 cargo-dist 承担，配置随仓库提供）。发布后可用 `cargo binstall loredex-cli` 秒装。
+**预编译二进制**：GitHub Releases 提供 `loredex-cli-<target-triple>.tar.xz` / `loredex-mcp-<target-triple>.tar.xz` 归档 + shell/PowerShell 安装脚本（cargo-dist 构建 5 个目标）；`cargo binstall loredex-cli` 秒装。
+
+**CPU 基线**：预编译产物与本地检出构建的 x86-64 统一按 `x86-64-v3` 基线编译（`.cargo/config.toml` 中 `-C target-cpu=x86-64-v3`），要求 2013+ 的 AVX2 时代 CPU；老机器删掉该配置即可重编。aarch64 目标与从 crates.io `cargo install`（配置不随包发布）不受影响。
 
 ## 快速上手（CLI）
 
@@ -154,7 +156,7 @@ GNU GPL v3.0 或更新版本（见 [LICENSE](LICENSE)）。`.wiki/` 中的 wiki 
 ## 开发
 
 ```bash
-cargo nextest run --workspace          # 54 个测试（单测 + git-fixture 集成 + MCP 协议内测试）
+cargo nextest run --workspace          # 65 个测试（单测 + git-fixture 集成 + MCP 协议内测试）
 cargo llvm-cov nextest --workspace --summary-only   # 覆盖率基线
 ```
 

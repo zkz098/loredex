@@ -19,16 +19,18 @@ Agents reading a repository face two costs: expensive context and misleading sta
 
 ## Install
 
-**From source (cargo)** — requires Rust 1.85+ (git2 vendors and compiles libgit2; takes a few minutes):
+**From crates.io (cargo)** — requires Rust 1.85+ (git2 vendors and compiles libgit2; takes a few minutes):
 
 ```bash
-cargo install loredex-cli loredex-mcp   # once published to crates.io
-# or locally:
+cargo install loredex-cli loredex-mcp
+# or from a checkout:
 cargo build --release
 # binaries: target/release/loredex (CLI), target/release/loredex-mcp (MCP server)
 ```
 
-**Prebuilt binaries**: see GitHub Releases (`loredex-<os>-<arch>` archives + install scripts, produced by cargo-dist). After a release, `cargo binstall loredex-cli` installs in seconds.
+**Prebuilt binaries**: GitHub Releases carry `loredex-cli-<target-triple>.tar.xz` / `loredex-mcp-<target-triple>.tar.xz` archives + shell/PowerShell installers, produced by cargo-dist for 5 targets. `cargo binstall loredex-cli` installs in seconds.
+
+**CPU baseline**: release binaries and checkout builds compile x86-64 at the `x86-64-v3` level (`-C target-cpu=x86-64-v3` in `.cargo/config.toml`) — an AVX2-era CPU (2013+) is required; delete those tables to build for older machines. aarch64 targets and `cargo install` from crates.io (the config is workspace-local, not packaged) are unaffected.
 
 ## Quick start (CLI)
 
@@ -156,7 +158,7 @@ GNU GPL v3.0 or later (see [LICENSE](LICENSE)). Wiki data under `.wiki/` is unaf
 ## Development
 
 ```bash
-cargo nextest run --workspace          # 54 tests (unit + git-fixture integration + in-process MCP protocol)
+cargo nextest run --workspace          # 65 tests (unit + git-fixture integration + in-process MCP protocol)
 cargo llvm-cov nextest --workspace --summary-only   # coverage baseline (CI gates at 70% lines)
 ```
 
