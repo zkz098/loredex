@@ -1,0 +1,47 @@
+# GitHub Release notes via git-cliff — the changelog lives only in the
+# Release body, there is deliberately no CHANGELOG.md in the repo.
+#
+# cargo-dist's Release workflow creates the release first with its default
+# body (artifact table); this job then replaces that body with the git-cliff
+# render of the tagged range (cliff.toml). It fires after Release completes
+# for any reason; non-release runs are filtered out below.
+name: release notes
+on:
+  workflow_run:
+    workflows: ["Release"]
+    types:
+      - completed
+
+permissions:
+  contents: read
+
+jobs:
+  notes:
+    if: >
+      github.event.workflow_run.event != 'pull_request' &&
+      github.event.workflow_run.event != 'schedule'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write # gh release edit
+    env:
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      TAG: ${{ github.event.workflow_run.head_branch }}
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+          fetch-depth: 0 # git-cliff needs the full tag history
+          ref: ${{ github.event.workflow_run.head_sha }}
+      - name: render release notes for the tagged range
+        uses: orhun/git-cliff-action@v4
+        with:
+          config: cliff.toml
+          args: --latest --strip header
+        env:
+          OUTPUT: release-notes.md
+      - name: replace the GitHub Release body
+        run: |
+          set -euo pipefail
+          gh release view "$TAG" > /dev/null
+          test -s release-notes.md || { echo "git-cliff produced no notes for $TAG"; exit 1; }
+          gh release edit "$TAG" --notes-file release-notes.md

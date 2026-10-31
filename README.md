@@ -171,4 +171,4 @@ cargo llvm-cov nextest --workspace --summary-only   # coverage baseline (CI gate
 
 - Toolchain: cargo-nextest (one process per test, so env manipulation is safe; `.config/nextest.toml` sets a 15 s slow-timeout so deadlocks fail instead of hanging) + cargo-llvm-cov
 - Current coverage: ~75% regions / ~78% lines overall; core layers 80–98%, `loredex-mcp` 77% (in-process duplex client↔server exercises the real protocol stack: four-layer resolution, roots capability gate, full lifecycle), CLI kept as a thin argument mapping
-- Releases: cargo-dist (`dist-workspace.toml`) builds 5 targets + shell/PowerShell installers on tag `v*`
+- Releases: cargo-dist (`dist-workspace.toml`) builds 5 targets + shell/PowerShell installers on tag `v*`; the GitHub Release body is then replaced with [git-cliff](https://git-cliff.org) notes rendered from `cliff.toml` by `.github/workflows/release-notes.yml` — there is deliberately no CHANGELOG.md in the repo

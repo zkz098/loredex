@@ -1,0 +1,67 @@
+# git-cliff configuration — https://git-cliff.org/docs/configuration
+#
+# Release flow: there is deliberately no CHANGELOG.md in this repo. On every
+# tag push, .github/workflows/release-notes.yml runs `git-cliff --latest
+# --strip header` after the cargo-dist Release workflow completes and replaces
+# the GitHub Release body with the result. Nothing to do before tagging.
+#
+# This repo's history predates strict conventional commits, so only commits
+# that match the parsers below are kept (filter_commits); anything else —
+# ad-hoc messages, ci/docs/chore noise — is left out.
+#
+# Caveat: a tag whose commits all get filtered out (a docs/ci-only republish
+# like 0.1.3) renders only a bare "## [x.y.z]" heading — write that release's
+# description by hand.
+
+[changelog]
+header = """
+# Changelog
+
+Notable changes for the whole Loredex workspace (all crates release in
+lockstep). Generated with [git-cliff](https://git-cliff.org) from the
+commit history; see `cliff.toml` for the release workflow.
+
+"""
+
+body = """
+{% if version %}\
+    ## [{{ version | trim_start_matches(pat="v") }}] - {{ timestamp | date(format="%Y-%m-%d") }}
+{% else %}\
+    ## [Unreleased]
+{% endif %}\
+{% for group, commits in commits | group_by(attribute="group") %}
+    ### {{ group | striptags | trim | upper_first }}
+    {% for commit in commits %}
+        - {% if commit.scope %}*({{ commit.scope }})* {% endif %}\
+            {% if commit.breaking %}[**breaking**] {% endif %}\
+            {{ commit.message | upper_first }}
+    {% endfor %}
+{% endfor %}\n
+"""
+
+trim = true
+
+[git]
+conventional_commits = true
+filter_unconventional = true
+filter_commits = true
+sort_commits = "newest"
+
+commit_parsers = [
+    # user-facing
+    { message = "^feat", group = "Features" },
+    { message = "^features", group = "Features" },
+    { message = "^add", group = "Features" },
+    { message = "^fix", group = "Fixes" },
+    { message = "^bugfix", group = "Fixes" },
+    { message = "^perf", group = "Performance" },
+    { message = "^refactor", group = "Changes" },
+    { message = "^revert", group = "Reverted" },
+    # internal noise — excluded by filter_commits anyway, listed for clarity
+    { message = "^(ci|chore|docs|test|tests|style|release|merge|wip)", skip = true },
+]
+
+commit_preprocessors = [
+    { pattern = '\((\w+\s)?#([0-9]+)\)', replace = "" },
+    { pattern = "^[ \t]+|[ \t]+$", replace = "" },
+]

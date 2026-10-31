@@ -170,3 +170,4 @@ cargo llvm-cov nextest --workspace --summary-only   # 覆盖率基线
 - 测试栈：cargo-nextest（每测试独立进程，env 操纵安全；`.config/nextest.toml` 配 15s slow-timeout，死锁会失败而非挂起）+ cargo-llvm-cov
 - 当前覆盖：总计 ~75% 区域 / 79% 行；核心层（core/engine/git/modules）80-98%，`loredex-mcp` 77%（进程内 duplex client↔server 走真实协议栈验证四层解析链、roots 能力门控、全生命周期），CLI 入口为薄参数映射未单测
 - loredex-mcp 拆为 lib+bin：集成测试直接构造 `WikiServer::new_open()/pinned()`
+- 发布：cargo-dist（`dist-workspace.toml`）在 `v*` tag 上构建 5 平台产物 + shell/PowerShell 安装脚本；随后 `.github/workflows/release-notes.yml` 用 [git-cliff](https://git-cliff.org)（配置在 `cliff.toml`）渲染的更新日志替换 GitHub Release 正文——仓库里刻意不保留 CHANGELOG.md
