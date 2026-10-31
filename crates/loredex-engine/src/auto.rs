@@ -6,12 +6,12 @@
 
 use std::path::Path;
 
-use loredex_git::GitRepo;
+use loredex_git::{GitRepo, GitView};
 use serde::Serialize;
 
 use crate::{
-    check_page, lint, load_pages, plan, refresh_page_with_drift, DriftOutcome, LintIssue, Result,
-    RunRecord, TaskStatus,
+    check_page_with, lint_with, load_pages, plan::plan_with_view, refresh_page_with_drift_view,
+    DriftOutcome, LintIssue, Result, RunRecord, TaskStatus,
 };
 
 #[derive(Debug, Serialize)]
@@ -41,20 +41,26 @@ pub struct AutoReport {
 }
 
 pub fn auto_refresh(repo: &GitRepo, wiki_dir: &Path) -> Result<AutoReport> {
+    auto_refresh_with(&repo.view(), wiki_dir)
+}
+
+pub fn auto_refresh_with(view: &GitView, wiki_dir: &Path) -> Result<AutoReport> {
     let mut recovered = Vec::new();
     let mut needs_rewrite = Vec::new();
     let mut checked = 0usize;
 
-    for p in load_pages(wiki_dir)? {
+    let pages = load_pages(wiki_dir)?;
+    crate::prime_view(view, &pages)?;
+    for p in pages {
         if crate::index::is_generated(&p.meta.id) {
             continue;
         }
         checked += 1;
-        if !check_page(&p, repo)?.is_stale {
+        if !check_page_with(&p, view)?.is_stale {
             continue;
         }
         let mut page = p.clone();
-        match refresh_page_with_drift(&mut page, repo, wiki_dir) {
+        match refresh_page_with_drift_view(&mut page, view, wiki_dir) {
             Ok(outcomes) => {
                 let lost: Vec<String> = outcomes
                     .iter()
@@ -95,8 +101,8 @@ pub fn auto_refresh(repo: &GitRepo, wiki_dir: &Path) -> Result<AutoReport> {
         }
     }
 
-    let lint_issues = lint(repo, wiki_dir)?;
-    let run = plan::plan(repo, wiki_dir)?;
+    let lint_issues = lint_with(view, wiki_dir)?;
+    let run = plan_with_view(view, wiki_dir, false)?;
     let pending = run
         .tasks
         .iter()
@@ -105,7 +111,7 @@ pub fn auto_refresh(repo: &GitRepo, wiki_dir: &Path) -> Result<AutoReport> {
     let all_clean = needs_rewrite.is_empty() && lint_issues.is_empty() && pending == 0;
 
     Ok(AutoReport {
-        head: repo.head_short()?,
+        head: view.head_short()?,
         checked,
         recovered,
         needs_rewrite,

@@ -219,9 +219,11 @@ fn main() -> anyhow::Result<()> {
         }
         Command::Check { mark } => {
             let pages = engine::load_pages(&wiki_dir)?;
+            let view = repo.view();
+            engine::prime_view(&view, &pages)?;
             let mut stale_count = 0;
             for page in &pages {
-                let report = engine::check_page(page, &repo)?;
+                let report = engine::check_page_with(page, &view)?;
                 if report.is_stale {
                     stale_count += 1;
                     println!("STALE  {} — {}", report.id, report.title);
@@ -253,8 +255,8 @@ fn main() -> anyhow::Result<()> {
             let total = pages.len();
             println!(
                 "\n{total} page(s), {stale_count} stale; repo HEAD {}{}",
-                repo.head_short()?,
-                if repo.is_dirty()? {
+                view.head_short()?,
+                if view.is_dirty()? {
                     " (working tree dirty)"
                 } else {
                     ""
@@ -332,7 +334,7 @@ fn main() -> anyhow::Result<()> {
                 }
                 return Ok(());
             }
-            let run = engine::plan_with(&repo, &wiki_dir, reset)?;
+            let run = engine::plan_with_view(&repo.view(), &wiki_dir, reset)?;
             if json {
                 println!(
                     "{}",
@@ -361,12 +363,12 @@ fn main() -> anyhow::Result<()> {
             }
         }
         Command::Index => {
-            for page in engine::generate_index(&repo, &wiki_dir)? {
+            for page in engine::generate_index_with(&repo.view(), &wiki_dir)? {
                 println!("wrote {}", page.source_path.unwrap().display());
             }
         }
         Command::Auto { json } => {
-            let report = engine::auto_refresh(&repo, &wiki_dir)?;
+            let report = engine::auto_refresh_with(&repo.view(), &wiki_dir)?;
             if json {
                 println!(
                     "{}",
@@ -444,7 +446,7 @@ fn main() -> anyhow::Result<()> {
             }
         }
         Command::Lint { json } => {
-            let issues = engine::lint(&repo, &wiki_dir)?;
+            let issues = engine::lint_with(&repo.view(), &wiki_dir)?;
             if json {
                 println!(
                     "{}",
@@ -462,7 +464,7 @@ fn main() -> anyhow::Result<()> {
             }
         }
         Command::Modules => {
-            let modules = engine::discover_modules(&repo)?;
+            let modules = engine::discover_with(&repo.view())?;
             for m in &modules {
                 println!("{} ({}, {} files)", m.name, m.kind, m.files.len());
                 for f in m.files.iter().take(12) {

@@ -141,12 +141,14 @@ crates/
 - 漂移投影对旧行→新行建映射（删除行锚定最近存活行、区间坍缩保持宽度），投影后新旧 snippet 相似度 ≥ 0.6 才采纳
 - 引用校验在入库时进行：路径必须在 HEAD 存在，行区间非法直接拒绝
 - MCP 仓库解析四层链（cli > env > roots > cwd），roots 层带客户端能力门控与 3 秒超时，任何失配客户端都不会卡死会话
-- `git2::Repository` 是 `!Sync`，repo 实例存于 `Mutex<RepoSlot>` 内，异步解析只"确保"槽位、工具同步借用（单层的锁纪律）
+- 批量命令共享一个 `GitView`：HEAD 路径索引、按 commit 的 changed/rename 集合、blob 路径与文件内容均按命令计算一次，而非按页面；记录在 HEAD 的页面直接跳过 diff。单页工具保留直接 tree 查找，不会为一条引用遍历大型 monorepo
+- `git2::Repository` 是 `!Sync`，MCP server 只保存解析出的 workdir；每次工具调用在 blocking 线程池中打开自己的 Repository。读写门控允许读工具并发，put/refresh/auto/plan/attach 串行
+- 长驻 MCP server 在内存中缓存已解析页面与搜索索引，键为页面文件元数据（自身写入显式失效；外部编辑由 mtime/长度检测）
 
 ## 已知边界
 
 - 内容质量取决于撰写者（工具保证"有出处且出处未腐化"，不保证解释正确）
-- check/verify/search 全量加载，千级页面良好，万级需持久索引（未做）
+- CLI 的 check/verify 仍按命令全量加载页面；MCP server 复用内存页面/索引缓存，但尚未落盘持久索引——万级页面需要它
 - 正文内联引用标记在 refresh 投影后不同步行号（frontmatter 为权威）
 - 非 ASCII 路径建议仓库开启 `core.quotePath=false`
 
@@ -154,7 +156,7 @@ crates/
 
 - M4：按 commit range 增量重建受影响页面、`post-commit` hook 集成
 - 正文内联标记同步重写
-- `.wiki/.cache/` 持久搜索索引（超大 wiki 场景）
+- `.wiki/.cache/` 持久页面/搜索索引（超大 wiki 场景；当前 MCP 缓存仅在内存）
 
 ## 许可
 
@@ -163,11 +165,13 @@ GNU GPL v3.0 或更新版本（见 [LICENSE](LICENSE)）。`.wiki/` 中的 wiki 
 ## 开发
 
 ```bash
-cargo nextest run --workspace          # 65 个测试（单测 + git-fixture 集成 + MCP 协议内测试）
+cargo nextest run --workspace          # 68 个测试（单测 + git-fixture 集成 + MCP 协议内测试）
 cargo llvm-cov nextest --workspace --summary-only   # 覆盖率基线
+cargo bench -p loredex-engine --bench scan -- --budget   # 扫描/索引回归下限（CI 门禁）
 ```
 
-- 测试栈：cargo-nextest（每测试独立进程，env 操纵安全；`.config/nextest.toml` 配 15s slow-timeout，死锁会失败而非挂起）+ cargo-llvm-cov
+- 测试栈：cargo-nextest（每测试独立进程，env 操纵安全；`.config/nextest.toml` 配 15s slow-timeout，死锁会失败而非挂起）+ cargo-llvm-cov + criterion
+- 基准：2000 页合成仓库覆盖全新扫描、单文件修改、300 页引用被删除文件、索引构建与页面加载；`--budget` 用数量级余量的上限做硬门禁，CI 同时记录 criterion 统计基准
 - 当前覆盖：总计 ~75% 区域 / 79% 行；核心层（core/engine/git/modules）80-98%，`loredex-mcp` 77%（进程内 duplex client↔server 走真实协议栈验证四层解析链、roots 能力门控、全生命周期），CLI 入口为薄参数映射未单测
 - loredex-mcp 拆为 lib+bin：集成测试直接构造 `WikiServer::new_open()/pinned()`
 - 发布：cargo-dist（`dist-workspace.toml`）在 `v*` tag 上构建 5 平台产物 + shell/PowerShell 安装脚本；随后 `.github/workflows/release-notes.yml` 用 [git-cliff](https://git-cliff.org)（配置在 `cliff.toml`）渲染的更新日志替换 GitHub Release 正文——仓库里刻意不保留 CHANGELOG.md

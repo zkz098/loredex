@@ -32,6 +32,19 @@ jobs:
       - name: nextest
         run: cargo nextest run --workspace
 
+  bench:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - name: regression budget (hard gate with generous headroom)
+        run: cargo bench -p loredex-engine --bench scan -- --budget
+      - name: statistical benchmark profile
+        run: >-
+          cargo bench -p loredex-engine --bench scan --
+          --sample-size 10 --warm-up-time 1 --measurement-time 2
+
   coverage:
     runs-on: ubuntu-latest
     steps:

@@ -1,10 +1,11 @@
+use std::collections::BTreeSet;
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};
 
 use loredex_core::search::{IndexedPage, InvertedIndex};
-use loredex_core::Evidence;
+use loredex_core::{list_page_files, Evidence, WikiPage};
 use loredex_engine::{self as engine, DriftOutcome};
-use loredex_git::GitRepo;
+use loredex_git::{GitRepo, GitView};
 use rmcp::handler::server::wrapper::{Json, Parameters};
 use rmcp::model::{ServerCapabilities, ServerConfig};
 use rmcp::{
@@ -217,35 +218,70 @@ struct CurrentOut {
 
 /// Lazy, layered repository resolution.
 /// Order: --repo flag (pinned at startup) → LOREDEX_REPO env → client MCP
-/// roots (attempted once) → process cwd. All local steps happen without
-/// holding the slot lock across awaits; roots needs the request peer.
+/// roots (attempted once) → process cwd. The slot stores only the resolved
+/// workdir; each tool call opens its own GitRepo on a blocking thread, so
+/// requests no longer serialize behind one !Sync Repository.
 #[derive(Clone)]
 pub struct WikiServer {
     slot: Arc<Mutex<RepoSlot>>,
+    pages: Arc<Mutex<PageCache>>,
+    /// Writers (put/refresh/auto/plan/attach) take the write side; readers can
+    /// run concurrently. Blocking scans are moved off the async runtime.
+    gate: Arc<tokio::sync::RwLock<()>>,
 }
 
-/// git2::Repository is Send but !Sync, so the repo lives inside the mutex
-/// itself; async resolution only *ensures* the slot, tools then borrow it
-/// synchronously (single lock level per call).
 struct RepoSlot {
     fixed: bool,
-    current: Option<GitRepo>,
+    current: Option<PathBuf>,
     source: Option<String>,
     roots_attempted: bool,
 }
 
+/// Long-lived page/search cache. The key is HEAD + every page file's
+/// path/len/mtime, so any write (ours or an external editor) invalidates it.
+struct PageCache {
+    key: Option<String>,
+    pages: Arc<Vec<WikiPage>>,
+    index: Option<Arc<InvertedIndex>>,
+}
+
+impl Default for PageCache {
+    fn default() -> Self {
+        Self {
+            key: None,
+            pages: Arc::new(Vec::new()),
+            index: None,
+        }
+    }
+}
+
+struct Resolved {
+    path: PathBuf,
+    source: String,
+}
+
 impl WikiServer {
-    fn set_current(&self, repo: GitRepo, source: &str) {
-        let mut slot = self.slot.lock().unwrap();
-        slot.current = Some(repo);
-        slot.source = Some(source.to_string());
+    fn set_current(&self, path: PathBuf, source: &str) {
+        {
+            let mut slot = self.slot.lock().unwrap();
+            slot.current = Some(path);
+            slot.source = Some(source.to_string());
+        }
+        self.invalidate_pages();
     }
 
-    async fn ensure_repo(&self, peer: &Peer<RoleServer>) -> Result<(), ErrorData> {
+    fn invalidate_pages(&self) {
+        *self.pages.lock().unwrap() = PageCache::default();
+    }
+
+    async fn ensure_repo(&self, peer: &Peer<RoleServer>) -> Result<Resolved, ErrorData> {
         {
             let slot = self.slot.lock().unwrap();
-            if slot.current.is_some() {
-                return Ok(());
+            if let Some(path) = &slot.current {
+                return Ok(Resolved {
+                    path: path.clone(),
+                    source: slot.source.clone().unwrap_or_default(),
+                });
             }
             if slot.fixed {
                 return Err(Self::err("repository pinned at startup but is unavailable"));
@@ -254,8 +290,12 @@ impl WikiServer {
         // env layer
         if let Ok(p) = std::env::var("LOREDEX_REPO") {
             if let Ok(r) = GitRepo::discover(Path::new(&p)) {
-                self.set_current(r, "env");
-                return Ok(());
+                let path = r.workdir().to_path_buf();
+                self.set_current(path.clone(), "env");
+                return Ok(Resolved {
+                    path,
+                    source: "env".into(),
+                });
             }
         }
         // roots layer: only clients that declare the roots capability may
@@ -282,8 +322,12 @@ impl WikiServer {
                 for root in res.roots {
                     if let Some(p) = uri_to_path(&root.uri) {
                         if let Ok(r) = GitRepo::discover(&p) {
-                            self.set_current(r, "roots");
-                            return Ok(());
+                            let path = r.workdir().to_path_buf();
+                            self.set_current(path.clone(), "roots");
+                            return Ok(Resolved {
+                                path,
+                                source: "roots".into(),
+                            });
                         }
                     }
                 }
@@ -292,8 +336,12 @@ impl WikiServer {
         // cwd last resort
         if let Ok(cwd) = std::env::current_dir() {
             if let Ok(r) = GitRepo::discover(&cwd) {
-                self.set_current(r, "cwd");
-                return Ok(());
+                let path = r.workdir().to_path_buf();
+                self.set_current(path.clone(), "cwd");
+                return Ok(Resolved {
+                    path,
+                    source: "cwd".into(),
+                });
             }
         }
         Err(ErrorData::invalid_request(
@@ -303,7 +351,24 @@ impl WikiServer {
         ))
     }
 
-    fn current_out(&self, repo: &GitRepo, source: &str) -> CurrentOut {
+    /// Run a synchronous git/engine operation on a blocking thread with a
+    /// fresh Repository. No global repository lock is held while it runs.
+    async fn with_repo<T, F>(&self, peer: &Peer<RoleServer>, f: F) -> Result<T, ErrorData>
+    where
+        T: Send + 'static,
+        F: FnOnce(&GitRepo) -> Result<T, ErrorData> + Send + 'static,
+    {
+        let resolved = self.ensure_repo(peer).await?;
+        let path = resolved.path;
+        tokio::task::spawn_blocking(move || {
+            let repo = GitRepo::discover(&path).map_err(Self::err)?;
+            f(&repo)
+        })
+        .await
+        .map_err(|e| Self::err(format!("blocking task failed: {e}")))?
+    }
+
+    fn current_out(repo: &GitRepo, source: &str) -> CurrentOut {
         let wiki_dir = repo.wiki_dir();
         let pages = engine::load_pages(&wiki_dir).map(|p| p.len()).unwrap_or(0);
         CurrentOut {
@@ -316,8 +381,8 @@ impl WikiServer {
         }
     }
 
-    fn evidence_out(repo: &GitRepo, ev: &Evidence) -> EvidenceOut {
-        let head_blob = repo.head_blob_oid(&ev.path).ok().flatten();
+    fn evidence_out(view: &GitView, ev: &Evidence) -> EvidenceOut {
+        let head_blob = view.head_blob_oid(&ev.path).ok().flatten();
         EvidenceOut {
             path: ev.path.clone(),
             lines: ev.lines.map(|[a, b]| vec![a, b]),
@@ -331,6 +396,77 @@ impl WikiServer {
     fn err(msg: impl std::fmt::Display) -> ErrorData {
         ErrorData::internal_error(msg.to_string(), None)
     }
+}
+
+/// Page-file metadata: cheap compared with YAML parsing/tokenization and
+/// sensitive to any page write (loredex writes use rename). HEAD is
+/// deliberately not part of the key: freshness is always computed live, and
+/// page content does not change when a source-only commit lands.
+fn page_cache_key(repo: &GitRepo) -> String {
+    let mut material = format!("{}\0", repo.workdir().display());
+    if let Ok(files) = list_page_files(&engine::pages_dir(&repo.wiki_dir())) {
+        for path in files {
+            material.push_str(&path.display().to_string());
+            material.push('\0');
+            if let Ok(meta) = std::fs::metadata(&path) {
+                material.push_str(&meta.len().to_string());
+                material.push('\0');
+                let mtime = meta
+                    .modified()
+                    .ok()
+                    .and_then(|t| t.duration_since(std::time::UNIX_EPOCH).ok())
+                    .map(|d| d.as_nanos())
+                    .unwrap_or(0);
+                material.push_str(&mtime.to_string());
+                material.push('\0');
+            }
+        }
+    }
+    engine::sha1_hex(material.as_bytes())
+}
+
+fn cached_pages(repo: &GitRepo, cache: &Mutex<PageCache>) -> Result<Arc<Vec<WikiPage>>, ErrorData> {
+    let key = page_cache_key(repo);
+    let mut c = cache.lock().unwrap();
+    if c.key.as_deref() != Some(key.as_str()) {
+        let pages = engine::load_pages(&repo.wiki_dir()).map_err(WikiServer::err)?;
+        *c = PageCache {
+            key: Some(key),
+            pages: Arc::new(pages),
+            index: None,
+        };
+    }
+    Ok(c.pages.clone())
+}
+
+fn cached_pages_and_index(
+    repo: &GitRepo,
+    cache: &Mutex<PageCache>,
+) -> Result<(Arc<Vec<WikiPage>>, Arc<InvertedIndex>), ErrorData> {
+    let key = page_cache_key(repo);
+    let mut c = cache.lock().unwrap();
+    if c.key.as_deref() != Some(key.as_str()) {
+        let pages = engine::load_pages(&repo.wiki_dir()).map_err(WikiServer::err)?;
+        *c = PageCache {
+            key: Some(key),
+            pages: Arc::new(pages),
+            index: None,
+        };
+    }
+    if c.index.is_none() {
+        let index = InvertedIndex::build(
+            c.pages
+                .iter()
+                .map(|page| IndexedPage {
+                    id: page.meta.id.clone(),
+                    title: page.meta.title.clone(),
+                    body: page.body.clone(),
+                })
+                .collect(),
+        );
+        c.index = Some(Arc::new(index));
+    }
+    Ok((c.pages.clone(), c.index.clone().expect("index built above")))
 }
 
 fn short(sha: &str) -> String {
@@ -354,17 +490,16 @@ impl WikiServer {
         &self,
         peer: Peer<RoleServer>,
     ) -> Result<Json<serde_json::Value>, ErrorData> {
-        self.ensure_repo(&peer).await?;
-        let slot = self.slot.lock().unwrap();
-        let repo = slot
-            .current
-            .as_ref()
-            .ok_or_else(|| Self::err("repository not resolved"))?;
-        // NB: put/refresh inside mark hooks lock nothing here; synchronous engine call
-        let run = engine::open_plan(repo, &repo.wiki_dir()).map_err(Self::err)?;
-        serde_json::to_value(run)
-            .map(Json)
-            .map_err(|e| Self::err(format!("plan serialization: {e}")))
+        let _gate = self.gate.write().await;
+        let out = self
+            .with_repo(&peer, |repo| {
+                let view = repo.view();
+                let run =
+                    engine::plan_with_view(&view, &repo.wiki_dir(), false).map_err(Self::err)?;
+                serde_json::to_value(run).map_err(|e| Self::err(format!("plan serialization: {e}")))
+            })
+            .await?;
+        Ok(Json(out))
     }
 
     #[tool(
@@ -376,13 +511,7 @@ impl WikiServer {
         Parameters(p): Parameters<MarkTaskParam>,
         peer: Peer<RoleServer>,
     ) -> Result<Json<serde_json::Value>, ErrorData> {
-        self.ensure_repo(&peer).await?;
-        let slot = self.slot.lock().unwrap();
-        let repo = slot
-            .current
-            .as_ref()
-            .ok_or_else(|| Self::err("repository not resolved"))?;
-        let wiki_dir = repo.wiki_dir();
+        let _gate = self.gate.write().await;
         let status = match p.status.as_str() {
             "done" => engine::TaskStatus::Done,
             "skipped" => engine::TaskStatus::Skipped,
@@ -394,11 +523,17 @@ impl WikiServer {
                 ))
             }
         };
-        engine::mark_task(&wiki_dir, &p.page_id, status).map_err(Self::err)?;
-        let ledger = engine::load_ledger(&wiki_dir);
-        serde_json::to_value(ledger.active_run())
-            .map(Json)
-            .map_err(|e| Self::err(e.to_string()))
+        let resolved = self.ensure_repo(&peer).await?;
+        let wiki_dir = resolved.path.join(".wiki");
+        let page_id = p.page_id;
+        let out = tokio::task::spawn_blocking(move || {
+            engine::mark_task(&wiki_dir, &page_id, status).map_err(Self::err)?;
+            let ledger = engine::load_ledger(&wiki_dir);
+            serde_json::to_value(ledger.active_run()).map_err(|e| Self::err(e.to_string()))
+        })
+        .await
+        .map_err(|e| Self::err(format!("blocking task failed: {e}")))??;
+        Ok(Json(out))
     }
 
     #[tool(
@@ -409,16 +544,19 @@ impl WikiServer {
         &self,
         peer: Peer<RoleServer>,
     ) -> Result<Json<serde_json::Value>, ErrorData> {
-        self.ensure_repo(&peer).await?;
-        let slot = self.slot.lock().unwrap();
-        let repo = slot
-            .current
-            .as_ref()
-            .ok_or_else(|| Self::err("repository not resolved"))?;
-        let report = engine::auto_refresh(repo, &repo.wiki_dir()).map_err(Self::err)?;
-        serde_json::to_value(report)
-            .map(Json)
-            .map_err(|e| Self::err(e.to_string()))
+        let _gate = self.gate.write().await;
+        let cache = self.pages.clone();
+        let out = self
+            .with_repo(&peer, move |repo| {
+                let view = repo.view();
+                let report = engine::auto_refresh_with(&view, &repo.wiki_dir());
+                // auto may have rewritten pages even when it reports an error
+                *cache.lock().unwrap() = PageCache::default();
+                let report = report.map_err(Self::err)?;
+                serde_json::to_value(report).map_err(|e| Self::err(e.to_string()))
+            })
+            .await?;
+        Ok(Json(out))
     }
 
     #[tool(
@@ -429,16 +567,16 @@ impl WikiServer {
         &self,
         peer: Peer<RoleServer>,
     ) -> Result<Json<serde_json::Value>, ErrorData> {
-        self.ensure_repo(&peer).await?;
-        let slot = self.slot.lock().unwrap();
-        let repo = slot
-            .current
-            .as_ref()
-            .ok_or_else(|| Self::err("repository not resolved"))?;
-        let reg = engine::playbook_registry(&repo.wiki_dir());
-        serde_json::to_value(reg)
-            .map(Json)
-            .map_err(|e| Self::err(e.to_string()))
+        let _gate = self.gate.read().await;
+        let resolved = self.ensure_repo(&peer).await?;
+        let wiki_dir = resolved.path.join(".wiki");
+        let out = tokio::task::spawn_blocking(move || {
+            let reg = engine::playbook_registry(&wiki_dir);
+            serde_json::to_value(reg).map_err(|e| Self::err(e.to_string()))
+        })
+        .await
+        .map_err(|e| Self::err(format!("blocking task failed: {e}")))??;
+        Ok(Json(out))
     }
 
     #[tool(
@@ -449,6 +587,7 @@ impl WikiServer {
         &self,
         Parameters(p): Parameters<AttachParam>,
     ) -> Result<Json<CurrentOut>, ErrorData> {
+        let _gate = self.gate.write().await;
         {
             let slot = self.slot.lock().unwrap();
             if slot.fixed {
@@ -457,11 +596,20 @@ impl WikiServer {
                 ));
             }
         }
-        let repo = GitRepo::discover(Path::new(&p.path)).map_err(|e| {
-            ErrorData::invalid_request(format!("cannot open git repo at {}: {e}", p.path), None)
-        })?;
-        let out = self.current_out(&repo, "attach");
-        self.set_current(repo, "attach");
+        let attach_path = PathBuf::from(&p.path);
+        let (out, root) = tokio::task::spawn_blocking(move || {
+            let repo = GitRepo::discover(&attach_path).map_err(|e| {
+                ErrorData::invalid_request(
+                    format!("cannot open git repo at {}: {e}", attach_path.display()),
+                    None,
+                )
+            })?;
+            let out = Self::current_out(&repo, "attach");
+            Ok::<_, ErrorData>((out, repo.workdir().to_path_buf()))
+        })
+        .await
+        .map_err(|e| Self::err(format!("blocking task failed: {e}")))??;
+        self.set_current(root, "attach");
         Ok(Json(out))
     }
 
@@ -473,16 +621,17 @@ impl WikiServer {
         &self,
         peer: Peer<RoleServer>,
     ) -> Result<Json<CurrentOut>, ErrorData> {
-        self.ensure_repo(&peer).await?;
-        let slot = self.slot.lock().unwrap();
-        let repo = slot
-            .current
-            .as_ref()
-            .ok_or_else(|| Self::err("repository not resolved"))?;
-        let source = slot.source.clone();
-        Ok(Json(
-            self.current_out(repo, source.as_deref().unwrap_or("?")),
-        ))
+        let _gate = self.gate.read().await;
+        let resolved = self.ensure_repo(&peer).await?;
+        let path = resolved.path;
+        let source = resolved.source;
+        let out = tokio::task::spawn_blocking(move || {
+            let repo = GitRepo::discover(&path).map_err(Self::err)?;
+            Ok::<_, ErrorData>(Self::current_out(&repo, &source))
+        })
+        .await
+        .map_err(|e| Self::err(format!("blocking task failed: {e}")))??;
+        Ok(Json(out))
     }
 
     #[tool(
@@ -490,30 +639,33 @@ impl WikiServer {
         description = "List all wiki pages with recorded status and a live git freshness verdict per page."
     )]
     async fn wiki_list(&self, peer: Peer<RoleServer>) -> Result<Json<ListOut>, ErrorData> {
-        self.ensure_repo(&peer).await?;
-        let slot = self.slot.lock().unwrap();
-        let repo = slot
-            .current
-            .as_ref()
-            .ok_or_else(|| Self::err("repository not resolved"))?;
-        let pages = engine::load_pages(&repo.wiki_dir()).map_err(Self::err)?;
-        let mut out = Vec::new();
-        for p in &pages {
-            let report = engine::check_page(p, repo).map_err(Self::err)?;
-            out.push(PageSummary {
-                id: p.meta.id.clone(),
-                title: p.meta.title.clone(),
-                status: p.meta.status.as_str().to_string(),
-                stale_now: report.is_stale,
-                evidence_count: p.meta.evidence.len(),
-                commit: short(&p.meta.commit),
-            });
-        }
-        Ok(Json(ListOut {
-            head: repo.head_short().map_err(Self::err)?,
-            worktree_dirty: repo.is_dirty().map_err(Self::err)?,
-            pages: out,
-        }))
+        let _gate = self.gate.read().await;
+        let cache = self.pages.clone();
+        let out = self
+            .with_repo(&peer, move |repo| {
+                let view = repo.view();
+                let pages = cached_pages(repo, &cache)?;
+                engine::prime_view(&view, &pages).map_err(Self::err)?;
+                let mut out = Vec::with_capacity(pages.len());
+                for p in pages.iter() {
+                    let report = engine::check_page_with(p, &view).map_err(Self::err)?;
+                    out.push(PageSummary {
+                        id: p.meta.id.clone(),
+                        title: p.meta.title.clone(),
+                        status: p.meta.status.as_str().to_string(),
+                        stale_now: report.is_stale,
+                        evidence_count: p.meta.evidence.len(),
+                        commit: short(&p.meta.commit),
+                    });
+                }
+                Ok(ListOut {
+                    head: view.head_short().map_err(Self::err)?,
+                    worktree_dirty: view.is_dirty().map_err(Self::err)?,
+                    pages: out,
+                })
+            })
+            .await?;
+        Ok(Json(out))
     }
 
     #[tool(
@@ -525,48 +677,50 @@ impl WikiServer {
         Parameters(p): Parameters<IdParam>,
         peer: Peer<RoleServer>,
     ) -> Result<Json<PageOut>, ErrorData> {
-        self.ensure_repo(&peer).await?;
-        let slot = self.slot.lock().unwrap();
-        let repo = slot
-            .current
-            .as_ref()
-            .ok_or_else(|| Self::err("repository not resolved"))?;
-        let page =
-            engine::find_page(&repo.wiki_dir(), &p.id).map_err(|e| Self::err(e.to_string()))?;
-        let report = engine::check_page(&page, repo).map_err(Self::err)?;
-        let reasons: Vec<String> = report
-            .evidence_reports
-            .iter()
-            .filter(|r| !r.ok)
-            .map(|r| format!("{}: {}", r.path, r.detail))
-            .collect();
-        let warning = if report.is_stale {
-            Some(format!(
-                "STALE: evidence no longer matches git (recorded commit {}); claims are unverified. Use wiki_refresh_page or re-author with wiki_put_page.",
-                short(&page.meta.commit)
-            ))
-        } else {
-            None
-        };
-        Ok(Json(PageOut {
-            id: page.meta.id.clone(),
-            title: page.meta.title.clone(),
-            page_type: page.meta.page_type.clone(),
-            status: page.meta.status.as_str().to_string(),
-            stale_now: report.is_stale,
-            stale_reasons: reasons,
-            generated_at: page.meta.generated_at.clone(),
-            commit: short(&page.meta.commit),
-            tags: page.meta.tags.clone(),
-            evidence: page
-                .meta
-                .evidence
-                .iter()
-                .map(|e| WikiServer::evidence_out(repo, e))
-                .collect(),
-            body: page.body.clone(),
-            warning,
-        }))
+        let _gate = self.gate.read().await;
+        let id = p.id;
+        let out = self
+            .with_repo(&peer, move |repo| {
+                let view = repo.view();
+                let page = engine::find_page(&repo.wiki_dir(), &id)
+                    .map_err(|e| Self::err(e.to_string()))?;
+                let report = engine::check_page_with(&page, &view).map_err(Self::err)?;
+                let reasons: Vec<String> = report
+                    .evidence_reports
+                    .iter()
+                    .filter(|r| !r.ok)
+                    .map(|r| format!("{}: {}", r.path, r.detail))
+                    .collect();
+                let warning = if report.is_stale {
+                    Some(format!(
+                        "STALE: evidence no longer matches git (recorded commit {}); claims are unverified. Use wiki_refresh_page or re-author with wiki_put_page.",
+                        short(&page.meta.commit)
+                    ))
+                } else {
+                    None
+                };
+                Ok(PageOut {
+                    id: page.meta.id.clone(),
+                    title: page.meta.title.clone(),
+                    page_type: page.meta.page_type.clone(),
+                    status: page.meta.status.as_str().to_string(),
+                    stale_now: report.is_stale,
+                    stale_reasons: reasons,
+                    generated_at: page.meta.generated_at.clone(),
+                    commit: short(&page.meta.commit),
+                    tags: page.meta.tags.clone(),
+                    evidence: page
+                        .meta
+                        .evidence
+                        .iter()
+                        .map(|e| WikiServer::evidence_out(&view, e))
+                        .collect(),
+                    body: page.body.to_string(),
+                    warning,
+                })
+            })
+            .await?;
+        Ok(Json(out))
     }
 
     #[tool(
@@ -577,58 +731,61 @@ impl WikiServer {
         &self,
         peer: Peer<RoleServer>,
     ) -> Result<Json<FreshnessOut>, ErrorData> {
-        self.ensure_repo(&peer).await?;
-        let slot = self.slot.lock().unwrap();
-        let repo = slot
-            .current
-            .as_ref()
-            .ok_or_else(|| Self::err("repository not resolved"))?;
-        let pages = engine::load_pages(&repo.wiki_dir()).map_err(Self::err)?;
-        let mut out = Vec::new();
-        let mut stale_count = 0;
-        for p in &pages {
-            let report = engine::check_page(p, repo).map_err(Self::err)?;
-            let projectable: Vec<String> = if report.is_stale {
-                let renames: std::collections::BTreeMap<String, String> =
-                    repo.renames_since(&p.meta.commit).into_iter().collect();
-                p.meta
-                    .evidence
-                    .iter()
-                    .filter_map(|e| {
-                        let (outcome, _) = engine::project_evidence(repo, e, &renames).ok()?;
-                        matches!(
-                            outcome,
-                            DriftOutcome::Projected { .. }
-                                | DriftOutcome::Unchanged
-                                | DriftOutcome::Renamed { .. }
-                        )
-                        .then(|| e.path.clone())
-                    })
-                    .collect()
-            } else {
-                Vec::new()
-            };
-            if report.is_stale {
-                stale_count += 1;
-            }
-            out.push(PageFreshness {
-                id: p.meta.id.clone(),
-                stale: report.is_stale,
-                reasons: report
-                    .evidence_reports
-                    .iter()
-                    .filter(|r| !r.ok)
-                    .map(|r| format!("{}: {}", r.path, r.detail))
-                    .collect(),
-                projectable,
-            });
-        }
-        Ok(Json(FreshnessOut {
-            head: repo.head_short().map_err(Self::err)?,
-            worktree_dirty: repo.is_dirty().map_err(Self::err)?,
-            stale_count,
-            pages: out,
-        }))
+        let _gate = self.gate.read().await;
+        let cache = self.pages.clone();
+        let out = self
+            .with_repo(&peer, move |repo| {
+                let view = repo.view();
+                let pages = cached_pages(repo, &cache)?;
+                engine::prime_view(&view, &pages).map_err(Self::err)?;
+                let mut out = Vec::with_capacity(pages.len());
+                let mut stale_count = 0;
+                for p in pages.iter() {
+                    let report = engine::check_page_with(p, &view).map_err(Self::err)?;
+                    let projectable: Vec<String> = if report.is_stale {
+                        let renames = view.rename_map(&p.meta.commit);
+                        p.meta
+                            .evidence
+                            .iter()
+                            .filter_map(|e| {
+                                let (outcome, _) =
+                                    engine::project_evidence_with(&view, e, &renames).ok()?;
+                                matches!(
+                                    outcome,
+                                    DriftOutcome::Projected { .. }
+                                        | DriftOutcome::Unchanged
+                                        | DriftOutcome::Renamed { .. }
+                                )
+                                .then(|| e.path.clone())
+                            })
+                            .collect()
+                    } else {
+                        Vec::new()
+                    };
+                    if report.is_stale {
+                        stale_count += 1;
+                    }
+                    out.push(PageFreshness {
+                        id: p.meta.id.clone(),
+                        stale: report.is_stale,
+                        reasons: report
+                            .evidence_reports
+                            .iter()
+                            .filter(|r| !r.ok)
+                            .map(|r| format!("{}: {}", r.path, r.detail))
+                            .collect(),
+                        projectable,
+                    });
+                }
+                Ok(FreshnessOut {
+                    head: view.head_short().map_err(Self::err)?,
+                    worktree_dirty: view.is_dirty().map_err(Self::err)?,
+                    stale_count,
+                    pages: out,
+                })
+            })
+            .await?;
+        Ok(Json(out))
     }
 
     #[tool(
@@ -640,48 +797,33 @@ impl WikiServer {
         Parameters(p): Parameters<SearchParam>,
         peer: Peer<RoleServer>,
     ) -> Result<Json<SearchOut>, ErrorData> {
-        self.ensure_repo(&peer).await?;
-        let slot = self.slot.lock().unwrap();
-        let repo = slot
-            .current
-            .as_ref()
-            .ok_or_else(|| Self::err("repository not resolved"))?;
-        let pages = engine::load_pages(&repo.wiki_dir()).map_err(Self::err)?;
-        let idx = InvertedIndex::build(
-            pages
-                .iter()
-                .map(|pg| IndexedPage {
-                    id: pg.meta.id.clone(),
-                    title: pg.meta.title.clone(),
-                    body: pg.body.clone(),
-                })
-                .collect(),
-        );
+        let _gate = self.gate.read().await;
+        let cache = self.pages.clone();
+        let query = p.query;
         let limit = p.limit.unwrap_or(8);
-        let mut hits = Vec::new();
-        for h in idx.search(&p.query, limit) {
-            let page = pages.iter().find(|pg| pg.meta.id == h.id);
-            let stale = match page {
-                Some(pg) => engine::check_page(pg, repo)
-                    .map(|r| r.is_stale)
-                    .unwrap_or(false),
-                None => false,
-            };
-            hits.push(Hit {
-                id: h.id,
-                title: h.title,
-                status: page
-                    .map(|pg| pg.meta.status.as_str().to_string())
-                    .unwrap_or_default(),
-                stale_now: stale,
-                score: h.score,
-                matched_lines: h.matched_lines,
-            });
-        }
-        Ok(Json(SearchOut {
-            query: p.query,
-            hits,
-        }))
+        let out = self
+            .with_repo(&peer, move |repo| {
+                let view = repo.view();
+                let (pages, index) = cached_pages_and_index(repo, &cache)?;
+                let mut hits = Vec::new();
+                for h in index.search(&query, limit) {
+                    let page = &pages[h.page_idx];
+                    let stale = engine::check_page_with(page, &view)
+                        .map(|r| r.is_stale)
+                        .unwrap_or(false);
+                    hits.push(Hit {
+                        id: h.id,
+                        title: h.title,
+                        status: page.meta.status.as_str().to_string(),
+                        stale_now: stale,
+                        score: h.score,
+                        matched_lines: h.matched_lines,
+                    });
+                }
+                Ok(SearchOut { query, hits })
+            })
+            .await?;
+        Ok(Json(out))
     }
 
     #[tool(
@@ -693,53 +835,61 @@ impl WikiServer {
         Parameters(p): Parameters<EvidenceParam>,
         peer: Peer<RoleServer>,
     ) -> Result<Json<serde_json::Value>, ErrorData> {
-        self.ensure_repo(&peer).await?;
-        let slot = self.slot.lock().unwrap();
-        let repo = slot
-            .current
-            .as_ref()
-            .ok_or_else(|| Self::err("repository not resolved"))?;
-        let page =
-            engine::find_page(&repo.wiki_dir(), &p.id).map_err(|e| Self::err(e.to_string()))?;
-        let e = page.meta.evidence.get(p.index as usize).ok_or_else(|| {
-            Self::err(format!(
-                "page {} has {} evidence item(s)",
-                page.meta.id,
-                page.meta.evidence.len()
-            ))
-        })?;
-        let head = repo.head_blob_oid(&e.path).map_err(Self::err)?;
-        let (state, content) = match head.as_deref() {
-            None => ("missing".to_string(), None),
-            Some(oid) => {
-                let state = if oid == e.blob {
-                    "unchanged"
-                } else {
-                    "changed"
+        let _gate = self.gate.read().await;
+        let id = p.id;
+        let index = p.index;
+        let out = self
+            .with_repo(&peer, move |repo| {
+                let view = repo.view();
+                let page = engine::find_page(&repo.wiki_dir(), &id)
+                    .map_err(|e| Self::err(e.to_string()))?;
+                let e = page.meta.evidence.get(index as usize).ok_or_else(|| {
+                    Self::err(format!(
+                        "page {} has {} evidence item(s)",
+                        page.meta.id,
+                        page.meta.evidence.len()
+                    ))
+                })?;
+                let head = view.head_blob_oid(&e.path).map_err(Self::err)?;
+                let (state, content) = match head.as_deref() {
+                    None => ("missing".to_string(), None),
+                    Some(oid) => {
+                        let state = if oid == e.blob {
+                            "unchanged"
+                        } else {
+                            "changed"
+                        };
+                        let text = match e.lines {
+                            Some([lo, hi]) => {
+                                view.head_lines(&e.path, lo, hi).map_err(Self::err)?
+                            }
+                            None => view
+                                .head_file_content(&e.path)
+                                .map_err(Self::err)?
+                                .map(|content| content.as_ref().clone()),
+                        };
+                        (state.to_string(), text)
+                    }
                 };
-                let text = match e.lines {
-                    Some([lo, hi]) => repo.head_lines(&e.path, lo, hi).map_err(Self::err)?,
-                    None => repo.head_file_content(&e.path).map_err(Self::err)?,
-                };
-                (state.to_string(), text)
-            }
-        };
-        Ok(Json(serde_json::json!({
-            "page_id": page.meta.id,
-            "index": p.index,
-            "path": e.path,
-            "recorded_lines": e.lines.map(|[a,b]| vec![a,b]),
-            "recorded_blob": e.blob,
-            "head_blob": head,
-            "state": state,
-            "snippet_sha1_matches": e.snippet_sha1.is_some()
-                && e.lines.is_some()
-                && content.as_deref()
-                    .zip(e.snippet_sha1.as_deref())
-                    .map(|(c, h)| engine::sha1_hex(c.as_bytes()) == h)
-                    .unwrap_or(false),
-            "content_at_head": content,
-        })))
+                Ok(serde_json::json!({
+                    "page_id": page.meta.id,
+                    "index": index,
+                    "path": e.path,
+                    "recorded_lines": e.lines.map(|[a,b]| vec![a,b]),
+                    "recorded_blob": e.blob,
+                    "head_blob": head,
+                    "state": state,
+                    "snippet_sha1_matches": e.snippet_sha1.is_some()
+                        && e.lines.is_some()
+                        && content.as_deref()
+                            .zip(e.snippet_sha1.as_deref())
+                            .map(|(c, h)| engine::sha1_hex(c.as_bytes()) == h)
+                            .unwrap_or(false),
+                    "content_at_head": content,
+                }))
+            })
+            .await?;
+        Ok(Json(out))
     }
 
     #[tool(
@@ -750,31 +900,37 @@ impl WikiServer {
         &self,
         peer: Peer<RoleServer>,
     ) -> Result<Json<ModulesOut>, ErrorData> {
-        self.ensure_repo(&peer).await?;
-        let slot = self.slot.lock().unwrap();
-        let repo = slot
-            .current
-            .as_ref()
-            .ok_or_else(|| Self::err("repository not resolved"))?;
-        let modules = engine::discover_modules(repo).map_err(Self::err)?;
-        let pages = engine::load_pages(&repo.wiki_dir()).unwrap_or_default();
-        let cited: std::collections::BTreeSet<String> = pages
-            .iter()
-            .flat_map(|p| p.meta.evidence.iter().map(|e| e.path.clone()))
-            .collect();
-        Ok(Json(ModulesOut {
-            modules: modules
-                .into_iter()
-                .map(|m| ModuleOut {
-                    already_cited: m.files.iter().filter(|f| cited.contains(f.as_str())).count(),
-                    name: m.name,
-                    kind: m.kind,
-                    file_count: m.files.len(),
-                    files: m.files,
+        let _gate = self.gate.read().await;
+        let cache = self.pages.clone();
+        let out = self
+            .with_repo(&peer, move |repo| {
+                let view = repo.view();
+                let modules = engine::discover_with(&view).map_err(Self::err)?;
+                let pages = cached_pages(repo, &cache)?;
+                let cited: BTreeSet<String> = pages
+                    .iter()
+                    .flat_map(|p| p.meta.evidence.iter().map(|e| e.path.clone()))
+                    .collect();
+                Ok(ModulesOut {
+                    modules: modules
+                        .into_iter()
+                        .map(|m| ModuleOut {
+                            already_cited: m
+                                .files
+                                .iter()
+                                .filter(|f| cited.contains(f.as_str()))
+                                .count(),
+                            name: m.name,
+                            kind: m.kind,
+                            file_count: m.files.len(),
+                            files: m.files,
+                        })
+                        .collect(),
+                    hint: "author wiki pages for modules with already_cited == 0; cite line ranges you actually read".into(),
                 })
-                .collect(),
-            hint: "author wiki pages for modules with already_cited == 0; cite line ranges you actually read".into(),
-        }))
+            })
+            .await?;
+        Ok(Json(out))
     }
 
     #[tool(
@@ -786,34 +942,44 @@ impl WikiServer {
         Parameters(p): Parameters<PutPageParam>,
         peer: Peer<RoleServer>,
     ) -> Result<Json<PutOut>, ErrorData> {
-        self.ensure_repo(&peer).await?;
-        let slot = self.slot.lock().unwrap();
-        let repo = slot
-            .current
-            .as_ref()
-            .ok_or_else(|| Self::err("repository not resolved"))?;
-        let outcome = engine::put_page(
-            repo,
-            &repo.wiki_dir(),
-            &p.id,
-            &p.title,
-            &p.body,
-            p.tags.unwrap_or_default(),
-            p.page_type,
-        )
-        .map_err(|e| ErrorData::invalid_request(e.to_string(), None))?;
-        Ok(Json(PutOut {
-            id: outcome.page.meta.id.clone(),
-            created: outcome.created,
-            citations: outcome.citations,
-            evidence: outcome
-                .page
-                .meta
-                .evidence
-                .iter()
-                .map(|e| WikiServer::evidence_out(repo, e))
-                .collect(),
-        }))
+        let _gate = self.gate.write().await;
+        let cache = self.pages.clone();
+        let id = p.id;
+        let title = p.title;
+        let body = p.body;
+        let tags = p.tags.unwrap_or_default();
+        let page_type = p.page_type;
+        let out = self
+            .with_repo(&peer, move |repo| {
+                let view = repo.view();
+                let result = engine::put_page_with(
+                    &view,
+                    &repo.wiki_dir(),
+                    &id,
+                    &title,
+                    &body,
+                    tags,
+                    page_type,
+                );
+                // a failed put may still have written a page
+                *cache.lock().unwrap() = PageCache::default();
+                let outcome =
+                    result.map_err(|e| ErrorData::invalid_request(e.to_string(), None))?;
+                Ok(PutOut {
+                    id: outcome.page.meta.id.clone(),
+                    created: outcome.created,
+                    citations: outcome.citations,
+                    evidence: outcome
+                        .page
+                        .meta
+                        .evidence
+                        .iter()
+                        .map(|e| WikiServer::evidence_out(&view, e))
+                        .collect(),
+                })
+            })
+            .await?;
+        Ok(Json(out))
     }
 
     #[tool(
@@ -825,54 +991,60 @@ impl WikiServer {
         Parameters(p): Parameters<IdParam>,
         peer: Peer<RoleServer>,
     ) -> Result<Json<RefreshOut>, ErrorData> {
-        self.ensure_repo(&peer).await?;
-        let slot = self.slot.lock().unwrap();
-        let repo = slot
-            .current
-            .as_ref()
-            .ok_or_else(|| Self::err("repository not resolved"))?;
-        let mut page =
-            engine::find_page(&repo.wiki_dir(), &p.id).map_err(|e| Self::err(e.to_string()))?;
-        let outcomes = engine::refresh_page_with_drift(&mut page, repo, &repo.wiki_dir())
-            .map_err(Self::err)?;
-        Ok(Json(RefreshOut {
-            id: page.meta.id.clone(),
-            new_status: page.meta.status.as_str().to_string(),
-            outcomes: outcomes
-                .into_iter()
-                .map(|(path, o)| match o {
-                    DriftOutcome::Unchanged => RefreshOutcomeOut {
-                        path,
-                        outcome: "unchanged".into(),
-                        new_lines: None,
-                    },
-                    DriftOutcome::Projected { lines, score } => RefreshOutcomeOut {
-                        path,
-                        outcome: format!("projected (similarity {score:.2})"),
-                        new_lines: Some(vec![lines[0], lines[1]]),
-                    },
-                    DriftOutcome::Renamed { new_path, exact } => RefreshOutcomeOut {
-                        path,
-                        outcome: if exact {
-                            format!("renamed -> {new_path} (identical blob)")
-                        } else {
-                            format!("renamed -> {new_path} + projected")
-                        },
-                        new_lines: None,
-                    },
-                    DriftOutcome::Lost => RefreshOutcomeOut {
-                        path,
-                        outcome: "lost".into(),
-                        new_lines: None,
-                    },
-                    DriftOutcome::NoOldBlob => RefreshOutcomeOut {
-                        path,
-                        outcome: "old-blob-missing".into(),
-                        new_lines: None,
-                    },
+        let _gate = self.gate.write().await;
+        let cache = self.pages.clone();
+        let id = p.id;
+        let out = self
+            .with_repo(&peer, move |repo| {
+                let view = repo.view();
+                let mut page = engine::find_page(&repo.wiki_dir(), &id)
+                    .map_err(|e| Self::err(e.to_string()))?;
+                let result =
+                    engine::refresh_page_with_drift_view(&mut page, &view, &repo.wiki_dir());
+                // a failed refresh may still have written a page
+                *cache.lock().unwrap() = PageCache::default();
+                let outcomes = result.map_err(Self::err)?;
+                Ok(RefreshOut {
+                    id: page.meta.id.clone(),
+                    new_status: page.meta.status.as_str().to_string(),
+                    outcomes: outcomes
+                        .into_iter()
+                        .map(|(path, o)| match o {
+                            DriftOutcome::Unchanged => RefreshOutcomeOut {
+                                path,
+                                outcome: "unchanged".into(),
+                                new_lines: None,
+                            },
+                            DriftOutcome::Projected { lines, score } => RefreshOutcomeOut {
+                                path,
+                                outcome: format!("projected (similarity {score:.2})"),
+                                new_lines: Some(vec![lines[0], lines[1]]),
+                            },
+                            DriftOutcome::Renamed { new_path, exact } => RefreshOutcomeOut {
+                                path,
+                                outcome: if exact {
+                                    format!("renamed -> {new_path} (identical blob)")
+                                } else {
+                                    format!("renamed -> {new_path} + projected")
+                                },
+                                new_lines: None,
+                            },
+                            DriftOutcome::Lost => RefreshOutcomeOut {
+                                path,
+                                outcome: "lost".into(),
+                                new_lines: None,
+                            },
+                            DriftOutcome::NoOldBlob => RefreshOutcomeOut {
+                                path,
+                                outcome: "old-blob-missing".into(),
+                                new_lines: None,
+                            },
+                        })
+                        .collect(),
                 })
-                .collect(),
-        }))
+            })
+            .await?;
+        Ok(Json(out))
     }
 }
 
@@ -902,6 +1074,8 @@ impl WikiServer {
                 source: None,
                 roots_attempted: false,
             })),
+            pages: Arc::new(Mutex::new(PageCache::default())),
+            gate: Arc::new(tokio::sync::RwLock::new(())),
         }
     }
 
@@ -910,10 +1084,12 @@ impl WikiServer {
         WikiServer {
             slot: Arc::new(Mutex::new(RepoSlot {
                 fixed: true,
-                current: Some(repo),
+                current: Some(repo.workdir().to_path_buf()),
                 source: Some("cli".into()),
                 roots_attempted: true,
             })),
+            pages: Arc::new(Mutex::new(PageCache::default())),
+            gate: Arc::new(tokio::sync::RwLock::new(())),
         }
     }
 }

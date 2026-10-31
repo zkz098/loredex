@@ -57,7 +57,7 @@ pub fn locale(wiki_dir: &Path) -> Locale {
     parse_locale(&text)
 }
 
-fn parse_locale(text: &str) -> Locale {
+pub(crate) fn parse_locale(text: &str) -> Locale {
     match toml::from_str::<FileConfig>(text) {
         Ok(cfg) => cfg
             .wiki

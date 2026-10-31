@@ -212,19 +212,25 @@ fn builtin_zh() -> Vec<TypePlaybook> {
     .into()
 }
 
+fn builtin_map(locale: Locale) -> BTreeMap<String, TypePlaybook> {
+    builtin(locale)
+        .into_iter()
+        .map(|p| (p.name.clone(), p))
+        .collect()
+}
+
 /// Built-ins (locale follows `[wiki] language` in `.wiki/wiki.toml`) merged
 /// with repo-local `[page_types.<name>]` overrides from the same file
 /// (same name: toml wins field-wise).
 pub fn registry(wiki_dir: &Path) -> BTreeMap<String, TypePlaybook> {
-    let locale = crate::config::locale(wiki_dir);
-    let mut map: BTreeMap<String, TypePlaybook> = builtin(locale)
-        .into_iter()
-        .map(|p| (p.name.clone(), p))
-        .collect();
+    // Read wiki.toml once: locale and page-type extensions live in the same
+    // file, and registry() is called on hot paths (lint/plan/import).
     let text = match std::fs::read_to_string(wiki_dir.join("wiki.toml")) {
         Ok(t) => t,
-        Err(_) => return map,
+        Err(_) => return builtin_map(crate::config::Locale::En),
     };
+    let locale = crate::config::parse_locale(&text);
+    let mut map = builtin_map(locale);
     #[derive(Deserialize)]
     struct Cfg {
         #[serde(default)]

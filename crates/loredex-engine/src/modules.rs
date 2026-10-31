@@ -1,8 +1,10 @@
 use std::collections::BTreeMap;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::process::Command;
+use std::time::UNIX_EPOCH;
 
-use loredex_git::GitRepo;
+use loredex_git::{GitRepo, GitView};
+use serde::{Deserialize, Serialize};
 
 use crate::Result;
 
@@ -16,11 +18,15 @@ pub struct ModuleInfo {
 /// Discover generation units for a coding agent: Rust targets via
 /// `cargo metadata`, everything else grouped by directory.
 pub fn discover(repo: &GitRepo) -> Result<Vec<ModuleInfo>> {
-    let files: Vec<String> = repo.tracked_files()?;
+    discover_with(&repo.view())
+}
+
+pub fn discover_with(view: &GitView) -> Result<Vec<ModuleInfo>> {
+    let files: Vec<String> = view.tracked_files()?;
     let mut modules = Vec::new();
     let mut covered: BTreeMap<String, ()> = BTreeMap::new();
 
-    if let Some(meta) = cargo_metadata(repo.workdir()) {
+    if let Some(meta) = cargo_metadata(view.workdir(), &view.wiki_dir()) {
         for pkg in meta
             .get("packages")
             .and_then(|p| p.as_array())
@@ -52,7 +58,7 @@ pub fn discover(repo: &GitRepo) -> Result<Vec<ModuleInfo>> {
                     .unwrap_or(pkg_name);
                 let src_dir = match Path::new(src)
                     .parent()
-                    .and_then(|p| p.strip_prefix(repo.workdir()).ok())
+                    .and_then(|p| p.strip_prefix(view.workdir()).ok())
                 {
                     Some(rel) => format!("{}{}", rel.display(), std::path::MAIN_SEPARATOR)
                         .trim_end()
@@ -106,8 +112,56 @@ pub fn discover(repo: &GitRepo) -> Result<Vec<ModuleInfo>> {
     Ok(modules)
 }
 
-fn cargo_metadata(workdir: &Path) -> Option<serde_json::Value> {
-    let out = Command::new("cargo")
+const CACHE_VERSION: u32 = 1;
+
+#[derive(Serialize, Deserialize)]
+struct CargoMetaCache {
+    key: String,
+    metadata: serde_json::Value,
+}
+
+#[derive(Clone)]
+struct ManifestStat {
+    rel: String,
+    len: u64,
+    mtime_ns: u128,
+}
+
+/// `cargo metadata` is a subprocess and a fixed cost on every plan/auto.
+/// Cache it under `.wiki/.cache` keyed by the on-disk manifest set (paths,
+/// lengths, mtimes) and the CARGO binary. Any edited/new/deleted manifest
+/// changes the key; unrelated source commits do not. A failed cargo run is
+/// never cached.
+fn cargo_metadata(workdir: &Path, wiki_dir: &Path) -> Option<serde_json::Value> {
+    let manifests = collect_manifests(workdir);
+    let has_root_manifest = manifests
+        .as_ref()
+        .map(|m| m.iter().any(|entry| entry.rel == "Cargo.toml"))
+        .unwrap_or_else(|| workdir.join("Cargo.toml").is_file());
+    if !has_root_manifest {
+        return None; // cargo metadata from this workdir would not resolve a workspace
+    }
+    let cargo = std::env::var("CARGO").unwrap_or_else(|_| "cargo".into());
+    let key = manifests.as_ref().map(|manifests| {
+        let mut key_material = format!("v{CACHE_VERSION}\0{cargo}\0");
+        for m in manifests {
+            key_material.push_str(&format!("{}\0{}\0{}\0", m.rel, m.len, m.mtime_ns));
+        }
+        crate::sha1_hex(key_material.as_bytes())
+    });
+
+    // `.wiki` may not exist yet (plain `loredex modules` before init); only
+    // then do we create cache files, never a whole wiki layout as a side effect.
+    let cache_path = wiki_dir.join(".cache").join("cargo-metadata.json");
+    if wiki_dir.is_dir() {
+        if let Some(key) = key.as_deref() {
+            if let Some(meta) = read_cache(&cache_path, key) {
+                return Some(meta);
+            }
+        }
+    }
+
+    let out = Command::new(&cargo)
         .args(["metadata", "--no-deps", "--format-version", "1"])
         .current_dir(workdir)
         .output()
@@ -115,5 +169,99 @@ fn cargo_metadata(workdir: &Path) -> Option<serde_json::Value> {
     if !out.status.success() {
         return None;
     }
-    serde_json::from_slice(&out.stdout).ok()
+    let metadata: serde_json::Value = serde_json::from_slice(&out.stdout).ok()?;
+    if wiki_dir.is_dir() {
+        if let Some(key) = key.as_deref() {
+            write_cache(&cache_path, key, &metadata);
+        }
+    }
+    Some(metadata)
+}
+
+fn collect_manifests(workdir: &Path) -> Option<Vec<ManifestStat>> {
+    let mut out = Vec::new();
+    let mut stack = vec![workdir.to_path_buf()];
+    while let Some(dir) = stack.pop() {
+        let entries = std::fs::read_dir(&dir).ok()?;
+        for entry in entries.flatten() {
+            let file_type = entry.file_type().ok()?;
+            let name = entry.file_name();
+            if file_type.is_dir() {
+                // Skip VCS/dependency trees; their manifests do not define
+                // workspace members and can be enormous.
+                if name != ".git" && name != "target" && name != "node_modules" {
+                    stack.push(entry.path());
+                }
+            } else if name == "Cargo.toml" || name == "Cargo.lock" {
+                let meta = entry.metadata().ok()?;
+                let rel = entry
+                    .path()
+                    .strip_prefix(workdir)
+                    .ok()?
+                    .to_string_lossy()
+                    .replace('\\', "/");
+                let mtime_ns = meta
+                    .modified()
+                    .ok()?
+                    .duration_since(UNIX_EPOCH)
+                    .ok()?
+                    .as_nanos();
+                out.push(ManifestStat {
+                    rel,
+                    len: meta.len(),
+                    mtime_ns,
+                });
+            }
+        }
+    }
+    out.sort_by(|a, b| a.rel.cmp(&b.rel));
+    Some(out)
+}
+
+fn read_cache(path: &Path, key: &str) -> Option<serde_json::Value> {
+    let text = std::fs::read_to_string(path).ok()?;
+    let cache: CargoMetaCache = serde_json::from_str(&text).ok()?;
+    (cache.key == key).then_some(cache.metadata)
+}
+
+fn write_cache(path: &Path, key: &str, metadata: &serde_json::Value) {
+    let Some(parent) = path.parent() else {
+        return;
+    };
+    if std::fs::create_dir_all(parent).is_err() {
+        return;
+    }
+    let cache = CargoMetaCache {
+        key: key.to_string(),
+        metadata: metadata.clone(),
+    };
+    let Ok(text) = serde_json::to_vec(&cache) else {
+        return;
+    };
+    let tmp = PathBuf::from(format!("{}.{}.tmp", path.display(), std::process::id()));
+    if std::fs::write(&tmp, text).is_ok() {
+        let _ = std::fs::rename(&tmp, path);
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::collect_manifests;
+
+    #[test]
+    fn manifest_walk_skips_vcs_and_target_dirs() {
+        let tmp = tempfile::TempDir::new().unwrap();
+        let root = tmp.path();
+        std::fs::create_dir_all(root.join("target/debug")).unwrap();
+        std::fs::create_dir_all(root.join(".git")).unwrap();
+        std::fs::create_dir_all(root.join("member")).unwrap();
+        std::fs::write(root.join("Cargo.toml"), "[workspace]\n").unwrap();
+        std::fs::write(root.join("member/Cargo.toml"), "[package]\n").unwrap();
+        std::fs::write(root.join("target/debug/Cargo.toml"), "ignored\n").unwrap();
+        std::fs::write(root.join(".git/Cargo.toml"), "ignored\n").unwrap();
+
+        let manifests = collect_manifests(root).unwrap();
+        let paths: Vec<&str> = manifests.iter().map(|m| m.rel.as_str()).collect();
+        assert_eq!(paths, vec!["Cargo.toml", "member/Cargo.toml"]);
+    }
 }

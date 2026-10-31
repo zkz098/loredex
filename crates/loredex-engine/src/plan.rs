@@ -11,11 +11,11 @@ use std::collections::BTreeSet;
 use std::path::Path;
 
 use loredex_core::WikiError;
-use loredex_git::GitRepo;
+use loredex_git::{GitRepo, GitView};
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    check_page, discover_modules, index::is_generated, load_pages, now_iso, playbook, Result,
+    check_page_with, discover_with, index::is_generated, load_pages, now_iso, playbook, Result,
 };
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -88,10 +88,15 @@ fn save_ledger(wiki_dir: &Path, ledger: &RunLedger) -> Result<()> {
 /// Which pages/modules need work right now: stale pages (Refresh) and
 /// modules with files nobody cites (New). Excludes the generated index page.
 pub fn compute_tasks(repo: &GitRepo, wiki_dir: &Path) -> Result<Vec<PlanTask>> {
+    compute_tasks_with(&repo.view(), wiki_dir)
+}
+
+pub fn compute_tasks_with(view: &GitView, wiki_dir: &Path) -> Result<Vec<PlanTask>> {
     let mut tasks = Vec::new();
     let reg = playbook::registry(wiki_dir);
     let locale = crate::config::locale(wiki_dir);
     let pages = load_pages(wiki_dir)?;
+    crate::prime_view(view, &pages)?;
     let mut cited: BTreeSet<String> = BTreeSet::new();
 
     let instr = |t: &str, subject: &str| {
@@ -112,7 +117,7 @@ pub fn compute_tasks(repo: &GitRepo, wiki_dir: &Path) -> Result<Vec<PlanTask>> {
         for e in &p.meta.evidence {
             cited.insert(e.path.clone());
         }
-        let report = check_page(p, repo)?;
+        let report = check_page_with(p, view)?;
         if !report.is_stale && p.meta.status != loredex_core::Status::Verified {
             // draft/stale-flagged pages are authoring work even when git-clean
             tasks.push(PlanTask {
@@ -148,7 +153,7 @@ pub fn compute_tasks(repo: &GitRepo, wiki_dir: &Path) -> Result<Vec<PlanTask>> {
         }
     }
 
-    for m in discover_modules(repo)? {
+    for m in discover_with(view)? {
         if m.name.starts_with(".wiki") || (m.name != "." && m.name.starts_with('.')) {
             continue; // dot-directories are tooling config, not doc subjects
         }
@@ -229,8 +234,12 @@ pub fn plan(repo: &GitRepo, wiki_dir: &Path) -> Result<RunRecord> {
 /// - Refresh tasks are never suppressed: they are git-truth, not judgement
 /// - `reset` re-exposes previously resolved New tasks
 pub fn plan_with(repo: &GitRepo, wiki_dir: &Path, reset: bool) -> Result<RunRecord> {
+    plan_with_view(&repo.view(), wiki_dir, reset)
+}
+
+pub fn plan_with_view(view: &GitView, wiki_dir: &Path, reset: bool) -> Result<RunRecord> {
     let mut ledger = load_ledger(wiki_dir);
-    let fresh = compute_tasks(repo, wiki_dir)?;
+    let fresh = compute_tasks_with(view, wiki_dir)?;
 
     let prev = ledger.runs.last();
     // resolutions are remembered across the whole ledger, not just the last run
@@ -266,7 +275,7 @@ pub fn plan_with(repo: &GitRepo, wiki_dir: &Path, reset: bool) -> Result<RunReco
         }
     }
 
-    let head = repo.head_commit()?;
+    let head = view.head_commit()?.to_string();
     let (base_commit, next_id) = match ledger.runs.last() {
         Some(last) => (last.target_commit.clone(), ledger.runs.len() + 1),
         None => (head.clone(), 1),

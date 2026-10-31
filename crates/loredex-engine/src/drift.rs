@@ -1,10 +1,11 @@
 use std::collections::BTreeMap;
+use std::rc::Rc;
 
 use loredex_core::{Evidence, WikiPage};
-use loredex_git::GitRepo;
+use loredex_git::{GitRepo, GitView};
 use similar::{ChangeTag, TextDiff};
 
-use crate::{now_iso, record_evidence, sha1_hex, Result, WikiError};
+use crate::{now_iso, record_evidence_with, sha1_hex, Result, WikiError};
 
 /// Outcome of trying to keep an evidence citation alive across edits.
 #[derive(Debug, Clone, PartialEq)]
@@ -84,11 +85,11 @@ pub fn project_range(old_content: &str, new_content: &str, lo: u32, hi: u32) -> 
 /// Tier 1: content-addressed exact match (plain `git mv`).
 /// Tier 2: git similarity rename + line projection (mv + edit).
 fn recover_renamed(
-    repo: &GitRepo,
+    view: &GitView,
     ev: &Evidence,
     renames: &BTreeMap<String, String>,
 ) -> Result<(DriftOutcome, Option<Evidence>)> {
-    if let Some(found) = repo.path_of_blob_in_head(&ev.blob)? {
+    if let Some(found) = view.path_of_blob_in_head(&ev.blob)? {
         let mut adopted = ev.clone();
         adopted.path = found.clone();
         adopted.note = Some(format!(
@@ -104,16 +105,16 @@ fn recover_renamed(
         ));
     }
     if let Some(new_path) = renames.get(&ev.path) {
-        let old_content = repo.blob_content(&ev.blob)?;
-        let new_content = repo.head_file_content(new_path)?;
+        let old_content = view.blob_content(&ev.blob)?;
+        let new_content = view.head_file_content(new_path)?;
         if let (Some(o), Some(n)) = (old_content, new_content) {
             if let Some([lo, hi]) = ev.lines {
                 let (range, score) = project_range(&o, &n, lo, hi);
                 if score >= DRIFT_THRESHOLD {
-                    let blob = repo
+                    let blob = view
                         .head_blob_oid(new_path)?
                         .ok_or_else(|| WikiError::Git(format!("{new_path} vanished")))?;
-                    let snippet = head_lines_string(repo, new_path, range[0], range[1])?;
+                    let snippet = head_lines_string(view, new_path, range[0], range[1])?;
                     let adopted = Evidence {
                         path: new_path.clone(),
                         lines: Some(range),
@@ -135,7 +136,7 @@ fn recover_renamed(
             }
             // moved but the snippet itself is gone: re-pin at the new location so
             // the page stays editable; caller still sees Lost -> draft rewrite
-            let repinned = record_evidence(repo, new_path, ev.lines)?;
+            let repinned = record_evidence_with(view, new_path, ev.lines)?;
             return Ok((DriftOutcome::Lost, Some(repinned)));
         }
     }
@@ -169,10 +170,18 @@ pub fn project_evidence(
     ev: &Evidence,
     renames: &BTreeMap<String, String>,
 ) -> Result<(DriftOutcome, Option<Evidence>)> {
-    let current = repo.head_blob_oid(&ev.path)?;
+    project_evidence_with(&repo.view(), ev, renames)
+}
+
+pub fn project_evidence_with(
+    view: &GitView,
+    ev: &Evidence,
+    renames: &BTreeMap<String, String>,
+) -> Result<(DriftOutcome, Option<Evidence>)> {
+    let current = view.head_blob_oid(&ev.path)?;
     let current = match current {
         Some(oid) => oid,
-        None => return recover_renamed(repo, ev, renames),
+        None => return recover_renamed(view, ev, renames),
     };
     if current == ev.blob {
         return Ok((DriftOutcome::Unchanged, None));
@@ -190,11 +199,11 @@ pub fn project_evidence(
             ));
         }
     };
-    let old_content = match repo.blob_content(&ev.blob)? {
+    let old_content = match view.blob_content(&ev.blob)? {
         Some(c) => c,
         None => return Ok((DriftOutcome::NoOldBlob, None)),
     };
-    let new_content = match repo.head_file_content(&ev.path)? {
+    let new_content = match view.head_file_content(&ev.path)? {
         Some(c) => c,
         None => return Ok((DriftOutcome::Lost, None)),
     };
@@ -202,7 +211,7 @@ pub fn project_evidence(
     if score < DRIFT_THRESHOLD {
         return Ok((DriftOutcome::Lost, None));
     }
-    let snippet = head_lines_string(repo, &ev.path, new_range[0], new_range[1])?;
+    let snippet = head_lines_string(view, &ev.path, new_range[0], new_range[1])?;
     let adopted = Evidence {
         path: ev.path.clone(),
         lines: Some(new_range),
@@ -224,8 +233,8 @@ pub fn project_evidence(
     ))
 }
 
-pub fn head_lines_string(repo: &GitRepo, path: &str, lo: u32, hi: u32) -> Result<String> {
-    Ok(repo.head_lines(path, lo, hi)?.unwrap_or_default())
+fn head_lines_string(view: &GitView, path: &str, lo: u32, hi: u32) -> Result<String> {
+    Ok(view.head_lines(path, lo, hi)?.unwrap_or_default())
 }
 
 /// Refresh one page's evidence with drift projection, falling back to a
@@ -235,15 +244,23 @@ pub fn refresh_page_with_drift(
     repo: &GitRepo,
     wiki_dir: &std::path::Path,
 ) -> Result<Vec<(String, DriftOutcome)>> {
+    refresh_page_with_drift_view(page, &repo.view(), wiki_dir)
+}
+
+pub fn refresh_page_with_drift_view(
+    page: &mut WikiPage,
+    view: &GitView,
+    wiki_dir: &std::path::Path,
+) -> Result<Vec<(String, DriftOutcome)>> {
     let mut outcomes = Vec::new();
     let mut evidence = Vec::new();
-    let renames: BTreeMap<String, String> = if repo.commit_exists(&page.meta.commit) {
-        repo.renames_since(&page.meta.commit).into_iter().collect()
+    let renames: Rc<BTreeMap<String, String>> = if view.commit_exists(&page.meta.commit) {
+        view.rename_map(&page.meta.commit)
     } else {
-        BTreeMap::new()
+        Rc::new(BTreeMap::new())
     };
     for ev in &page.meta.evidence {
-        let (outcome, adopted) = project_evidence(repo, ev, &renames)?;
+        let (outcome, adopted) = project_evidence_with(view, ev, &renames)?;
         outcomes.push((ev.path.clone(), outcome.clone()));
         match adopted {
             Some(new_ev) => evidence.push(new_ev),
@@ -251,11 +268,11 @@ pub fn refresh_page_with_drift(
                 DriftOutcome::Unchanged => evidence.push(ev.clone()),
                 DriftOutcome::Projected { lines, .. } if lines == &[0, 0] => {
                     // whole-file evidence re-pinned
-                    evidence.push(record_evidence(repo, &ev.path, None)?);
+                    evidence.push(record_evidence_with(view, &ev.path, None)?);
                 }
                 _ => {
                     // Lost / NoOldBlob: re-pin at recorded range only if the file exists
-                    evidence.push(record_evidence(repo, &ev.path, ev.lines)?);
+                    evidence.push(record_evidence_with(view, &ev.path, ev.lines)?);
                 }
             },
         }
@@ -265,7 +282,7 @@ pub fn refresh_page_with_drift(
         .any(|(_, o)| matches!(o, DriftOutcome::Lost | DriftOutcome::NoOldBlob));
 
     page.meta.evidence = evidence;
-    page.meta.commit = repo.head_commit()?;
+    page.meta.commit = view.head_commit()?.to_string();
     page.meta.generated_at = now_iso();
     page.meta.status = if any_lost {
         loredex_core::Status::Draft

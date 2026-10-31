@@ -1,9 +1,9 @@
 use loredex_core::{
     dedup_citations, parse_citations, Evidence, PageMeta, Status, WikiError, WikiPage,
 };
-use loredex_git::GitRepo;
+use loredex_git::{GitRepo, GitView};
 
-use crate::{now_iso, record_evidence, Result};
+use crate::{now_iso, record_evidence_with, Result};
 
 #[derive(Debug)]
 pub struct PutOutcome {
@@ -19,6 +19,18 @@ pub struct PutOutcome {
 /// pointer at HEAD.
 pub fn put_page(
     repo: &GitRepo,
+    wiki_dir: &std::path::Path,
+    id: &str,
+    title: &str,
+    body: &str,
+    tags: Vec<String>,
+    page_type: Option<String>,
+) -> Result<PutOutcome> {
+    put_page_with(&repo.view(), wiki_dir, id, title, body, tags, page_type)
+}
+
+pub fn put_page_with(
+    view: &GitView,
     wiki_dir: &std::path::Path,
     id: &str,
     title: &str,
@@ -44,7 +56,7 @@ pub fn put_page(
 
     let mut evidence: Vec<Evidence> = Vec::new();
     for c in &cites {
-        let ev = record_evidence(repo, &c.path, c.lines).map_err(|e| {
+        let ev = record_evidence_with(view, &c.path, c.lines).map_err(|e| {
             WikiError::Git(format!(
                 "citation [{}] cannot be pinned to HEAD: {e}",
                 c.path
@@ -62,12 +74,12 @@ pub fn put_page(
             title: title.to_string(),
             status: Status::Verified,
             generated_at: now_iso(),
-            commit: repo.head_commit()?,
+            commit: view.head_commit()?.to_string(),
             evidence,
             tags,
             page_type,
         },
-        body: body.to_string(),
+        body: body.into(),
         source_path: Some(path.clone()),
     };
     page.save(&path)?;

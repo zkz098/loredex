@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::collections::{BTreeMap, HashMap};
 
 /// Token count above which a token is treated as a word rather than a CJK char run.
 fn is_cjk(c: char) -> bool {
@@ -78,11 +78,14 @@ fn split_word(w: &str) -> Vec<&str> {
 pub struct IndexedPage {
     pub id: String,
     pub title: String,
-    pub body: String,
+    /// Shared with the caller's page cache; cloning this is cheap.
+    pub body: std::sync::Arc<str>,
 }
 
 #[derive(Debug, Clone)]
 pub struct SearchHit {
+    /// Index into the page list handed to `InvertedIndex::build`.
+    pub page_idx: usize,
     pub id: String,
     pub title: String,
     pub score: usize,
@@ -92,13 +95,13 @@ pub struct SearchHit {
 /// In-memory inverted index; rebuilt from page files in milliseconds,
 /// so there is no persistent cache that can drift from the Markdown source.
 pub struct InvertedIndex {
-    postings: HashMap<String, Vec<(usize, usize)>>, // token -> (page_idx, tf)
+    postings: BTreeMap<String, Vec<(usize, usize)>>, // token -> (page_idx, tf)
     pages: Vec<IndexedPage>,
 }
 
 impl InvertedIndex {
     pub fn build(pages: Vec<IndexedPage>) -> Self {
-        let mut postings: HashMap<String, Vec<(usize, usize)>> = HashMap::new();
+        let mut postings: BTreeMap<String, Vec<(usize, usize)>> = BTreeMap::new();
         for (pi, page) in pages.iter().enumerate() {
             let mut text = page.title.clone();
             text.push(' ');
@@ -136,10 +139,12 @@ impl InvertedIndex {
                 candidates.extend(list.iter());
             }
             if t.chars().next().map(|c| !is_cjk(c)).unwrap_or(false) {
-                for (key, list) in &self.postings {
-                    if key.starts_with(t.as_str()) {
-                        candidates.extend(list.iter());
+                // Sorted postings: every key with prefix `t` is contiguous.
+                for (key, list) in self.postings.range(t.clone()..) {
+                    if !key.starts_with(t.as_str()) {
+                        break;
                     }
+                    candidates.extend(list.iter());
                 }
             }
             for (pi, tf) in candidates {
@@ -177,6 +182,7 @@ impl InvertedIndex {
                     .take(4)
                     .collect();
                 SearchHit {
+                    page_idx: pi,
                     id: page.id.clone(),
                     title: page.title.clone(),
                     score,

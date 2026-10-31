@@ -280,6 +280,88 @@ async fn tools_run_end_to_end_after_attach() {
 }
 
 #[tokio::test]
+async fn search_cache_invalidates_on_write_and_external_edit() {
+    let _g = ENV_LOCK.lock().await;
+    let fx = Fixture::new();
+    std::env::remove_var("LOREDEX_REPO");
+    let (client, _s) = pair(WikiServer::new_open(), TestClient::no_roots()).await;
+    call(
+        &client,
+        "wiki_attach_repo",
+        serde_json::json!({ "path": fx.path().to_string_lossy() }),
+    )
+    .await;
+
+    call(
+        &client,
+        "wiki_put_page",
+        serde_json::json!({
+            "id": "a", "title": "A",
+            "body": "alpha needle [[cite:lib.rs:L1-L1]]"
+        }),
+    )
+    .await;
+    let hits = structured(
+        &call(
+            &client,
+            "wiki_search",
+            serde_json::json!({"query": "alpha"}),
+        )
+        .await,
+    );
+    assert_eq!(hits["hits"].as_array().unwrap().len(), 1);
+
+    // a second put must invalidate the cached index immediately
+    call(
+        &client,
+        "wiki_put_page",
+        serde_json::json!({
+            "id": "b", "title": "B",
+            "body": "alpha second [[cite:lib.rs:L1-L1]]"
+        }),
+    )
+    .await;
+    let hits = structured(
+        &call(
+            &client,
+            "wiki_search",
+            serde_json::json!({"query": "alpha"}),
+        )
+        .await,
+    );
+    assert_eq!(hits["hits"].as_array().unwrap().len(), 2);
+
+    // an external edit (same byte length) must invalidate via the mtime key
+    tokio::time::sleep(std::time::Duration::from_millis(20)).await;
+    let page = fx.path().join(".wiki/pages/a.md");
+    let text = std::fs::read_to_string(&page)
+        .unwrap()
+        .replace("alpha", "omega");
+    std::fs::write(&page, text).unwrap();
+
+    let omega = structured(
+        &call(
+            &client,
+            "wiki_search",
+            serde_json::json!({"query": "omega"}),
+        )
+        .await,
+    );
+    assert_eq!(omega["hits"].as_array().unwrap().len(), 1);
+    assert_eq!(omega["hits"][0]["id"], serde_json::json!("a"));
+    let alpha = structured(
+        &call(
+            &client,
+            "wiki_search",
+            serde_json::json!({"query": "alpha"}),
+        )
+        .await,
+    );
+    assert_eq!(alpha["hits"].as_array().unwrap().len(), 1);
+    assert_eq!(alpha["hits"][0]["id"], serde_json::json!("b"));
+}
+
+#[tokio::test]
 async fn full_lifecycle_over_protocol_stale_refresh_evidence_search() {
     let _g = ENV_LOCK.lock().await;
     let fx = Fixture::new();

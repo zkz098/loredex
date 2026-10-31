@@ -6,9 +6,9 @@ use std::collections::BTreeMap;
 use std::path::Path;
 
 use loredex_core::{parse_wiki_links, Status, WikiPage};
-use loredex_git::GitRepo;
+use loredex_git::{GitRepo, GitView};
 
-use crate::{check_page, load_pages, now_iso, pages_dir, Result};
+use crate::{check_page_with, load_pages, now_iso, pages_dir, Result};
 
 pub const INDEX_ID: &str = "index";
 pub const QUICKSTART_ID: &str = "quickstart";
@@ -102,13 +102,20 @@ fn fill(template: &str, key: &str, value: impl std::fmt::Display) -> String {
 /// Build index.md content grouped by top-level directory (or "top level"),
 /// each line linking the page with live git freshness, never a plain text dump.
 pub fn generate_index(repo: &GitRepo, wiki_dir: &Path) -> Result<Vec<WikiPage>> {
+    generate_index_with(&repo.view(), wiki_dir)
+}
+
+pub fn generate_index_with(view: &GitView, wiki_dir: &Path) -> Result<Vec<WikiPage>> {
     let sk = skeleton(wiki_dir);
     let pages = load_pages(wiki_dir)?;
+    crate::prime_view(view, &pages)?;
     let mut groups: BTreeMap<String, Vec<String>> = BTreeMap::new();
     let mut stale_count = 0usize;
     let mut typed: Vec<(String, String, String)> = Vec::new(); // (type, id, title)
     for p in pages.iter().filter(|p| !is_generated(&p.meta.id)) {
-        let live_stale = check_page(p, repo).map(|r| r.is_stale).unwrap_or(false);
+        let live_stale = check_page_with(p, view)
+            .map(|r| r.is_stale)
+            .unwrap_or(false);
         if live_stale {
             stale_count += 1;
         }
@@ -155,25 +162,26 @@ pub fn generate_index(repo: &GitRepo, wiki_dir: &Path) -> Result<Vec<WikiPage>> 
         .replace("{stale}", &stale_count.to_string())
         .replace("{ts}", &now_iso());
     body.push_str(&format!("{footer}\n"));
+    let head = view.head_commit().unwrap_or_default().to_string();
     let mk = |id: &str, title: &str, pt: &str, body: String| WikiPage {
         meta: loredex_core::PageMeta {
             id: id.into(),
             title: title.into(),
             status: Status::Verified,
             generated_at: now_iso(),
-            commit: repo.head_commit().unwrap_or_default(),
+            commit: head.clone(),
             evidence: vec![],
             tags: vec!["generated".into()],
             page_type: Some(pt.into()),
         },
-        body,
+        body: body.into(),
         source_path: Some(pages_dir(wiki_dir).join(format!("{id}.md"))),
     };
     let index = mk(INDEX_ID, sk.index_title, "index", body);
     index.save_in_place()?;
 
     // quickstart: a guided reading path (openwiki's entry page analog)
-    let repo_name = repo
+    let repo_name = view
         .workdir()
         .file_name()
         .map(|n| n.to_string_lossy().to_string())

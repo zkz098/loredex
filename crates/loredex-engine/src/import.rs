@@ -14,7 +14,7 @@ use std::path::{Path, PathBuf};
 use loredex_core::{dedup_citations, parse_citations, PageMeta, Status, WikiError, WikiPage};
 use loredex_git::GitRepo;
 
-use crate::{now_iso, pages_dir, playbook_registry, record_evidence, Result};
+use crate::{now_iso, pages_dir, playbook_registry, record_evidence_with, Result};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ImportFormat {
@@ -90,6 +90,8 @@ pub fn import_openwiki(
         )));
     }
     let mut report = ImportReport::default();
+    let view = repo.view();
+    let head_commit = view.head_commit().unwrap_or_default().to_string();
 
     // 1. enumerate bundle files and assign ids
     let mut files: Vec<BundleFile> = Vec::new();
@@ -196,7 +198,7 @@ pub fn import_openwiki(
         if !cites.is_empty() {
             let mut all_ok = true;
             for c in &cites {
-                match record_evidence(repo, &c.path, c.lines) {
+                match record_evidence_with(&view, &c.path, c.lines) {
                     Ok(ev) => evidence.push(ev),
                     Err(_) => {
                         all_ok = false;
@@ -238,12 +240,12 @@ pub fn import_openwiki(
                 title,
                 status,
                 generated_at: now_iso(),
-                commit: repo.head_commit().unwrap_or_default(),
+                commit: head_commit.clone(),
                 evidence,
                 tags,
                 page_type,
             },
-            body,
+            body: body.into(),
             source_path: Some(target),
         };
         page.save_in_place()?;
@@ -337,9 +339,11 @@ fn title_from_body_or_stem(body: &str, rel: &str) -> String {
 /// Convert relative markdown links `](foo.md)` that resolve to an imported
 /// bundle file into loredex cross-page links `[[wiki:id]]`.
 fn rewrite_md_links(body: &str, rel: &str, rel_to_id: &BTreeMap<String, String>) -> String {
-    let Ok(re) = regex::Regex::new(r"\[([^\]]*)\]\(([^)\s]+\.md)(?:#[^)]*)?\)") else {
-        return body.to_string();
-    };
+    static MD_LINK_RE: std::sync::LazyLock<regex::Regex> = std::sync::LazyLock::new(|| {
+        regex::Regex::new(r"\[([^\]]*)\]\(([^)\s]+\.md)(?:#[^)]*)?\)")
+            .expect("static markdown link regex")
+    });
+    let re = &*MD_LINK_RE;
     let dir = rel
         .rsplit_once('/')
         .map(|(d, _)| d.to_string())

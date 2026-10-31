@@ -7,11 +7,11 @@
 use std::collections::BTreeSet;
 use std::path::Path;
 
-use loredex_core::{dedup_citations, parse_citations, Status};
-use loredex_git::GitRepo;
+use loredex_core::{dedup_citations, parse_citations, parse_wiki_links, Status};
+use loredex_git::{GitRepo, GitView};
 use serde::Serialize;
 
-use crate::{check_page, load_pages, Result};
+use crate::{check_page_with, load_pages, Result};
 
 #[derive(Debug, Clone, Serialize)]
 pub struct LintIssue {
@@ -21,21 +21,27 @@ pub struct LintIssue {
 }
 
 pub fn lint(repo: &GitRepo, wiki_dir: &Path) -> Result<Vec<LintIssue>> {
+    lint_with(&repo.view(), wiki_dir)
+}
+
+pub fn lint_with(view: &GitView, wiki_dir: &Path) -> Result<Vec<LintIssue>> {
     let pages = load_pages(wiki_dir)?;
+    crate::prime_view(view, &pages)?;
     let ids: BTreeSet<String> = pages.iter().map(|p| p.meta.id.clone()).collect();
+    // Config-derived data is constant for the whole run; read it once instead
+    // of re-parsing wiki.toml for every page.
+    let playbooks = crate::playbook::registry(wiki_dir);
     let mut issues = Vec::new();
 
     for p in &pages {
-        // 1. broken cross-page links
-        for line in p.body.lines() {
-            for target in loredex_core::parse_wiki_links(line) {
-                if !ids.contains(&target) {
-                    issues.push(LintIssue {
-                        page: p.meta.id.clone(),
-                        kind: "broken-link".into(),
-                        detail: format!("[[wiki:{target}]] has no such page"),
-                    });
-                }
+        // 1. broken cross-page links (one pass over the body)
+        for target in parse_wiki_links(&p.body) {
+            if !ids.contains(&target) {
+                issues.push(LintIssue {
+                    page: p.meta.id.clone(),
+                    kind: "broken-link".into(),
+                    detail: format!("[[wiki:{target}]] has no such page"),
+                });
             }
         }
 
@@ -44,13 +50,13 @@ pub fn lint(repo: &GitRepo, wiki_dir: &Path) -> Result<Vec<LintIssue>> {
         }
         // 0. declared type must exist in the playbook registry
         if let Some(t) = &p.meta.page_type {
-            if !crate::playbook::registry(wiki_dir).contains_key(t) {
+            if !playbooks.contains_key(t) {
                 issues.push(LintIssue {
                     page: p.meta.id.clone(),
                     kind: "unknown-type".into(),
                     detail: format!(
                         "type `{t}` has no playbook; known: {:?} (extend via .wiki/wiki.toml [page_types.{t}])",
-                        crate::playbook::registry(wiki_dir).keys().collect::<Vec<_>>()
+                        playbooks.keys().collect::<Vec<_>>()
                     ),
                 });
             }
@@ -58,7 +64,7 @@ pub fn lint(repo: &GitRepo, wiki_dir: &Path) -> Result<Vec<LintIssue>> {
 
         // 2. status field contradicts live git state
         if p.meta.status != Status::Stale && p.meta.status != Status::Draft {
-            if let Ok(r) = check_page(p, repo) {
+            if let Ok(r) = check_page_with(p, view) {
                 if r.is_stale && p.meta.status == Status::Verified {
                     let why = r
                         .evidence_reports

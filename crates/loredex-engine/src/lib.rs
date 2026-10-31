@@ -1,7 +1,9 @@
+use std::collections::{BTreeMap, BTreeSet};
 use std::path::{Path, PathBuf};
+use std::rc::Rc;
 
 use loredex_core::{list_page_files, Evidence, Status, WikiError, WikiPage};
-use loredex_git::GitRepo;
+use loredex_git::{GitRepo, GitView};
 use sha1::{Digest, Sha1};
 
 pub mod agents_md;
@@ -19,19 +21,24 @@ pub mod put;
 pub use agents_md::{
     agents_block_check, agents_block_remove, agents_block_upsert, AgentsMdStatus, UpsertAction,
 };
-pub use auto::{auto_refresh, AutoReport};
+pub use auto::{auto_refresh, auto_refresh_with, AutoReport};
 pub use config::{locale as wiki_locale, set_language, Locale};
-pub use drift::{project_evidence, project_range, refresh_page_with_drift, DriftOutcome};
+pub use drift::{
+    project_evidence, project_evidence_with, project_range, refresh_page_with_drift,
+    refresh_page_with_drift_view, DriftOutcome,
+};
 pub use import::{import_dir, import_openwiki, ImportFormat, ImportReport};
-pub use index::{all_wiki_links, generate_index, is_generated, INDEX_ID, QUICKSTART_ID};
-pub use lint::{lint, LintIssue};
-pub use modules::{discover as discover_modules, ModuleInfo};
+pub use index::{
+    all_wiki_links, generate_index, generate_index_with, is_generated, INDEX_ID, QUICKSTART_ID,
+};
+pub use lint::{lint, lint_with, LintIssue};
+pub use modules::{discover as discover_modules, discover_with, ModuleInfo};
 pub use plan::{
-    close_run, compute_tasks, load_ledger, mark_task, plan as open_plan, plan_with, PlanTask,
-    RunLedger, RunRecord, TaskKind, TaskStatus,
+    close_run, compute_tasks, compute_tasks_with, load_ledger, mark_task, plan as open_plan,
+    plan_with, plan_with_view, PlanTask, RunLedger, RunRecord, TaskKind, TaskStatus,
 };
 pub use playbook::{registry as playbook_registry, TypePlaybook};
-pub use put::{put_page, PutOutcome};
+pub use put::{put_page, put_page_with, PutOutcome};
 
 pub type Result<T> = std::result::Result<T, WikiError>;
 
@@ -84,6 +91,28 @@ pub fn load_pages(wiki_dir: &Path) -> Result<Vec<WikiPage>> {
     Ok(pages)
 }
 
+/// Warm a scan view's per-commit changed-path cache with the union of all
+/// evidence paths: one pathspec-limited diff per recorded commit rather than
+/// one per page.
+pub fn prime_view(view: &GitView, pages: &[WikiPage]) -> Result<()> {
+    view.prime_head_index()?;
+    let mut groups: BTreeMap<&str, BTreeSet<&str>> = BTreeMap::new();
+    for page in pages {
+        if page.meta.evidence.is_empty() {
+            continue;
+        }
+        let entry = groups.entry(page.meta.commit.as_str()).or_default();
+        for e in &page.meta.evidence {
+            entry.insert(e.path.as_str());
+        }
+    }
+    view.prime_changed_paths(
+        groups
+            .into_iter()
+            .map(|(commit, paths)| (commit, paths.into_iter().collect())),
+    )
+}
+
 pub fn find_page(wiki_dir: &Path, id: &str) -> Result<WikiPage> {
     loredex_core::validate_page_id(id).map_err(WikiError::Git)?;
     let path = pages_dir(wiki_dir).join(format!("{id}.md"));
@@ -96,11 +125,20 @@ pub fn find_page(wiki_dir: &Path, id: &str) -> Result<WikiPage> {
 
 /// Record evidence pointers against the content at HEAD.
 pub fn record_evidence(repo: &GitRepo, path: &str, lines: Option<[u32; 2]>) -> Result<Evidence> {
-    let blob = repo
+    record_evidence_with(&repo.view(), path, lines)
+}
+
+/// View-based evidence pinning: batch callers share one HEAD tree/content cache.
+pub fn record_evidence_with(
+    view: &GitView,
+    path: &str,
+    lines: Option<[u32; 2]>,
+) -> Result<Evidence> {
+    let blob = view
         .head_blob_oid(path)?
         .ok_or_else(|| WikiError::Git(format!("{path} is not tracked at HEAD; commit it first")))?;
     let snippet_sha1 = match lines {
-        Some([lo, hi]) => repo
+        Some([lo, hi]) => view
             .head_lines(path, lo, hi)?
             .map(|s| sha1_hex(s.as_bytes())),
         None => None,
@@ -135,10 +173,23 @@ pub struct PageReport {
 /// when they differ, confirms via diff whether the evidence paths changed
 /// in commits between generation and HEAD.
 pub fn check_page(page: &WikiPage, repo: &GitRepo) -> Result<PageReport> {
+    check_page_with(page, &repo.view())
+}
+
+/// Git-based freshness check over a shared scan view.
+///
+/// Fast path: when the page was recorded at HEAD there is nothing to diff,
+/// so only the per-evidence blob lookup runs (cached in the view).
+pub fn check_page_with(page: &WikiPage, view: &GitView) -> Result<PageReport> {
     let mut reports = Vec::new();
     let mut stale = false;
 
-    if !repo.commit_exists(&page.meta.commit) {
+    let head = view.head_commit().ok().map(str::to_string);
+    let base_exists = match head.as_deref() {
+        Some(h) if h == page.meta.commit => true,
+        _ => view.commit_exists(&page.meta.commit),
+    };
+    if !base_exists {
         stale = true;
         reports.push(EvidenceReport {
             path: "<commit>".into(),
@@ -148,27 +199,31 @@ pub fn check_page(page: &WikiPage, repo: &GitRepo) -> Result<PageReport> {
     }
 
     let mut changed_paths: Vec<String> = Vec::new();
-    if !page.meta.evidence.is_empty() && repo.commit_exists(&page.meta.commit) {
-        let refs: Vec<&str> = page.meta.evidence.iter().map(|e| e.path.as_str()).collect();
-        changed_paths = repo.changed_paths_since(&page.meta.commit, &refs)?;
+    if !page.meta.evidence.is_empty() && base_exists {
+        // A page recorded at HEAD cannot have a diff to HEAD; skip the tree
+        // diff entirely (the common case right after put/refresh).
+        if head.as_deref() != Some(page.meta.commit.as_str()) {
+            let refs: Vec<&str> = page.meta.evidence.iter().map(|e| e.path.as_str()).collect();
+            changed_paths = view.changed_paths_since(&page.meta.commit, &refs)?;
+        }
     }
 
-    let mut renames: Option<std::collections::BTreeMap<String, String>> = None;
+    let mut renames: Option<Rc<BTreeMap<String, String>>> = None;
     for e in &page.meta.evidence {
-        let current = repo.head_blob_oid(&e.path)?;
+        let current = view.head_blob_oid(&e.path)?;
         let in_diff = changed_paths.iter().any(|p| p == &e.path);
         match current {
             None => {
                 stale = true;
                 if renames.is_none() {
-                    renames = Some(if repo.commit_exists(&page.meta.commit) {
-                        repo.renames_since(&page.meta.commit).into_iter().collect()
+                    renames = Some(if base_exists {
+                        view.rename_map(&page.meta.commit)
                     } else {
-                        Default::default()
+                        Rc::new(BTreeMap::new())
                     });
                 }
                 let map = renames.as_ref().unwrap();
-                let detail = match (repo.path_of_blob_in_head(&e.blob)?, map.get(&e.path)) {
+                let detail = match (view.path_of_blob_in_head(&e.blob)?, map.get(&e.path)) {
                     (Some(found), _) => {
                         format!("renamed to {found} (identical blob; recoverable via refresh)")
                     }
@@ -218,7 +273,7 @@ pub fn check_page(page: &WikiPage, repo: &GitRepo) -> Result<PageReport> {
         status_before: page.meta.status,
         is_stale: stale,
         stale_since: if stale {
-            Some(repo.head_short()?)
+            Some(view.head_short()?)
         } else {
             None
         },
@@ -240,13 +295,17 @@ pub struct VerifyReport {
 /// Snippet-level verification: recompute sha1 of the recorded line range at
 /// HEAD and compare, so trust does not rest on commit ids alone.
 pub fn verify_page(page: &WikiPage, repo: &GitRepo) -> Result<VerifyReport> {
+    verify_page_with(page, &repo.view())
+}
+
+pub fn verify_page_with(page: &WikiPage, view: &GitView) -> Result<VerifyReport> {
     let mut results = Vec::new();
     let mut all_ok = true;
     for e in &page.meta.evidence {
-        let current_blob = repo.head_blob_oid(&e.path)?;
+        let current_blob = view.head_blob_oid(&e.path)?;
         let detail = match (&e.lines, &e.snippet_sha1, current_blob.as_deref()) {
             (Some([lo, hi]), Some(expected), Some(_)) => {
-                match repo.head_lines(&e.path, *lo, *hi)? {
+                match view.head_lines(&e.path, *lo, *hi)? {
                     None => (false, format!("{} not found at HEAD", e.path)),
                     Some(snippet) => {
                         let actual = sha1_hex(snippet.as_bytes());
@@ -302,12 +361,13 @@ pub fn verify_page(page: &WikiPage, repo: &GitRepo) -> Result<VerifyReport> {
 /// Re-pin the page's evidence to current HEAD content and mark verified
 /// (blind re-pin; prefer `refresh_page_with_drift` for changed files).
 pub fn refresh_page(page: &mut WikiPage, repo: &GitRepo) -> Result<()> {
+    let view = repo.view();
     let mut fresh = Vec::new();
     for e in &page.meta.evidence {
-        fresh.push(record_evidence(repo, &e.path, e.lines)?);
+        fresh.push(record_evidence_with(&view, &e.path, e.lines)?);
     }
     page.meta.evidence = fresh;
-    page.meta.commit = repo.head_commit()?;
+    page.meta.commit = view.head_commit()?.to_string();
     page.meta.generated_at = now_iso();
     page.meta.status = Status::Verified;
     page.save_in_place()

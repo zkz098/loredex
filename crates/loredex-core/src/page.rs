@@ -1,4 +1,5 @@
 use std::path::{Path, PathBuf};
+use std::sync::Arc;
 
 use serde::{Deserialize, Serialize};
 
@@ -58,7 +59,9 @@ pub struct PageMeta {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct WikiPage {
     pub meta: PageMeta,
-    pub body: String,
+    /// Shared so long-lived caches and the search index can reference the same
+    /// body without copying it.
+    pub body: Arc<str>,
     pub source_path: Option<PathBuf>,
 }
 
@@ -88,7 +91,7 @@ impl WikiPage {
         })?;
         Ok(WikiPage {
             meta,
-            body: body_start.to_string(),
+            body: Arc::from(body_start),
             source_path: source.map(|p| p.to_path_buf()),
         })
     }

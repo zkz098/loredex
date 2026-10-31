@@ -143,12 +143,14 @@ Key implementation details:
 - Drift projection maps old lines to new (deleted lines anchor to the nearest surviving line, collapsed ranges keep width); a projected snippet is adopted only at similarity ≥ 0.6 — otherwise it honestly reports Lost rather than mis-adopting look-alikes
 - Citation validation happens at write time: the path must exist at HEAD, malformed ranges are rejected
 - Repository resolution is capability-gated (roots are only requested from clients declaring them) with a 3 s timeout — no client can wedge a session
-- `git2::Repository` is `!Sync`, so the repo instance lives inside the mutex; async resolution only *ensures* the slot and tools borrow it synchronously (single-level lock discipline)
+- Batch commands share one `GitView`: the HEAD path index, per-commit changed/rename sets, blob paths and file contents are computed once per command instead of once per page; pages recorded at HEAD skip the diff entirely. Single-page tools keep direct tree lookups so a large monorepo is not walked for one citation
+- `git2::Repository` is `!Sync`, so the MCP server stores only the resolved workdir; each tool call opens its own Repository on the blocking pool. A read/write gate lets read tools run concurrently while put/refresh/auto/plan/attach serialize
+- The long-lived MCP server caches parsed pages and the search index in memory, keyed by page-file metadata (writes invalidate explicitly; external edits are detected by mtime/length)
 
 ## Known boundaries
 
 - Content quality depends on the authoring agent — the tooling guarantees "cited and uncorrupted citations", not that an explanation is correct
-- check/verify/search load every page; fine at thousands of pages, a persistent index (not built) would be needed at tens of thousands
+- CLI check/verify still load every page per command; the MCP server reuses its in-memory page/index cache, but a persistent on-disk index is not built — tens of thousands of pages would want one
 - Inline body markers are not rewritten by refresh projection (frontmatter is authoritative; `lint` detects the drift)
 - For non-ASCII paths, set `core.quotePath=false`
 
@@ -156,7 +158,7 @@ Key implementation details:
 
 - Incremental page rebuilds per commit range; `post-commit` hook integration
 - Rewriting inline body markers during projection
-- Persistent search index in `.wiki/.cache/` for very large wikis
+- Persistent page/search index in `.wiki/.cache/` for very large wikis (the MCP cache is in-memory only)
 
 ## License
 
@@ -165,10 +167,12 @@ GNU GPL v3.0 or later (see [LICENSE](LICENSE)). Wiki data under `.wiki/` is unaf
 ## Development
 
 ```bash
-cargo nextest run --workspace          # 65 tests (unit + git-fixture integration + in-process MCP protocol)
+cargo nextest run --workspace          # 68 tests (unit + git-fixture integration + in-process MCP protocol)
 cargo llvm-cov nextest --workspace --summary-only   # coverage baseline (CI gates at 70% lines)
+cargo bench -p loredex-engine --bench scan -- --budget   # scan/index regression floor (CI gate)
 ```
 
-- Toolchain: cargo-nextest (one process per test, so env manipulation is safe; `.config/nextest.toml` sets a 15 s slow-timeout so deadlocks fail instead of hanging) + cargo-llvm-cov
+- Toolchain: cargo-nextest (one process per test, so env manipulation is safe; `.config/nextest.toml` sets a 15 s slow-timeout so deadlocks fail instead of hanging) + cargo-llvm-cov + criterion
+- Benchmarks: a 2000-page synthetic repository covers a fresh scan, one-file edit, 300 pages citing a deleted file, index build and page loading; `--budget` enforces generous ceilings with orders-of-magnitude headroom, and CI also records a statistical criterion profile
 - Current coverage: ~75% regions / ~78% lines overall; core layers 80–98%, `loredex-mcp` 77% (in-process duplex client↔server exercises the real protocol stack: four-layer resolution, roots capability gate, full lifecycle), CLI kept as a thin argument mapping
 - Releases: cargo-dist (`dist-workspace.toml`) builds 5 targets + shell/PowerShell installers on tag `v*`; the GitHub Release body is then replaced with [git-cliff](https://git-cliff.org) notes rendered from `cliff.toml` by `.github/workflows/release-notes.yml` — there is deliberately no CHANGELOG.md in the repo

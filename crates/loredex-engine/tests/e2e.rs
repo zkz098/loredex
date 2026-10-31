@@ -6,8 +6,8 @@
 use git2::{Repository, Signature};
 use loredex_core::{Status, WikiPage};
 use loredex_engine::{
-    check_page, discover_modules, find_page, put_page, refresh_page_with_drift, verify_page,
-    DriftOutcome,
+    check_page, check_page_with, discover_modules, find_page, init_wiki_layout, load_pages,
+    prime_view, put_page, refresh_page_with_drift, verify_page, DriftOutcome,
 };
 use loredex_git::GitRepo;
 use tempfile::TempDir;
@@ -217,6 +217,46 @@ fn unknown_base_commit_is_stale() {
         .any(|r| r.detail.contains("unknown commit")));
 }
 
+// ---------- shared scan view equivalence ----------
+
+#[test]
+fn batch_view_matches_per_page_checks() {
+    let fx = Fixture::new(&[("src/api.rs", API_RS), ("src/other.rs", "fn other() {}\n")]);
+    make_page(&fx);
+    put_page(
+        &fx.repo,
+        &fx.wiki_dir(),
+        "other",
+        "Other",
+        "other is a stub [[cite:src/other.rs:L1-L1]]",
+        vec![],
+        None,
+    )
+    .unwrap();
+    fx.rewrite("src/api.rs", &format!("// hdr\n{API_RS}"));
+
+    let pages = load_pages(&fx.wiki_dir()).unwrap();
+    let view = fx.repo.view();
+    prime_view(&view, &pages).unwrap();
+    for page in &pages {
+        let single = check_page(page, &fx.repo).unwrap();
+        let batched = check_page_with(page, &view).unwrap();
+        assert_eq!(single.is_stale, batched.is_stale, "{}", page.meta.id);
+        assert_eq!(single.stale_since, batched.stale_since);
+        assert_eq!(
+            single.evidence_reports.len(),
+            batched.evidence_reports.len()
+        );
+        for (a, b) in single
+            .evidence_reports
+            .iter()
+            .zip(batched.evidence_reports.iter())
+        {
+            assert_eq!((&a.path, a.ok), (&b.path, b.ok));
+        }
+    }
+}
+
 // ---------- module discovery ----------
 
 #[test]
@@ -238,6 +278,7 @@ fn modules_cargo_targets_discovered() {
         ),
         ("src/lib.rs", "pub fn g() {}\n"),
     ]);
+    init_wiki_layout(&fx.wiki_dir()).unwrap();
     let mods = discover_modules(&fx.repo).unwrap();
     let lib = mods
         .iter()
@@ -245,6 +286,25 @@ fn modules_cargo_targets_discovered() {
         .expect("cargo target should cover src/lib.rs");
     assert_eq!(lib.name, "probe/probe");
     assert_eq!(lib.kind, "rust-lib");
+
+    // metadata is cached under .wiki/.cache and the cached copy is reused
+    let cache = fx.wiki_dir().join(".cache/cargo-metadata.json");
+    assert!(cache.is_file(), "cargo metadata cache should be written");
+    let first = std::fs::read_to_string(&cache).unwrap();
+    let again = discover_modules(&fx.repo).unwrap();
+    assert_eq!(again.len(), mods.len());
+    assert_eq!(std::fs::read_to_string(&cache).unwrap(), first);
+
+    // an edited (committed) manifest changes the key and refreshes the cache
+    fx.rewrite(
+        "Cargo.toml",
+        "[package]\nname = \"probe2\"\nversion = \"0.1.0\"\nedition = \"2021\"\n[workspace]\n",
+    );
+    let after = discover_modules(&fx.repo).unwrap();
+    assert!(after
+        .iter()
+        .any(|m| m.kind.starts_with("rust-") && m.name == "probe2/probe2"));
+    assert_ne!(std::fs::read_to_string(&cache).unwrap(), first);
 }
 
 // ---------- rename recovery ----------

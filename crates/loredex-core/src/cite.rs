@@ -1,8 +1,18 @@
 // Citation syntax is enforced at page-write time: a body
 // without markers is rejected by wiki-engine::put_page.
+use std::sync::LazyLock;
+
 use regex::Regex;
 
 use crate::error::{Result, WikiError};
+
+static CITE_RE: LazyLock<Regex> = LazyLock::new(|| {
+    Regex::new(r"\[\[cite:([^\]\s]+?)(?::L(\d+)-L(\d+))?\]\]").expect("static cite regex")
+});
+
+static WIKI_LINK_RE: LazyLock<Regex> = LazyLock::new(|| {
+    Regex::new(r"\[\[wiki:([A-Za-z0-9_\-./]+)\]\]").expect("static wiki link regex")
+});
 
 /// A citation marker parsed out of wiki body text:
 /// `[[cite:src/db.rs:L10-L88]]` or `[[cite:src/db.rs]]`.
@@ -15,10 +25,8 @@ pub struct Citation {
 }
 
 pub fn parse_citations(body: &str) -> Result<Vec<Citation>> {
-    let re = Regex::new(r"\[\[cite:([^\]\s]+?)(?::L(\d+)-L(\d+))?\]\]")
-        .map_err(|e| WikiError::FrontmatterParse("cite-regex".into(), e.to_string()))?;
     let mut out = Vec::new();
-    for caps in re.captures_iter(body) {
+    for caps in CITE_RE.captures_iter(body) {
         let m = caps.get(0).unwrap();
         let path = caps[1].to_string();
         let lines = match (caps.get(2), caps.get(3)) {
@@ -86,10 +94,8 @@ mod tests {
 
 /// Extract `[[wiki:<page-id>]]` cross-page link targets from body text.
 pub fn parse_wiki_links(body: &str) -> Vec<String> {
-    let Ok(re) = Regex::new(r"\[\[wiki:([A-Za-z0-9_\-./]+)\]\]") else {
-        return Vec::new();
-    };
-    re.captures_iter(body)
+    WIKI_LINK_RE
+        .captures_iter(body)
         .filter_map(|c| {
             let t = &c[1];
             (!t.contains("..")).then(|| t.to_string())
