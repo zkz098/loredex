@@ -43,6 +43,11 @@ pub fn put_page_with(
             "invalid page id `{id}` ({m}); use alphanumeric, '-', '_' or '/'"
         ))
     })?;
+    if crate::index::is_generated(id) {
+        return Err(WikiError::Git(format!(
+            "page id `{id}` is reserved for generated navigation; choose another id"
+        )));
+    }
     let cites = dedup_citations(parse_citations(body).map_err(|e| {
         WikiError::FrontmatterParse(id.into(), format!("citation parse error: {e}"))
     })?);

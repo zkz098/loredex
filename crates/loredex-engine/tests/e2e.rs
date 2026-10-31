@@ -187,19 +187,89 @@ fn lost_snippet_downgrades_to_draft() {
 // ---------- deleted evidence file ----------
 
 #[test]
-fn deleted_evidence_file_reports_stale() {
+fn deleted_evidence_file_downgrades_to_draft() {
     let fx = Fixture::new(&[("src/api.rs", API_RS)]);
     make_page(&fx);
     fx.remove("src/api.rs");
 
-    let page = find_page(&fx.wiki_dir(), "entry").unwrap();
+    let mut page = find_page(&fx.wiki_dir(), "entry").unwrap();
     let report = check_page(&page, &fx.repo).unwrap();
     assert!(report.is_stale);
     assert!(report
         .evidence_reports
         .iter()
         .any(|r| !r.ok && r.detail.contains("no longer exists")));
-    assert!(refresh_page_with_drift(&mut page.clone(), &fx.repo, &fx.wiki_dir()).is_err());
+
+    // A vanished source is a Lost outcome, not a page-level error: the page
+    // must be persisted as draft instead of staying verified + stale.
+    let outcomes = refresh_page_with_drift(&mut page, &fx.repo, &fx.wiki_dir())
+        .expect("vanished source must downgrade, not abort");
+    assert!(outcomes.iter().any(|(_, o)| *o == DriftOutcome::Lost));
+    assert_eq!(page.meta.status, Status::Draft);
+    assert!(!page.meta.evidence.is_empty(), "last-known pin retained");
+    assert!(page.meta.evidence.iter().all(|e| e.path == "src/api.rs"));
+
+    let reloaded = find_page(&fx.wiki_dir(), "entry").unwrap();
+    assert_eq!(reloaded.meta.status, Status::Draft);
+    assert!(reloaded.meta.evidence.iter().any(|e| e
+        .note
+        .as_deref()
+        .unwrap_or("")
+        .contains("vanished")));
+}
+
+#[test]
+fn one_lost_citation_does_not_abort_the_rest() {
+    let fx = Fixture::new(&[
+        ("src/api.rs", API_RS),
+        ("src/other.rs", "one\ntwo\nthree\n"),
+    ]);
+    put_page(
+        &fx.repo,
+        &fx.wiki_dir(),
+        "entry",
+        "Entry",
+        "serve [[cite:src/api.rs:L1-L5]] and other [[cite:src/other.rs:L1-L3]]",
+        vec![],
+        None,
+    )
+    .unwrap();
+    fx.remove("src/api.rs");
+    fx.rewrite("src/other.rs", "// hdr\none\ntwo\nthree\n");
+
+    let mut page = find_page(&fx.wiki_dir(), "entry").unwrap();
+    let outcomes = refresh_page_with_drift(&mut page, &fx.repo, &fx.wiki_dir()).unwrap();
+    assert!(outcomes
+        .iter()
+        .any(|(path, o)| path == "src/api.rs" && *o == DriftOutcome::Lost));
+    assert!(outcomes
+        .iter()
+        .any(|(path, o)| path == "src/other.rs" && matches!(o, DriftOutcome::Projected { .. })));
+    assert_eq!(page.meta.status, Status::Draft);
+
+    let lost = page
+        .meta
+        .evidence
+        .iter()
+        .find(|e| e.path == "src/api.rs")
+        .expect("lost evidence keeps its last-known pin");
+    assert!(lost.note.as_deref().unwrap_or("").contains("vanished"));
+    let projected = page
+        .meta
+        .evidence
+        .iter()
+        .find(|e| e.path == "src/other.rs")
+        .expect("the healthy citation is still projected");
+    assert_eq!(projected.lines, Some([2, 4]));
+
+    // persisted atomically: both outcomes survive a reload
+    let reloaded = find_page(&fx.wiki_dir(), "entry").unwrap();
+    assert_eq!(reloaded.meta.status, Status::Draft);
+    assert!(reloaded
+        .meta
+        .evidence
+        .iter()
+        .any(|e| e.path == "src/other.rs" && e.lines == Some([2, 4])));
 }
 
 // ---------- unknown generation commit ----------
@@ -401,10 +471,10 @@ fn mv_with_minor_edit_then_total_rewrite_recovers_at_move_target() {
 }
 
 #[test]
-fn heavy_rewrite_without_rename_hint_stays_unresolvable() {
+fn heavy_rewrite_without_rename_hint_reports_lost_draft() {
     // documented boundary: mv + complete rewrite in ONE commit is neither
     // content-identical nor similar enough for git rename detection; refresh
-    // must error rather than silently mis-adopt a path
+    // must report Lost and downgrade, never silently mis-adopt a path
     let fx = Fixture::new(&[("src/api.rs", API_RS)]);
     make_page(&fx);
     {
@@ -412,8 +482,17 @@ fn heavy_rewrite_without_rename_hint_stays_unresolvable() {
         std::fs::remove_file(f).unwrap();
     }
     fx.commit_file("new/api.rs", "pub fn totally_different() {}\n");
-    let page = find_page(&fx.wiki_dir(), "entry").unwrap();
-    assert!(refresh_page_with_drift(&mut page.clone(), &fx.repo, &fx.wiki_dir()).is_err());
+    let mut page = find_page(&fx.wiki_dir(), "entry").unwrap();
+    let outcomes = refresh_page_with_drift(&mut page, &fx.repo, &fx.wiki_dir())
+        .expect("unresolvable content is an outcome, not an error");
+    assert!(outcomes.iter().any(|(_, o)| *o == DriftOutcome::Lost));
+    assert!(
+        !outcomes
+            .iter()
+            .any(|(_, o)| matches!(o, DriftOutcome::Renamed { .. })),
+        "look-alike path must not be adopted: {outcomes:?}"
+    );
+    assert_eq!(page.meta.status, Status::Draft);
 }
 
 // ---------- put rejection matrix ----------
@@ -464,6 +543,24 @@ fn reject_malformed_citation_syntax() {
         let err = put_page(&fx.repo, &fx.wiki_dir(), "x", "t", body, vec![], None)
             .expect_err("must reject malformed citation");
         assert!(err.to_string().contains(expect), "{body} -> {err}");
+    }
+}
+
+#[test]
+fn reject_reserved_generated_page_ids() {
+    let fx = Fixture::new(&[("src/api.rs", API_RS)]);
+    for id in ["index", "quickstart"] {
+        let err = put_page(
+            &fx.repo,
+            &fx.wiki_dir(),
+            id,
+            "t",
+            "[[cite:src/api.rs:L1-L1]]",
+            vec![],
+            None,
+        )
+        .expect_err("generated navigation ids are reserved");
+        assert!(err.to_string().contains("reserved"), "{id}: {err}");
     }
 }
 

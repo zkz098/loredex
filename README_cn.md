@@ -111,7 +111,7 @@ Server 在 `initialize` 时下发协议契约（先查新鲜度、stale 视为�
                                                 ├─ 行号漂移     → 自动投影，verified + note
                                                 ├─ git mv       → 内容寻址反查新路径，verified
                                                 ├─ mv + 小改    → 相似度改名 + 投影，verified
-                                                └─ 内容丢失     → draft，agent 重写
+                                                └─ 内容丢失     → draft（保留最后已知 pin），agent 重写
 ```
 
 - 页面与 `.wiki/` 一起提交进 git，团队共享、PR 可 review；`runs.json` 账本同样入库，agent 中断后 `wiki_plan` 自动续传 pending 任务
@@ -139,7 +139,8 @@ crates/
 
 - 过期判定 = blob 对比 **和** `生成commit→HEAD` 的 pathspec diff 交叉验证；生成 commit 不可解析也判 stale
 - 漂移投影对旧行→新行建映射（删除行锚定最近存活行、区间坍缩保持宽度），投影后新旧 snippet 相似度 ≥ 0.6 才采纳
-- 引用校验在入库时进行：路径必须在 HEAD 存在，行区间非法直接拒绝
+- 无法恢复的引用逐条隔离：页面其余引用照常投影，丢失项保留最后一次已知 pin，页面落盘为 `draft`（不再停留在 `verified` + stale）
+- 引用校验在入库时进行：路径必须在 HEAD 存在，行区间非法直接拒绝；生成的导航页 id（`index`/`quickstart`）保留，禁止覆盖
 - MCP 仓库解析四层链（cli > env > roots > cwd），roots 层带客户端能力门控与 3 秒超时，任何失配客户端都不会卡死会话
 - 批量命令共享一个 `GitView`：HEAD 路径索引、按 commit 的 changed/rename 集合、blob 路径与文件内容均按命令计算一次，而非按页面；记录在 HEAD 的页面直接跳过 diff。单页工具保留直接 tree 查找，不会为一条引用遍历大型 monorepo
 - `git2::Repository` 是 `!Sync`，MCP server 只保存解析出的 workdir；每次工具调用在 blocking 线程池中打开自己的 Repository。读写门控允许读工具并发，put/refresh/auto/plan/attach 串行
@@ -165,7 +166,7 @@ GNU GPL v3.0 或更新版本（见 [LICENSE](LICENSE)）。`.wiki/` 中的 wiki 
 ## 开发
 
 ```bash
-cargo nextest run --workspace          # 68 个测试（单测 + git-fixture 集成 + MCP 协议内测试）
+cargo nextest run --workspace          # 71 个测试（单测 + git-fixture 集成 + MCP 协议内测试）
 cargo llvm-cov nextest --workspace --summary-only   # 覆盖率基线
 cargo bench -p loredex-engine --bench scan -- --budget   # 扫描/索引回归下限（CI 门禁）
 ```

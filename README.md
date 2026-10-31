@@ -111,7 +111,7 @@ discover modules -> read source -> put_page (with citations) -> [code evolves] -
         ├─ lines drifted      -> projected, verified + audit note
         ├─ git mv             -> new path found by blob content addressing, verified
         ├─ mv + small edit    -> similarity rename + projection, verified
-        └─ content lost       -> draft; the agent rewrites
+        └─ content lost       -> draft; last-known pin kept; the agent rewrites
 ```
 
 - Pages and `.wiki/` are committed together, shared with the team, reviewable in PRs; `runs.json` lives in git too, so interrupted generation resumes automatically via `wiki_plan`
@@ -141,7 +141,8 @@ Key implementation details:
 
 - Staleness = blob comparison **and** pathspec diff from the generation commit to HEAD; an unresolvable base commit is itself a stale verdict
 - Drift projection maps old lines to new (deleted lines anchor to the nearest surviving line, collapsed ranges keep width); a projected snippet is adopted only at similarity ≥ 0.6 — otherwise it honestly reports Lost rather than mis-adopting look-alikes
-- Citation validation happens at write time: the path must exist at HEAD, malformed ranges are rejected
+- Unrecoverable citations are isolated per evidence item: the rest of the page is still projected, the lost item keeps its last-known pin, and the page is persisted as `draft` (never left `verified` + stale)
+- Citation validation happens at write time: the path must exist at HEAD, malformed ranges are rejected, and generated navigation ids (`index`/`quickstart`) are reserved
 - Repository resolution is capability-gated (roots are only requested from clients declaring them) with a 3 s timeout — no client can wedge a session
 - Batch commands share one `GitView`: the HEAD path index, per-commit changed/rename sets, blob paths and file contents are computed once per command instead of once per page; pages recorded at HEAD skip the diff entirely. Single-page tools keep direct tree lookups so a large monorepo is not walked for one citation
 - `git2::Repository` is `!Sync`, so the MCP server stores only the resolved workdir; each tool call opens its own Repository on the blocking pool. A read/write gate lets read tools run concurrently while put/refresh/auto/plan/attach serialize
@@ -167,7 +168,7 @@ GNU GPL v3.0 or later (see [LICENSE](LICENSE)). Wiki data under `.wiki/` is unaf
 ## Development
 
 ```bash
-cargo nextest run --workspace          # 68 tests (unit + git-fixture integration + in-process MCP protocol)
+cargo nextest run --workspace          # 71 tests (unit + git-fixture integration + in-process MCP protocol)
 cargo llvm-cov nextest --workspace --summary-only   # coverage baseline (CI gates at 70% lines)
 cargo bench -p loredex-engine --bench scan -- --budget   # scan/index regression floor (CI gate)
 ```

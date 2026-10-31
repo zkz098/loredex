@@ -136,11 +136,17 @@ fn recover_renamed(
             }
             // moved but the snippet itself is gone: re-pin at the new location so
             // the page stays editable; caller still sees Lost -> draft rewrite
-            let repinned = record_evidence_with(view, new_path, ev.lines)?;
+            let mut repinned = record_evidence_with(view, new_path, ev.lines)?;
+            repinned.note = Some(format!(
+                "renamed {} -> {}; cited content lost, re-pinned for rewrite (draft)",
+                ev.path, new_path
+            ));
             return Ok((DriftOutcome::Lost, Some(repinned)));
         }
     }
-    Err(WikiError::Git(format!("{} missing at HEAD", ev.path)))
+    // The path is gone and no rename leads to it: an honest Lost, not an
+    // error that would abort the whole page refresh.
+    Ok((DriftOutcome::Lost, None))
 }
 
 fn similarity(a: &str, b: &str) -> f64 {
@@ -237,14 +243,47 @@ fn head_lines_string(view: &GitView, path: &str, lo: u32, hi: u32) -> Result<Str
     Ok(view.head_lines(path, lo, hi)?.unwrap_or_default())
 }
 
-/// Refresh one page's evidence with drift projection, falling back to a
-/// plain re-pin only when the snippet cannot be recovered.
+/// Refresh one page's evidence with drift projection. Unrecoverable
+/// citations keep their last-known pin and downgrade the page to draft; one
+/// bad citation never aborts the rest of the page.
 pub fn refresh_page_with_drift(
     page: &mut WikiPage,
     repo: &GitRepo,
     wiki_dir: &std::path::Path,
 ) -> Result<Vec<(String, DriftOutcome)>> {
     refresh_page_with_drift_view(page, &repo.view(), wiki_dir)
+}
+
+fn kept_with_note(ev: &Evidence, note: String) -> Evidence {
+    let mut kept = ev.clone();
+    kept.note = Some(note);
+    kept
+}
+
+/// Lost content at a still-existing path can be re-pinned at the recorded
+/// range to keep the page editable; a vanished path keeps its last-known pin.
+fn lost_evidence(view: &GitView, ev: &Evidence) -> Evidence {
+    match view.head_blob_oid(&ev.path) {
+        Ok(Some(_)) => match record_evidence_with(view, &ev.path, ev.lines) {
+            Ok(mut repinned) => {
+                repinned.note =
+                    Some("content lost at HEAD; re-pinned at recorded range (draft)".into());
+                repinned
+            }
+            Err(err) => kept_with_note(
+                ev,
+                format!("refresh error: {err}; last-known pin kept (draft)"),
+            ),
+        },
+        Ok(None) => kept_with_note(
+            ev,
+            "source vanished at HEAD; last-known pin kept (draft)".into(),
+        ),
+        Err(err) => kept_with_note(
+            ev,
+            format!("refresh error: {err}; last-known pin kept (draft)"),
+        ),
+    }
 }
 
 pub fn refresh_page_with_drift_view(
@@ -260,22 +299,52 @@ pub fn refresh_page_with_drift_view(
         Rc::new(BTreeMap::new())
     };
     for ev in &page.meta.evidence {
-        let (outcome, adopted) = project_evidence_with(view, ev, &renames)?;
-        outcomes.push((ev.path.clone(), outcome.clone()));
-        match adopted {
-            Some(new_ev) => evidence.push(new_ev),
-            None => match &outcome {
-                DriftOutcome::Unchanged => evidence.push(ev.clone()),
-                DriftOutcome::Projected { lines, .. } if lines == &[0, 0] => {
-                    // whole-file evidence re-pinned
-                    evidence.push(record_evidence_with(view, &ev.path, None)?);
-                }
-                _ => {
-                    // Lost / NoOldBlob: re-pin at recorded range only if the file exists
-                    evidence.push(record_evidence_with(view, &ev.path, ev.lines)?);
-                }
-            },
-        }
+        let (outcome, new_ev) = match project_evidence_with(view, ev, &renames) {
+            Ok((outcome, Some(adopted))) => (outcome, adopted),
+            Ok((mut outcome, None)) => {
+                let new_ev = match &outcome {
+                    DriftOutcome::Unchanged => ev.clone(),
+                    DriftOutcome::Projected { lines, .. } if lines == &[0, 0] => {
+                        // whole-file evidence re-pinned
+                        match record_evidence_with(view, &ev.path, None) {
+                            Ok(new_ev) => new_ev,
+                            Err(err) => {
+                                outcome = DriftOutcome::Lost;
+                                kept_with_note(
+                                    ev,
+                                    format!("refresh error: {err}; last-known pin kept (draft)"),
+                                )
+                            }
+                        }
+                    }
+                    DriftOutcome::Lost => lost_evidence(view, ev),
+                    DriftOutcome::NoOldBlob => {
+                        match record_evidence_with(view, &ev.path, ev.lines) {
+                            Ok(mut repinned) => {
+                                repinned.note =
+                                    Some("old blob unavailable; re-pinned at HEAD (draft)".into());
+                                repinned
+                            }
+                            Err(err) => kept_with_note(
+                                ev,
+                                format!("refresh error: {err}; last-known pin kept (draft)"),
+                            ),
+                        }
+                    }
+                    _ => ev.clone(),
+                };
+                (outcome, new_ev)
+            }
+            Err(err) => (
+                DriftOutcome::Lost,
+                kept_with_note(
+                    ev,
+                    format!("refresh error: {err}; last-known pin kept (draft)"),
+                ),
+            ),
+        };
+        outcomes.push((ev.path.clone(), outcome));
+        evidence.push(new_ev);
     }
     let any_lost = outcomes
         .iter()

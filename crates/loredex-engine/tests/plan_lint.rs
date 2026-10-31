@@ -55,6 +55,10 @@ impl Fx {
         std::fs::write(self.tmp.path().join(path), content).unwrap();
         commit_all(self.tmp.path(), "edit");
     }
+    fn remove(&self, path: &str) {
+        std::fs::remove_file(self.tmp.path().join(path)).unwrap();
+        commit_all(self.tmp.path(), "remove");
+    }
 }
 
 const SRC: &str = "fn a() {\n  b();\n}\n\nfn b() {}\n";
@@ -384,6 +388,38 @@ fn auto_routes_lost_content_to_rewrite_and_plan() {
         .any(|t| t.page_id == "root" && t.status == TaskStatus::Pending));
     // and the run ledger persisted the same
     assert!(load_ledger(&fx.wiki()).active_run().is_some());
+}
+
+#[test]
+fn auto_downgrades_deleted_citation_to_draft() {
+    let fx = Fx::new(&[("src.rs", SRC)]);
+    put(&fx, "root", "Root", Some("system"));
+    fx.remove("src.rs");
+
+    let report = loredex_engine::auto_refresh(&fx.repo, &fx.wiki()).unwrap();
+    assert!(
+        report
+            .needs_rewrite
+            .iter()
+            .any(|item| item.page_id == "root"),
+        "{report:?}"
+    );
+    assert!(!report.all_clean);
+
+    // the page is no longer "verified + stale": it is persisted as draft with
+    // its last-known evidence pin, so lint stops flagging stale-but-verified
+    let page = find_page(&fx.wiki(), "root").unwrap();
+    assert_eq!(page.meta.status, Status::Draft);
+    assert!(!page.meta.evidence.is_empty());
+    assert!(!report
+        .lint_issues
+        .iter()
+        .any(|i| i.page == "root" && i.kind == "stale-but-verified"));
+    assert!(report
+        .plan
+        .tasks
+        .iter()
+        .any(|t| t.page_id == "root" && t.status == TaskStatus::Pending));
 }
 
 #[test]
