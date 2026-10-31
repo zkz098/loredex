@@ -32,3 +32,8 @@ toml = "0.9"
 loredex-core = { path = "crates/loredex-core", version = "0.1.0" }
 loredex-git = { path = "crates/loredex-git", version = "0.1.0" }
 loredex-engine = { path = "crates/loredex-engine", version = "0.1.0" }
+
+# The profile that 'dist' will build with
+[profile.dist]
+inherits = "release"
+lto = "thin"

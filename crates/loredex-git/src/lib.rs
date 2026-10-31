@@ -30,7 +30,10 @@ impl GitRepo {
     }
 
     pub fn head_commit(&self) -> Result<String> {
-        let head = self.repo.head().map_err(|e| WikiError::Git(e.to_string()))?;
+        let head = self
+            .repo
+            .head()
+            .map_err(|e| WikiError::Git(e.to_string()))?;
         let oid = head
             .target()
             .ok_or_else(|| WikiError::Git("HEAD does not point to a commit".into()))?;
@@ -38,10 +41,7 @@ impl GitRepo {
     }
 
     pub fn head_short(&self) -> Result<String> {
-        Ok(self.head_commit()?
-            .chars()
-            .take(9)
-            .collect::<String>())
+        Ok(self.head_commit()?.chars().take(9).collect::<String>())
     }
 
     pub fn commit_exists(&self, sha: &str) -> bool {
@@ -73,7 +73,7 @@ impl GitRepo {
                 let blob = obj
                     .into_blob()
                     .map_err(|_| WikiError::Git(format!("{rel_path} is not a blob")))?;
-                Ok(Some(String::from_utf8_lossy(&blob.content()).into_owned()))
+                Ok(Some(String::from_utf8_lossy(blob.content()).into_owned()))
             }
             Err(_) => Ok(None),
         }
@@ -104,9 +104,7 @@ impl GitRepo {
             Ok(c) => c,
             Err(_) => return Ok(Vec::new()),
         };
-        let old_tree = old
-            .tree()
-            .map_err(|e| WikiError::Git(e.to_string()))?;
+        let old_tree = old.tree().map_err(|e| WikiError::Git(e.to_string()))?;
         let head_commit = self
             .repo
             .head()
@@ -143,7 +141,7 @@ impl GitRepo {
     pub fn blob_content(&self, oid: &str) -> Result<Option<String>> {
         let oid = git2::Oid::from_str(oid).map_err(|e| WikiError::Git(e.to_string()))?;
         match self.repo.find_blob(oid) {
-            Ok(blob) => Ok(Some(String::from_utf8_lossy(&blob.content()).into_owned())),
+            Ok(blob) => Ok(Some(String::from_utf8_lossy(blob.content()).into_owned())),
             Err(_) => Ok(None),
         }
     }
@@ -242,7 +240,9 @@ impl GitRepo {
         else {
             return Vec::new();
         };
-        let Ok(old_tree) = old.tree() else { return Vec::new() };
+        let Ok(old_tree) = old.tree() else {
+            return Vec::new();
+        };
         let Ok(head_commit) = self.repo.head().and_then(|h| h.peel_to_commit()) else {
             return Vec::new();
         };

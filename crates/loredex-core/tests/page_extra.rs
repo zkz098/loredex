@@ -1,6 +1,6 @@
 //! Extra unit tests for core model changes (type field, hierarchy, ids).
 
-use loredex_core::{list_page_files, parse_wiki_links, validate_page_id, PageMeta, Status, WikiPage};
+use loredex_core::{parse_wiki_links, validate_page_id, PageMeta, Status, WikiPage};
 
 #[test]
 fn type_field_roundtrips() {
@@ -14,13 +14,23 @@ fn type_field_roundtrips() {
         tags: vec![],
         page_type: Some("architecture".into()),
     };
-    let page = WikiPage { meta: meta.clone(), body: "b".into(), source_path: None };
+    let page = WikiPage {
+        meta: meta.clone(),
+        body: "b".into(),
+        source_path: None,
+    };
     let md = page.to_markdown().unwrap();
     assert!(md.contains("type: architecture"), "{md}");
     let parsed = WikiPage::from_markdown(&md, None).unwrap();
     assert_eq!(parsed.meta.page_type.as_deref(), Some("architecture"));
     meta.page_type = None;
-    let md2 = WikiPage { meta, body: "b".into(), source_path: None }.to_markdown().unwrap();
+    let md2 = WikiPage {
+        meta,
+        body: "b".into(),
+        source_path: None,
+    }
+    .to_markdown()
+    .unwrap();
     assert!(!md2.contains("type:"), "{md2}");
 }
 

@@ -9,17 +9,18 @@
 //! own process, but plain `cargo test` threads need the serialization.
 
 use std::future::Future;
-use std::sync::{Arc, Mutex, atomic::{AtomicUsize, Ordering}};
-
-#[allow(deprecated)]
-use rmcp::model::{
-    ClientCapabilities, ClientConfig, Implementation, ListRootsResult, Root,
+use std::sync::{
+    atomic::{AtomicUsize, Ordering},
+    Arc,
 };
-use rmcp::{service::RunningService, RoleClient, ServiceExt, ClientHandler};
-use tempfile::TempDir;
-use loredex_mcp::WikiServer;
 
-static ENV_LOCK: Mutex<()> = Mutex::new(());
+use loredex_mcp::WikiServer;
+#[allow(deprecated)]
+use rmcp::model::{ClientCapabilities, ClientConfig, Implementation, ListRootsResult, Root};
+use rmcp::{service::RunningService, ClientHandler, RoleClient, ServiceExt};
+use tempfile::TempDir;
+
+static ENV_LOCK: tokio::sync::Mutex<()> = tokio::sync::Mutex::const_new(());
 
 // ---------- git fixture (minimal) ----------
 
@@ -77,6 +78,7 @@ impl TestClient {
 }
 
 impl ClientHandler for TestClient {
+    #[allow(deprecated)]
     fn get_info(&self) -> ClientConfig {
         let caps = if self.declares_roots {
             ClientCapabilities::builder().enable_roots().build()
@@ -105,13 +107,13 @@ impl ClientHandler for TestClient {
 
 type Client = RunningService<RoleClient, TestClient>;
 
-async fn pair(server: WikiServer, client_handler: TestClient) -> (Client, tokio::task::JoinHandle<()>) {
+async fn pair(
+    server: WikiServer,
+    client_handler: TestClient,
+) -> (Client, tokio::task::JoinHandle<()>) {
     let (server_transport, client_transport) = tokio::io::duplex(64 * 1024);
     let server_task = tokio::spawn(async move {
-        let service = server
-            .serve(server_transport)
-            .await
-            .expect("server serve");
+        let service = server.serve(server_transport).await.expect("server serve");
         let _ = service.waiting().await;
     });
     let client = client_handler
@@ -121,11 +123,7 @@ async fn pair(server: WikiServer, client_handler: TestClient) -> (Client, tokio:
     (client, server_task)
 }
 
-async fn call(
-    client: &Client,
-    tool: &str,
-    args: serde_json::Value,
-) -> rmcp::model::CallToolResult {
+async fn call(client: &Client, tool: &str, args: serde_json::Value) -> rmcp::model::CallToolResult {
     call_try(client, tool, args).await.expect("call_tool ok")
 }
 
@@ -136,8 +134,9 @@ async fn call_try(
 ) -> Result<rmcp::model::CallToolResult, rmcp::ServiceError> {
     use rmcp::model::CallToolRequestParams;
     let params = match args.as_object() {
-        Some(map) if !map.is_empty() => CallToolRequestParams::new(tool.to_string())
-            .with_arguments(map.clone()),
+        Some(map) if !map.is_empty() => {
+            CallToolRequestParams::new(tool.to_string()).with_arguments(map.clone())
+        }
         _ => CallToolRequestParams::new(tool.to_string()),
     };
     client.call_tool(params).await
@@ -151,7 +150,7 @@ fn structured(res: &rmcp::model::CallToolResult) -> serde_json::Value {
 
 #[tokio::test]
 async fn env_layer_resolves_repo() {
-    let _g = ENV_LOCK.lock().unwrap();
+    let _g = ENV_LOCK.lock().await;
     let fx = Fixture::new();
     std::env::set_var("REPOWIKI_REPO", fx.path());
     let (client, _s) = pair(WikiServer::new_open(), TestClient::no_roots()).await;
@@ -166,7 +165,7 @@ async fn env_layer_resolves_repo() {
 
 #[tokio::test]
 async fn roots_layer_resolves_repo_when_client_declares_roots() {
-    let _g = ENV_LOCK.lock().unwrap();
+    let _g = ENV_LOCK.lock().await;
     let fx = Fixture::new();
     std::env::remove_var("REPOWIKI_REPO");
     let client_handler = TestClient::with_roots(vec![fx.path().to_string_lossy().into()]);
@@ -179,14 +178,18 @@ async fn roots_layer_resolves_repo_when_client_declares_roots() {
 
 #[tokio::test]
 async fn roots_capability_gate_prevents_query() {
-    let _g = ENV_LOCK.lock().unwrap();
+    let _g = ENV_LOCK.lock().await;
     // client does NOT declare roots: server must not send roots/list;
     // resolution falls through to cwd (test process runs inside a git repo)
     let handler = TestClient::no_roots();
     let asked = handler.asked.clone();
     let (client, _s) = pair(WikiServer::new_open(), handler).await;
     let sc = structured(&call(&client, "wiki_current_repo", serde_json::json!({})).await);
-    assert_eq!(asked.load(Ordering::SeqCst), 0, "server must not query absent roots");
+    assert_eq!(
+        asked.load(Ordering::SeqCst),
+        0,
+        "server must not query absent roots"
+    );
     assert_eq!(sc["source"], "cwd");
     assert_eq!(sc["resolved"], serde_json::json!(true));
 }
@@ -208,7 +211,7 @@ async fn pinned_server_refuses_attach() {
 
 #[tokio::test]
 async fn attach_tool_switches_repo() {
-    let _g = ENV_LOCK.lock().unwrap();
+    let _g = ENV_LOCK.lock().await;
     let fx = Fixture::new();
     std::env::remove_var("REPOWIKI_REPO");
     let (client, _s) = pair(WikiServer::new_open(), TestClient::no_roots()).await;
@@ -236,7 +239,7 @@ async fn attach_tool_switches_repo() {
 
 #[tokio::test]
 async fn tools_run_end_to_end_after_attach() {
-    let _g = ENV_LOCK.lock().unwrap();
+    let _g = ENV_LOCK.lock().await;
     let fx = Fixture::new();
     std::env::remove_var("REPOWIKI_REPO");
     let (client, _s) = pair(WikiServer::new_open(), TestClient::no_roots()).await;
@@ -278,7 +281,7 @@ async fn tools_run_end_to_end_after_attach() {
 
 #[tokio::test]
 async fn full_lifecycle_over_protocol_stale_refresh_evidence_search() {
-    let _g = ENV_LOCK.lock().unwrap();
+    let _g = ENV_LOCK.lock().await;
     let fx = Fixture::new();
     std::env::remove_var("REPOWIKI_REPO");
     let (client, _s) = pair(WikiServer::new_open(), TestClient::no_roots()).await;
@@ -301,7 +304,11 @@ async fn full_lifecycle_over_protocol_stale_refresh_evidence_search() {
     .await;
 
     // evolve the cited file: prepend lines so citations drift
-    std::fs::write(fx.path().join("lib.rs"), "// a\n// b\npub fn f() {}\npub fn g() {}\n").unwrap();
+    std::fs::write(
+        fx.path().join("lib.rs"),
+        "// a\n// b\npub fn f() {}\npub fn g() {}\n",
+    )
+    .unwrap();
     {
         let git = git2::Repository::open(fx.path()).unwrap();
         let sig = git2::Signature::now("t", "t@l").unwrap();
@@ -318,7 +325,10 @@ async fn full_lifecycle_over_protocol_stale_refresh_evidence_search() {
     let fresh = structured(&call(&client, "wiki_check_freshness", serde_json::json!({})).await);
     assert_eq!(fresh["stale_count"], serde_json::json!(1));
     assert_eq!(fresh["pages"][0]["stale"], serde_json::json!(true));
-    assert_eq!(fresh["pages"][0]["projectable"].as_array().unwrap().len(), 1);
+    assert_eq!(
+        fresh["pages"][0]["projectable"].as_array().unwrap().len(),
+        1
+    );
 
     // read surfaces the stale warning
     let read = structured(&call(&client, "wiki_read", serde_json::json!({"id": "lib"})).await);
@@ -338,8 +348,14 @@ async fn full_lifecycle_over_protocol_stale_refresh_evidence_search() {
     assert_eq!(ev["content_at_head"].as_str().unwrap(), "// a");
 
     // refresh projects the citation onto the new revision
-    let refreshed =
-        structured(&call(&client, "wiki_refresh_page", serde_json::json!({"id": "lib"})).await);
+    let refreshed = structured(
+        &call(
+            &client,
+            "wiki_refresh_page",
+            serde_json::json!({"id": "lib"}),
+        )
+        .await,
+    );
     assert_eq!(refreshed["new_status"], "verified");
     assert!(refreshed["outcomes"][0]["outcome"]
         .as_str()
@@ -359,7 +375,8 @@ async fn full_lifecycle_over_protocol_stale_refresh_evidence_search() {
     assert_eq!(ev["content_at_head"].as_str().unwrap(), "pub fn f() {}");
 
     // search finds it
-    let hits = structured(&call(&client, "wiki_search", serde_json::json!({"query": "stub"})).await);
+    let hits =
+        structured(&call(&client, "wiki_search", serde_json::json!({"query": "stub"})).await);
     assert_eq!(hits["hits"].as_array().unwrap().len(), 1);
 }
 
@@ -390,7 +407,7 @@ async fn initialize_advertises_instructions_and_tools() {
 
 #[tokio::test]
 async fn wiki_plan_and_mark_over_protocol() {
-    let _g = ENV_LOCK.lock().unwrap();
+    let _g = ENV_LOCK.lock().await;
     let fx = Fixture::new();
     std::env::remove_var("REPOWIKI_REPO");
     let (client, _s) = pair(WikiServer::new_open(), TestClient::no_roots()).await;
@@ -426,10 +443,17 @@ async fn wiki_plan_and_mark_over_protocol() {
         .iter()
         .find(|t| t["page_id"] == serde_json::json!(page_id));
     // task dropped from fresh computation (covered) — pending carryover is empty
-    assert!(done.map(|t| t["status"].as_str() == Some("done")).unwrap_or(true));
+    assert!(done
+        .map(|t| t["status"].as_str() == Some("done"))
+        .unwrap_or(true));
 
     // explicit mark on the next pending task
-    if let Some(t) = plan2["tasks"].as_array().unwrap().iter().find(|t| t["status"] == serde_json::json!("pending")) {
+    if let Some(t) = plan2["tasks"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|t| t["status"] == serde_json::json!("pending"))
+    {
         let pid = t["page_id"].as_str().unwrap().to_string();
         let res = structured(
             &call(
@@ -454,7 +478,7 @@ async fn wiki_plan_and_mark_over_protocol() {
 
 #[tokio::test]
 async fn wiki_auto_over_protocol() {
-    let _g = ENV_LOCK.lock().unwrap();
+    let _g = ENV_LOCK.lock().await;
     let fx = Fixture::new();
     std::env::remove_var("REPOWIKI_REPO");
     let (client, _s) = pair(WikiServer::new_open(), TestClient::no_roots()).await;

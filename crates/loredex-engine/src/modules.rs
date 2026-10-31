@@ -46,12 +46,17 @@ pub fn discover(repo: &GitRepo) -> Result<Vec<ModuleInfo>> {
                     .find(|k| matches!(*k, "lib" | "bin" | "test" | "bench"))
                     .unwrap_or("lib")
                     .to_string();
-                let name = target.get("name").and_then(|n| n.as_str()).unwrap_or(pkg_name);
+                let name = target
+                    .get("name")
+                    .and_then(|n| n.as_str())
+                    .unwrap_or(pkg_name);
                 let src_dir = match Path::new(src)
                     .parent()
                     .and_then(|p| p.strip_prefix(repo.workdir()).ok())
                 {
-                    Some(rel) => format!("{}{}", rel.display(), std::path::MAIN_SEPARATOR).trim_end().to_string(),
+                    Some(rel) => format!("{}{}", rel.display(), std::path::MAIN_SEPARATOR)
+                        .trim_end()
+                        .to_string(),
                     None => continue,
                 };
                 let module_files: Vec<String> = files

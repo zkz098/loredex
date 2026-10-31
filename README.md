@@ -1,5 +1,8 @@
 # Loredex
 
+[![CI](https://github.com/zkz098/loredex/actions/workflows/ci.yml/badge.svg)](https://github.com/zkz098/loredex/actions/workflows/ci.yml)
+[![GPL-3.0-or-later](https://img.shields.io/badge/license-GPL--3.0--or--later-blue)](LICENSE)
+
 给 AI coding agent 提供**可信的仓库 wiki**：纯 Markdown 存储、git 驱动的新鲜度追踪、每条声明钉住可验证的代码出处。Rust 实现，双入口（CLI + MCP server）。
 
 ## 为什么

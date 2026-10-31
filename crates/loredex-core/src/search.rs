@@ -41,7 +41,14 @@ pub fn tokenize(text: &str) -> Vec<String> {
         } else if ch.is_alphanumeric() || ch == '_' {
             flush_cjk(&mut cjk, &mut tokens);
             // camelCase boundary: lower->Upper
-            if ch.is_uppercase() && !word.is_empty() && word.chars().last().map(|l| l.is_lowercase()).unwrap_or(false) {
+            if ch.is_uppercase()
+                && !word.is_empty()
+                && word
+                    .chars()
+                    .last()
+                    .map(|l| l.is_lowercase())
+                    .unwrap_or(false)
+            {
                 flush_word(&mut word, &mut tokens);
             }
             word.push(ch);
@@ -112,7 +119,10 @@ impl InvertedIndex {
     pub fn search(&self, query: &str, limit: usize) -> Vec<SearchHit> {
         let qtokens: Vec<String> = {
             let mut seen = std::collections::BTreeSet::new();
-            tokenize(query).into_iter().filter(|t| seen.insert(t.clone())).collect()
+            tokenize(query)
+                .into_iter()
+                .filter(|t| seen.insert(t.clone()))
+                .collect()
         };
         if qtokens.is_empty() {
             return Vec::new();
@@ -139,11 +149,18 @@ impl InvertedIndex {
         }
         let mut hits: Vec<(usize, usize)> = scores
             .into_iter()
-            .map(|(pi, s)| (pi, s * 2 - qtokens.len().saturating_sub(*coverage.get(&pi).unwrap_or(&0))))
+            .map(|(pi, s)| {
+                (
+                    pi,
+                    s * 2
+                        - qtokens
+                            .len()
+                            .saturating_sub(*coverage.get(&pi).unwrap_or(&0)),
+                )
+            })
             .collect();
         hits.sort_by(|a, b| b.1.cmp(&a.1).then_with(|| a.0.cmp(&b.0)));
-        hits
-            .into_iter()
+        hits.into_iter()
             .take(limit)
             .filter(|(_, score)| *score > 0)
             .map(|(pi, score)| {
@@ -192,8 +209,16 @@ mod tests {
     #[test]
     fn search_ranks_matching_page() {
         let idx = InvertedIndex::build(vec![
-            IndexedPage { id: "storage".into(), title: "Storage layer".into(), body: "opens the db and runs migrations".into() },
-            IndexedPage { id: "ui".into(), title: "前端界面".into(), body: "渲染组件树".into() },
+            IndexedPage {
+                id: "storage".into(),
+                title: "Storage layer".into(),
+                body: "opens the db and runs migrations".into(),
+            },
+            IndexedPage {
+                id: "ui".into(),
+                title: "前端界面".into(),
+                body: "渲染组件树".into(),
+            },
         ]);
         let hits = idx.search("migrations", 5);
         assert_eq!(hits[0].id, "storage");

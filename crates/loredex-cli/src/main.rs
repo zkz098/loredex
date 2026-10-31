@@ -2,13 +2,16 @@ use std::io::Read;
 use std::path::PathBuf;
 
 use clap::{Parser, Subcommand};
-use serde_json;
 use loredex_core::{Status, WikiPage};
 use loredex_engine::{self as engine};
 use loredex_git::GitRepo;
 
 #[derive(Parser)]
-#[command(name = "loredex", version, about = "Loredex: evidence-backed repository wiki for coding agents")]
+#[command(
+    name = "loredex",
+    version,
+    about = "Loredex: evidence-backed repository wiki for coding agents"
+)]
 struct Cli {
     /// Repository root (defaults to discovery from current directory)
     #[arg(long, global = true)]
@@ -128,7 +131,13 @@ fn main() -> anyhow::Result<()> {
                 wiki_dir.display()
             );
         }
-        Command::Put { id, title, body, tag, page_type } => {
+        Command::Put {
+            id,
+            title,
+            body,
+            tag,
+            page_type,
+        } => {
             let body_text = if body == "-" {
                 let mut buf = String::new();
                 std::io::stdin().read_to_string(&mut buf)?;
@@ -136,10 +145,15 @@ fn main() -> anyhow::Result<()> {
             } else {
                 std::fs::read_to_string(&body)?
             };
-            let outcome = engine::put_page(&repo, &wiki_dir, &id, &title, &body_text, tag, page_type)?;
+            let outcome =
+                engine::put_page(&repo, &wiki_dir, &id, &title, &body_text, tag, page_type)?;
             println!(
                 "{} {}: {} evidence citation(s), pinned to HEAD {}",
-                if outcome.created { "created" } else { "updated" },
+                if outcome.created {
+                    "created"
+                } else {
+                    "updated"
+                },
                 outcome.page.meta.id,
                 outcome.citations,
                 repo.head_short()?
@@ -173,10 +187,7 @@ fn main() -> anyhow::Result<()> {
                 let report = engine::check_page(page, &repo)?;
                 if report.is_stale {
                     stale_count += 1;
-                    println!(
-                        "STALE  {} — {}",
-                        report.id, report.title
-                    );
+                    println!("STALE  {} — {}", report.id, report.title);
                     for r in &report.evidence_reports {
                         if !r.ok {
                             println!("       - {}: {}", r.path, r.detail);
@@ -189,18 +200,28 @@ fn main() -> anyhow::Result<()> {
                             p.save_in_place()?;
                             println!("       marked stale");
                         } else {
-                            println!("       (status still '{}'; use --mark)", page.meta.status.as_str());
+                            println!(
+                                "       (status still '{}'; use --mark)",
+                                page.meta.status.as_str()
+                            );
                         }
                     }
                 } else if report.status_before == Status::Stale {
-                    println!("FIXED? {} — evidence matches HEAD again; run `loredex refresh {}`", report.id, report.id);
+                    println!(
+                        "FIXED? {} — evidence matches HEAD again; run `loredex refresh {}`",
+                        report.id, report.id
+                    );
                 }
             }
             let total = pages.len();
             println!(
                 "\n{total} page(s), {stale_count} stale; repo HEAD {}{}",
                 repo.head_short()?,
-                if repo.is_dirty()? { " (working tree dirty)" } else { "" }
+                if repo.is_dirty()? {
+                    " (working tree dirty)"
+                } else {
+                    ""
+                }
             );
             if stale_count > 0 {
                 std::process::exit(1);
@@ -254,7 +275,13 @@ fn main() -> anyhow::Result<()> {
                 println!("no matches");
             }
             for h in hits {
-                println!("[{}] {} — {} (score {})", page_status(&pages, &h.id), h.id, h.title, h.score);
+                println!(
+                    "[{}] {} — {} (score {})",
+                    page_status(&pages, &h.id),
+                    h.id,
+                    h.title,
+                    h.score
+                );
                 for l in &h.matched_lines {
                     println!("   {l}");
                 }
@@ -311,8 +338,10 @@ fn main() -> anyhow::Result<()> {
             } else {
                 println!(
                     "checked {} page(s) at HEAD {} — {} recovered by projection, {} need rewriting",
-                    report.checked, report.head,
-                    report.recovered.len(), report.needs_rewrite.len()
+                    report.checked,
+                    report.head,
+                    report.recovered.len(),
+                    report.needs_rewrite.len()
                 );
                 for r in &report.recovered {
                     println!("  [recovered] {}: {}", r.page_id, r.summary);
@@ -332,7 +361,10 @@ fn main() -> anyhow::Result<()> {
                 if !pending.is_empty() {
                     println!("  [plan] {} pending task(s):", pending.len());
                     for t in pending {
-                        println!("     [{:?}] {} [{:?}] — {}", t.status, t.page_id, t.kind, t.purpose);
+                        println!(
+                            "     [{:?}] {} [{:?}] — {}",
+                            t.status, t.page_id, t.kind, t.purpose
+                        );
                     }
                 }
             }
@@ -348,7 +380,11 @@ fn main() -> anyhow::Result<()> {
             let h = out.join("loredex-post-merge");
             std::fs::write(&a, action)?;
             std::fs::write(&h, hook)?;
-            println!("wrote {} and {} (read the header comments for install)", a.display(), h.display());
+            println!(
+                "wrote {} and {} (read the header comments for install)",
+                a.display(),
+                h.display()
+            );
         }
         Command::Task { page_id, status } => {
             let st = match status.as_str() {
@@ -362,11 +398,8 @@ fn main() -> anyhow::Result<()> {
         }
         Command::Playbooks => {
             let reg = engine::playbook_registry(&wiki_dir);
-            for (_, pb) in &reg {
-                println!(
-                    "{} — {}",
-                    pb.name, pb.description
-                );
+            for pb in reg.values() {
+                println!("{} — {}", pb.name, pb.description);
                 println!("   sections: {}", pb.sections.join(" -> "));
                 for c in &pb.checklist {
                     println!("   - {c}");

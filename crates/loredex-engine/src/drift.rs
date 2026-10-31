@@ -1,8 +1,8 @@
 use std::collections::BTreeMap;
 
-use similar::{ChangeTag, TextDiff};
 use loredex_core::{Evidence, WikiPage};
 use loredex_git::GitRepo;
+use similar::{ChangeTag, TextDiff};
 
 use crate::{now_iso, record_evidence, sha1_hex, Result, WikiError};
 
@@ -13,17 +13,11 @@ pub enum DriftOutcome {
     Unchanged,
     /// Lines were re-projected onto new content; snippet survived (score 1.0)
     /// or was accepted above the similarity threshold.
-    Projected {
-        lines: [u32; 2],
-        score: f64,
-    },
+    Projected { lines: [u32; 2], score: f64 },
     /// The cited path is gone but its content was found elsewhere in HEAD.
     /// `exact` = same blob oid (plain `git mv`); otherwise mv + edit, adopted
     /// only after line projection.
-    Renamed {
-        new_path: String,
-        exact: bool,
-    },
+    Renamed { new_path: String, exact: bool },
     /// Could not find the cited content in the new revision.
     Lost,
     /// Old blob object is missing from the object db; fell back to raw re-pin.
@@ -101,7 +95,13 @@ fn recover_renamed(
             "rename-detected {} -> {} (identical blob)",
             ev.path, found
         ));
-        return Ok((DriftOutcome::Renamed { new_path: found, exact: true }, Some(adopted)));
+        return Ok((
+            DriftOutcome::Renamed {
+                new_path: found,
+                exact: true,
+            },
+            Some(adopted),
+        ));
     }
     if let Some(new_path) = renames.get(&ev.path) {
         let old_content = repo.blob_content(&ev.blob)?;
@@ -125,7 +125,10 @@ fn recover_renamed(
                         )),
                     };
                     return Ok((
-                        DriftOutcome::Renamed { new_path: new_path.clone(), exact: false },
+                        DriftOutcome::Renamed {
+                            new_path: new_path.clone(),
+                            exact: false,
+                        },
                         Some(adopted),
                     ));
                 }
@@ -144,7 +147,10 @@ fn similarity(a: &str, b: &str) -> f64 {
         return 1.0;
     }
     let diff = TextDiff::from_lines(a, b);
-    let total = diff.iter_all_changes().filter(|c| c.tag() != ChangeTag::Insert).count();
+    let total = diff
+        .iter_all_changes()
+        .filter(|c| c.tag() != ChangeTag::Insert)
+        .count();
     let equal = diff
         .iter_all_changes()
         .filter(|c| c.tag() == ChangeTag::Equal)
@@ -175,7 +181,13 @@ pub fn project_evidence(
         Some(r) => r,
         None => {
             // whole-file evidence: no line projection needed, just re-pin
-            return Ok((DriftOutcome::Projected { lines: [0, 0], score: 1.0 }, None));
+            return Ok((
+                DriftOutcome::Projected {
+                    lines: [0, 0],
+                    score: 1.0,
+                },
+                None,
+            ));
         }
     };
     let old_content = match repo.blob_content(&ev.blob)? {
@@ -203,13 +215,17 @@ pub fn project_evidence(
             new_range[1]
         )),
     };
-    Ok((DriftOutcome::Projected { lines: new_range, score }, Some(adopted)))
+    Ok((
+        DriftOutcome::Projected {
+            lines: new_range,
+            score,
+        },
+        Some(adopted),
+    ))
 }
 
 pub fn head_lines_string(repo: &GitRepo, path: &str, lo: u32, hi: u32) -> Result<String> {
-    Ok(repo
-        .head_lines(path, lo, hi)?
-        .unwrap_or_default())
+    Ok(repo.head_lines(path, lo, hi)?.unwrap_or_default())
 }
 
 /// Refresh one page's evidence with drift projection, falling back to a
@@ -307,7 +323,10 @@ mod research {
         let old = "A\nB\nC\nA\nB\nC\nD\n";
         let new = "A\nB\nC\nD\n";
         let (_, score) = project_range(old, new, 5, 6);
-        assert!(score < 0.6, "must not silently adopt the look-alike copy: {score}");
+        assert!(
+            score < 0.6,
+            "must not silently adopt the look-alike copy: {score}"
+        );
     }
 
     /// 而区分度足够时（上下文不同），现有 diff 投影已经做对：

@@ -10,11 +10,13 @@
 use std::collections::BTreeSet;
 use std::path::Path;
 
-use serde::{Deserialize, Serialize};
 use loredex_core::WikiError;
 use loredex_git::GitRepo;
+use serde::{Deserialize, Serialize};
 
-use crate::{check_page, discover_modules, index::is_generated, load_pages, now_iso, playbook, Result};
+use crate::{
+    check_page, discover_modules, index::is_generated, load_pages, now_iso, playbook, Result,
+};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
@@ -70,14 +72,16 @@ pub fn runs_path(wiki_dir: &Path) -> std::path::PathBuf {
 pub fn load_ledger(wiki_dir: &Path) -> RunLedger {
     match std::fs::read_to_string(runs_path(wiki_dir)) {
         Ok(text) => serde_json::from_str(&text).unwrap_or_default(),
-        Err(_) => RunLedger { schema: 1, runs: Vec::new() },
+        Err(_) => RunLedger {
+            schema: 1,
+            runs: Vec::new(),
+        },
     }
 }
 
 fn save_ledger(wiki_dir: &Path, ledger: &RunLedger) -> Result<()> {
     std::fs::create_dir_all(wiki_dir).map_err(WikiError::Io)?;
-    let text = serde_json::to_string_pretty(ledger)
-        .map_err(|e| WikiError::Git(e.to_string()))?;
+    let text = serde_json::to_string_pretty(ledger).map_err(|e| WikiError::Git(e.to_string()))?;
     std::fs::write(runs_path(wiki_dir), text).map_err(WikiError::Io)
 }
 
@@ -92,7 +96,9 @@ pub fn compute_tasks(repo: &GitRepo, wiki_dir: &Path) -> Result<Vec<PlanTask>> {
     let instr = |t: &str, subject: &str| {
         reg.get(t)
             .map(|pb| pb.instructions_for(subject))
-            .unwrap_or_else(|| format!("Write page `{subject}` with cited claims (unknown type `{t}`)."))
+            .unwrap_or_else(|| {
+                format!("Write page `{subject}` with cited claims (unknown type `{t}`).")
+            })
     };
 
     for p in &pages {
@@ -107,10 +113,7 @@ pub fn compute_tasks(repo: &GitRepo, wiki_dir: &Path) -> Result<Vec<PlanTask>> {
             // draft/stale-flagged pages are authoring work even when git-clean
             tasks.push(PlanTask {
                 suggested_type: p.meta.page_type.clone().unwrap_or_else(|| "system".into()),
-                instructions: instr(
-                    p.meta.page_type.as_deref().unwrap_or("system"),
-                    &p.meta.id,
-                ),
+                instructions: instr(p.meta.page_type.as_deref().unwrap_or("system"), &p.meta.id),
                 page_id: p.meta.id.clone(),
                 kind: TaskKind::Refresh,
                 purpose: format!("page status is `{}`", p.meta.status.as_str()),
@@ -158,7 +161,11 @@ pub fn compute_tasks(repo: &GitRepo, wiki_dir: &Path) -> Result<Vec<PlanTask>> {
         let config_only = uncovered.iter().all(|f| {
             matches!(
                 f.rsplit('/').next().unwrap_or(f),
-                "Cargo.toml" | "Cargo.lock" | ".gitignore" | "rust-toolchain.toml" | "package-lock.json"
+                "Cargo.toml"
+                    | "Cargo.lock"
+                    | ".gitignore"
+                    | "rust-toolchain.toml"
+                    | "package-lock.json"
             )
         });
         if !config_only
@@ -174,7 +181,11 @@ pub fn compute_tasks(repo: &GitRepo, wiki_dir: &Path) -> Result<Vec<PlanTask>> {
                 instructions: instr(&stype, &pid),
                 page_id: pid,
                 kind: TaskKind::New,
-                purpose: format!("module `{}` ({} files) has no wiki coverage", m.name, m.files.len()),
+                purpose: format!(
+                    "module `{}` ({} files) has no wiki coverage",
+                    m.name,
+                    m.files.len()
+                ),
                 seeds,
                 status: TaskStatus::Pending,
             });
@@ -257,7 +268,7 @@ pub fn plan_with(repo: &GitRepo, wiki_dir: &Path, reset: bool) -> Result<RunReco
         None => (head.clone(), 1),
     };
     let run = RunRecord {
-        id: format!("run-{next_id}-{}", &head.chars().take(8).collect::<String>()),
+        id: format!("run-{next_id}-{}", head.chars().take(8).collect::<String>()),
         started_at: now_iso(),
         base_commit,
         target_commit: head,

@@ -2,13 +2,13 @@
 //! index generation and lint.
 
 use git2::{Repository, Signature};
-use tempfile::TempDir;
 use loredex_core::Status;
 use loredex_engine::{
     find_page, generate_index, lint, load_ledger, mark_task, open_plan, playbook_registry,
     put_page, refresh_page_with_drift, TaskKind, TaskStatus,
 };
 use loredex_git::GitRepo;
+use tempfile::TempDir;
 
 struct Fx {
     tmp: TempDir,
@@ -25,10 +25,12 @@ fn commit_all(path: &std::path::Path, msg: &str) {
     let head = git.head().ok().map(|h| h.peel_to_commit().unwrap());
     match head {
         Some(p) => {
-            git.commit(Some("HEAD"), &sig, &sig, msg, &tree, &[&p]).unwrap();
+            git.commit(Some("HEAD"), &sig, &sig, msg, &tree, &[&p])
+                .unwrap();
         }
         None => {
-            git.commit(Some("HEAD"), &sig, &sig, msg, &tree, &[]).unwrap();
+            git.commit(Some("HEAD"), &sig, &sig, msg, &tree, &[])
+                .unwrap();
         }
     }
 }
@@ -85,7 +87,11 @@ fn plan_emits_new_task_for_uncovered_module_and_put_resolves_it() {
     put(&fx, &new.page_id, "Root module", None);
     let ledger = load_ledger(&fx.wiki());
     let active = ledger.active_run().expect("run still active");
-    let task = active.tasks.iter().find(|t| t.page_id == new.page_id).unwrap();
+    let task = active
+        .tasks
+        .iter()
+        .find(|t| t.page_id == new.page_id)
+        .unwrap();
     assert_eq!(task.status, TaskStatus::Done);
 }
 
@@ -93,7 +99,10 @@ fn plan_emits_new_task_for_uncovered_module_and_put_resolves_it() {
 fn plan_emits_refresh_task_after_stale() {
     let fx = Fx::new(&[("src.rs", SRC)]);
     put(&fx, "root", "Root", None);
-    fx.edit("src.rs", "// expanded docs\nfn a() {\n  b();\n}\n\nfn b() {}\n\nfn c() {}\n");
+    fx.edit(
+        "src.rs",
+        "// expanded docs\nfn a() {\n  b();\n}\n\nfn b() {}\n\nfn c() {}\n",
+    );
     let run = open_plan(&fx.repo, &fx.wiki()).unwrap();
     let refresh = run
         .tasks
@@ -126,8 +135,7 @@ fn interrupted_pending_tasks_carry_over_to_next_plan() {
     let run2 = open_plan(&fx.repo, &fx.wiki()).unwrap();
     for t1 in &run1.tasks {
         assert!(
-            run2
-                .tasks
+            run2.tasks
                 .iter()
                 .any(|t| t.page_id == t1.page_id && t.status == TaskStatus::Pending),
             "pending task {} must survive into next run",
@@ -209,7 +217,10 @@ fn lint_finds_broken_links_stale_verified_and_drift() {
     assert!(issues.iter().any(|i| i.kind == "broken-link"));
 
     // make it stale without marking -> stale-but-verified
-    fx.edit("src.rs", "fn zz() {}\n// completely rewritten content now\n");
+    fx.edit(
+        "src.rs",
+        "fn zz() {}\n// completely rewritten content now\n",
+    );
     let issues = lint(&fx.repo, &fx.wiki()).unwrap();
     assert!(issues.iter().any(|i| i.kind == "stale-but-verified"));
 
@@ -225,7 +236,7 @@ fn lint_finds_broken_links_stale_verified_and_drift() {
     let mut page = find_page(&fx.wiki(), "root").unwrap();
     page.meta.status = Status::Verified;
     refresh_page_with_drift(&mut page, &fx.repo, &fx.wiki())
-    // may go Draft (rewrite lost content) - that's fine, drift check is path based
+        // may go Draft (rewrite lost content) - that's fine, drift check is path based
         .ok();
     let issues = lint(&fx.repo, &fx.wiki()).unwrap();
     assert!(
@@ -257,7 +268,10 @@ fn wiki_toml_extends_playbook_registry() {
     .unwrap();
     let reg = playbook_registry(&fx.wiki());
     let pb = reg.get("runbook").expect("custom type from wiki.toml");
-    assert_eq!(pb.sections, vec!["trigger".to_string(), "steps".to_string()]);
+    assert_eq!(
+        pb.sections,
+        vec!["trigger".to_string(), "steps".to_string()]
+    );
     assert!(reg.contains_key("architecture")); // builtins survive
 
     // unknown declared type now lints clean, known custom too
@@ -272,7 +286,10 @@ fn wiki_toml_extends_playbook_registry() {
     )
     .unwrap();
     let issues = lint(&fx.repo, &fx.wiki()).unwrap();
-    assert!(!issues.iter().any(|i| i.kind == "unknown-type"), "{issues:?}");
+    assert!(
+        !issues.iter().any(|i| i.kind == "unknown-type"),
+        "{issues:?}"
+    );
 
     // bogus type flagged
     put_page(
@@ -286,7 +303,12 @@ fn wiki_toml_extends_playbook_registry() {
     )
     .unwrap();
     let issues = lint(&fx.repo, &fx.wiki()).unwrap();
-    assert!(issues.iter().any(|i| i.kind == "unknown-type" && i.page == "weird"), "{issues:?}");
+    assert!(
+        issues
+            .iter()
+            .any(|i| i.kind == "unknown-type" && i.page == "weird"),
+        "{issues:?}"
+    );
 }
 
 #[test]
@@ -296,14 +318,18 @@ fn generated_pages_excluded_from_plans() {
     generate_index(&fx.repo, &fx.wiki()).unwrap();
     let run = open_plan(&fx.repo, &fx.wiki()).unwrap();
     assert!(
-        !run.tasks.iter().any(|t| t.page_id == "index" || t.page_id == "quickstart"),
+        !run.tasks
+            .iter()
+            .any(|t| t.page_id == "index" || t.page_id == "quickstart"),
         "generated pages must not spawn tasks: {:?}",
         run.tasks.iter().map(|t| &t.page_id).collect::<Vec<_>>()
     );
     // and lint must not complain about their uncited bodies
     let issues = lint(&fx.repo, &fx.wiki()).unwrap();
     assert!(
-        !issues.iter().any(|i| (i.page == "index" || i.page == "quickstart")),
+        !issues
+            .iter()
+            .any(|i| i.page == "index" || i.page == "quickstart"),
         "{issues:?}"
     );
 }
@@ -326,7 +352,11 @@ fn auto_recovers_drift_and_reports_clean() {
     assert_eq!(report.recovered.len(), 1, "{report:?}");
     assert!(report.needs_rewrite.is_empty());
     assert!(report.lint_issues.is_empty());
-    assert!(report.all_clean, "projection should close everything: {:?}", report.plan.tasks);
+    assert!(
+        report.all_clean,
+        "projection should close everything: {:?}",
+        report.plan.tasks
+    );
 }
 
 #[test]

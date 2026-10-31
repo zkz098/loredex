@@ -18,8 +18,13 @@ pub fn is_generated(id: &str) -> bool {
     id == INDEX_ID || id == QUICKSTART_ID
 }
 
-const TYPE_ORDER: [&str; 5] =
-    ["architecture", "workflow", "system", "integration", "testing"];
+const TYPE_ORDER: [&str; 5] = [
+    "architecture",
+    "workflow",
+    "system",
+    "integration",
+    "testing",
+];
 
 /// Build index.md content grouped by top-level directory (or "top level"),
 /// each line linking the page with live git freshness, never a plain text dump.

@@ -1,0 +1,47 @@
+# Loredex eats its own dogfood: scheduled maintenance of this repository's
+# own wiki (.wiki/). Algorithmic recovery is committed back directly; only
+# genuine re-authoring opens an issue with the plan worklist.
+name: loredex wiki refresh
+on:
+  schedule:
+    - cron: "17 3 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  issues: write
+
+jobs:
+  auto:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: install loredex
+        run: cargo install --path crates/loredex-cli --bin loredex --locked
+
+      - name: loredex auto
+        id: auto
+        run: |
+          set +e
+          ~/.cargo/bin/loredex auto --json > auto.json
+          echo "exit=$?" >> "$GITHUB_OUTPUT"
+          set -e
+          if [ -n "$(git status --porcelain .wiki)" ]; then
+            git config user.name "loredex[bot]"
+            git config user.email "loredex@localhost"
+            git add .wiki
+            git commit -m "wiki: auto-project drifts (scheduled loredex auto)"
+            git push
+          fi
+
+      - name: open attention issue when authoring work remains
+        if: steps.auto.outputs.exit != '0'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          { echo "loredex found pending work:"; echo '```json'; cat auto.json; echo '```'; } > body.md
+          gh issue create --title "[loredex] wiki needs author attention" \
+            --body-file body.md || true

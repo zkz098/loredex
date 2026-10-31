@@ -38,7 +38,13 @@ fn builtin() -> Vec<TypePlaybook> {
         TypePlaybook {
             name: "architecture".into(),
             description: "How the system is partitioned and why".into(),
-            sections: vec!["system purpose".into(), "module map & layering".into(), "data flow".into(), "failure domains".into(), "key invariants".into()],
+            sections: vec![
+                "system purpose".into(),
+                "module map & layering".into(),
+                "data flow".into(),
+                "failure domains".into(),
+                "key invariants".into(),
+            ],
             checklist: vec![
                 "What are the top-level units and what does each own?".into(),
                 "Which dependencies are allowed in which direction?".into(),
@@ -48,7 +54,13 @@ fn builtin() -> Vec<TypePlaybook> {
         TypePlaybook {
             name: "workflow".into(),
             description: "End-to-end path of one user-visible capability".into(),
-            sections: vec!["trigger".into(), "step sequence".into(), "state transitions".into(), "error handling".into(), "observability".into()],
+            sections: vec![
+                "trigger".into(),
+                "step sequence".into(),
+                "state transitions".into(),
+                "error handling".into(),
+                "observability".into(),
+            ],
             checklist: vec![
                 "Trace one concrete request/task from entry to completion.".into(),
                 "Where can it fail and what does the user see then?".into(),
@@ -57,7 +69,13 @@ fn builtin() -> Vec<TypePlaybook> {
         TypePlaybook {
             name: "system".into(),
             description: "Runtime mechanics of one component/crate".into(),
-            sections: vec!["responsibility".into(), "public surface".into(), "internal mechanics".into(), "configuration".into(), "resources & lifecycle".into()],
+            sections: vec![
+                "responsibility".into(),
+                "public surface".into(),
+                "internal mechanics".into(),
+                "configuration".into(),
+                "resources & lifecycle".into(),
+            ],
             checklist: vec![
                 "What does this component expose and to whom?".into(),
                 "What state does it own and where is it persisted?".into(),
@@ -67,7 +85,12 @@ fn builtin() -> Vec<TypePlaybook> {
         TypePlaybook {
             name: "integration".into(),
             description: "Boundary with an external system or protocol".into(),
-            sections: vec!["counterpart & contract".into(), "adapter layout".into(), "compatibility & versioning".into(), "failure mapping".into()],
+            sections: vec![
+                "counterpart & contract".into(),
+                "adapter layout".into(),
+                "compatibility & versioning".into(),
+                "failure mapping".into(),
+            ],
             checklist: vec![
                 "Which external contract is implemented, and where does it deviate?".into(),
                 "How are foreign errors mapped to local ones?".into(),
@@ -76,7 +99,12 @@ fn builtin() -> Vec<TypePlaybook> {
         TypePlaybook {
             name: "testing".into(),
             description: "How correctness is asserted".into(),
-            sections: vec!["test layers".into(), "how to run".into(), "fixtures & harness".into(), "notable regressions".into()],
+            sections: vec![
+                "test layers".into(),
+                "how to run".into(),
+                "fixtures & harness".into(),
+                "notable regressions".into(),
+            ],
             checklist: vec![
                 "Which command validates which risk?".into(),
                 "What regressions does the suite encode?".into(),

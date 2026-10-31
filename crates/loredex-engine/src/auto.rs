@@ -6,12 +6,12 @@
 
 use std::path::Path;
 
-use serde::Serialize;
 use loredex_git::GitRepo;
+use serde::Serialize;
 
 use crate::{
-    check_page, lint, load_pages, plan, Result, LintIssue, RunRecord,
-    refresh_page_with_drift, DriftOutcome, TaskStatus,
+    check_page, lint, load_pages, plan, refresh_page_with_drift, DriftOutcome, LintIssue, Result,
+    RunRecord, TaskStatus,
 };
 
 #[derive(Debug, Serialize)]
@@ -58,9 +58,7 @@ pub fn auto_refresh(repo: &GitRepo, wiki_dir: &Path) -> Result<AutoReport> {
             Ok(outcomes) => {
                 let lost: Vec<String> = outcomes
                     .iter()
-                    .filter(|(_, o)| {
-                        matches!(o, DriftOutcome::Lost | DriftOutcome::NoOldBlob)
-                    })
+                    .filter(|(_, o)| matches!(o, DriftOutcome::Lost | DriftOutcome::NoOldBlob))
                     .map(|(path, _)| path.clone())
                     .collect();
                 if lost.is_empty() {
@@ -73,7 +71,10 @@ pub fn auto_refresh(repo: &GitRepo, wiki_dir: &Path) -> Result<AutoReport> {
                                     format!("L{}-L{} ({score:.2})", lines[0], lines[1])
                                 }
                                 DriftOutcome::Renamed { new_path, exact } => {
-                                    format!("renamed->{new_path}{}", if *exact { " (exact)" } else { "" })
+                                    format!(
+                                        "renamed->{new_path}{}",
+                                        if *exact { " (exact)" } else { "" }
+                                    )
                                 }
                                 _ => "ok".to_string(),
                             })

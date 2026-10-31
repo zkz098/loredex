@@ -2,7 +2,7 @@ use std::path::{Path, PathBuf};
 
 use serde::{Deserialize, Serialize};
 
-use crate::error::{WikiError, Result};
+use crate::error::{Result, WikiError};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
@@ -95,7 +95,13 @@ impl WikiPage {
 
     pub fn to_markdown(&self) -> Result<String> {
         let yaml = serde_yaml::to_string(&self.meta)?;
-        Ok(format!("{}\n{}\n{}\n{}", DELIM, yaml.trim_end(), DELIM, self.body))
+        Ok(format!(
+            "{}\n{}\n{}\n{}",
+            DELIM,
+            yaml.trim_end(),
+            DELIM,
+            self.body
+        ))
     }
 
     pub fn load(path: &Path) -> Result<Self> {
@@ -106,7 +112,10 @@ impl WikiPage {
     pub fn save(&self, path: &Path) -> Result<()> {
         let md = self.to_markdown()?;
         // atomic write: temp file + rename
-        let tmp = path.with_file_name(format!(".{}.tmp", path.file_name().unwrap().to_string_lossy().into_owned()));
+        let tmp = path.with_file_name(format!(
+            ".{}.tmp",
+            path.file_name().unwrap().to_string_lossy().into_owned()
+        ));
         std::fs::write(&tmp, md)?;
         std::fs::rename(&tmp, path)?;
         Ok(())
@@ -132,7 +141,9 @@ pub fn list_page_files(pages_dir: &Path) -> Result<Vec<PathBuf>> {
 }
 
 fn walk(dir: &Path, out: &mut Vec<PathBuf>) {
-    let Ok(entries) = std::fs::read_dir(dir) else { return };
+    let Ok(entries) = std::fs::read_dir(dir) else {
+        return;
+    };
     for entry in entries.flatten() {
         let path = entry.path();
         if path.is_dir() {
@@ -156,7 +167,10 @@ pub fn validate_page_id(id: &str) -> std::result::Result<(), String> {
         if seg == "." || seg == ".." {
             return Err(format!("traversal segment `{seg}` in `{id}`"));
         }
-        if !seg.chars().all(|c| c.is_alphanumeric() || c == '-' || c == '_') {
+        if !seg
+            .chars()
+            .all(|c| c.is_alphanumeric() || c == '-' || c == '_')
+        {
             return Err(format!("invalid characters in `{seg}`"));
         }
     }

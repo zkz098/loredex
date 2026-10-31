@@ -7,9 +7,9 @@
 use std::collections::BTreeSet;
 use std::path::Path;
 
-use serde::Serialize;
 use loredex_core::{dedup_citations, parse_citations, Status};
 use loredex_git::GitRepo;
+use serde::Serialize;
 
 use crate::{check_page, load_pages, Result};
 

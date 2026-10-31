@@ -4,13 +4,13 @@
 //! lost downgrade -> verification outcomes, plus the put_page rejection matrix.
 
 use git2::{Repository, Signature};
-use tempfile::TempDir;
 use loredex_core::{Status, WikiPage};
 use loredex_engine::{
-    check_page, discover_modules, find_page, put_page, refresh_page_with_drift,
-    verify_page, DriftOutcome,
+    check_page, discover_modules, find_page, put_page, refresh_page_with_drift, verify_page,
+    DriftOutcome,
 };
 use loredex_git::GitRepo;
+use tempfile::TempDir;
 
 struct Fixture {
     tmp: TempDir,
@@ -28,10 +28,12 @@ fn commit_all(repo_path: &std::path::Path, msg: &str) {
     let head = git.head().ok().map(|h| h.peel_to_commit().unwrap());
     match head {
         Some(p) => {
-            git.commit(Some("HEAD"), &sig, &sig, msg, &tree, &[&p]).unwrap();
+            git.commit(Some("HEAD"), &sig, &sig, msg, &tree, &[&p])
+                .unwrap();
         }
         None => {
-            git.commit(Some("HEAD"), &sig, &sig, msg, &tree, &[]).unwrap();
+            git.commit(Some("HEAD"), &sig, &sig, msg, &tree, &[])
+                .unwrap();
         }
     }
 }
@@ -80,7 +82,8 @@ impl Fixture {
     }
 }
 
-const API_RS: &str = "pub fn serve() {\n    loop {\n        handle();\n    }\n}\n\nfn handle() {}\n";
+const API_RS: &str =
+    "pub fn serve() {\n    loop {\n        handle();\n    }\n}\n\nfn handle() {}\n";
 
 fn cited_body() -> String {
     "# Entry\n\nserve loops over handle [[cite:src/api.rs:L1-L5]].\n\
@@ -141,11 +144,11 @@ fn drift_projection_adopts_shifted_lines() {
 
     // persisted: note records the projection, body markers untouched
     let reloaded = find_page(&fx.wiki_dir(), "entry").unwrap();
-    assert!(reloaded
-        .meta
-        .evidence
-        .iter()
-        .any(|e| e.note.as_deref().unwrap_or("").contains("drift-projected")));
+    assert!(reloaded.meta.evidence.iter().any(|e| e
+        .note
+        .as_deref()
+        .unwrap_or("")
+        .contains("drift-projected")));
     assert!(reloaded.body.contains("[[cite:src/api.rs:L1-L5]]"));
     assert!(verify_page(&reloaded, &fx.repo).unwrap().all_ok);
     assert!(!check_page(&reloaded, &fx.repo).unwrap().is_stale);
@@ -263,15 +266,21 @@ fn plain_git_mv_recovered_by_content_addressing() {
 
     let mut page = stale;
     let outcomes = refresh_page_with_drift(&mut page, &fx.repo, &fx.wiki_dir()).unwrap();
-    assert!(outcomes
-        .iter()
-        .all(|(_, o)| matches!(o, DriftOutcome::Renamed { new_path, exact: true }
-            if new_path == "src/store/api.rs")));
+    assert!(outcomes.iter().all(
+        |(_, o)| matches!(o, DriftOutcome::Renamed { new_path, exact: true }
+            if new_path == "src/store/api.rs")
+    ));
     assert_eq!(page.meta.status, Status::Verified);
-    assert!(page.meta.evidence.iter().all(|e| e.path == "src/store/api.rs"));
-    assert!(verify_page(&find_page(&fx.wiki_dir(), "entry").unwrap(), &fx.repo)
-        .unwrap()
-        .all_ok);
+    assert!(page
+        .meta
+        .evidence
+        .iter()
+        .all(|e| e.path == "src/store/api.rs"));
+    assert!(
+        verify_page(&find_page(&fx.wiki_dir(), "entry").unwrap(), &fx.repo)
+            .unwrap()
+            .all_ok
+    );
 }
 
 #[test]
@@ -288,18 +297,24 @@ fn mv_with_minor_edit_renamed_and_projected() {
     let mut page = stale;
     let outcomes = refresh_page_with_drift(&mut page, &fx.repo, &fx.wiki_dir()).unwrap();
     // tier-1 exact fails (blob changed); similarity rename + projection wins
-    assert!(outcomes.iter().all(|(_, o)| matches!(
-        o,
-        DriftOutcome::Renamed { new_path, exact: false } if new_path == "moved_api.rs"
-    )) || outcomes.iter().any(|(_, o)| matches!(o, DriftOutcome::Projected { .. })),
-        "{outcomes:?}");
+    assert!(
+        outcomes.iter().all(|(_, o)| matches!(
+            o,
+            DriftOutcome::Renamed { new_path, exact: false } if new_path == "moved_api.rs"
+        )) || outcomes
+            .iter()
+            .any(|(_, o)| matches!(o, DriftOutcome::Projected { .. })),
+        "{outcomes:?}"
+    );
     assert_eq!(page.meta.status, Status::Verified);
     assert!(page.meta.evidence.iter().all(|e| e.path == "moved_api.rs"));
     // first citation shifted down by the inserted header line
     assert_eq!(page.meta.evidence[0].lines, Some([2, 6]));
-    assert!(verify_page(&find_page(&fx.wiki_dir(), "entry").unwrap(), &fx.repo)
-        .unwrap()
-        .all_ok);
+    assert!(
+        verify_page(&find_page(&fx.wiki_dir(), "entry").unwrap(), &fx.repo)
+            .unwrap()
+            .all_ok
+    );
 }
 
 #[test]
@@ -346,8 +361,16 @@ fn heavy_rewrite_without_rename_hint_stays_unresolvable() {
 #[test]
 fn reject_body_without_citations() {
     let fx = Fixture::new(&[("src/api.rs", API_RS)]);
-    let err = put_page(&fx.repo, &fx.wiki_dir(), "x", "t", "plain prose only", vec![], None)
-        .expect_err("must reject uncited body");
+    let err = put_page(
+        &fx.repo,
+        &fx.wiki_dir(),
+        "x",
+        "t",
+        "plain prose only",
+        vec![],
+        None,
+    )
+    .expect_err("must reject uncited body");
     assert!(err.to_string().contains("no [[cite:path:Lx-Ly]] markers"));
 }
 
@@ -406,8 +429,18 @@ fn reject_invalid_page_ids() {
 fn put_updates_existing_page_and_dedups_citations() {
     let fx = Fixture::new(&[("src/api.rs", API_RS)]);
     make_page(&fx);
-    let body = "# v2\n\nsame thing [[cite:src/api.rs:L1-L5]] and again [[cite:src/api.rs:L1-L5]].\n";
-    let out = put_page(&fx.repo, &fx.wiki_dir(), "entry", "Entry v2", body, vec![], None).unwrap();
+    let body =
+        "# v2\n\nsame thing [[cite:src/api.rs:L1-L5]] and again [[cite:src/api.rs:L1-L5]].\n";
+    let out = put_page(
+        &fx.repo,
+        &fx.wiki_dir(),
+        "entry",
+        "Entry v2",
+        body,
+        vec![],
+        None,
+    )
+    .unwrap();
     assert!(!out.created, "second put updates in place");
     assert_eq!(out.citations, 1, "duplicate citations dedup");
 

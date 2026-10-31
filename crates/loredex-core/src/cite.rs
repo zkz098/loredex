@@ -2,7 +2,7 @@
 // without markers is rejected by wiki-engine::put_page.
 use regex::Regex;
 
-use crate::error::{WikiError, Result};
+use crate::error::{Result, WikiError};
 
 /// A citation marker parsed out of wiki body text:
 /// `[[cite:src/db.rs:L10-L88]]` or `[[cite:src/db.rs]]`.
@@ -23,7 +23,10 @@ pub fn parse_citations(body: &str) -> Result<Vec<Citation>> {
         let path = caps[1].to_string();
         let lines = match (caps.get(2), caps.get(3)) {
             (Some(lo), Some(hi)) => {
-                let (lo, hi) = (lo.as_str().parse::<u32>().unwrap(), hi.as_str().parse::<u32>().unwrap());
+                let (lo, hi) = (
+                    lo.as_str().parse::<u32>().unwrap(),
+                    hi.as_str().parse::<u32>().unwrap(),
+                );
                 if lo == 0 || lo > hi {
                     return Err(WikiError::FrontmatterParse(
                         path,
@@ -59,7 +62,7 @@ mod tests {
     #[test]
     fn parses_range_and_plain() {
         let body = "See [[cite:src/db.rs:L10-L88]] and also [[cite:README.md]].";
-        let mut cites = parse_citations(body).unwrap();
+        let cites = parse_citations(body).unwrap();
         assert_eq!(cites.len(), 2);
         assert_eq!(cites[0].path, "src/db.rs");
         assert_eq!(cites[0].lines, Some([10, 88]));

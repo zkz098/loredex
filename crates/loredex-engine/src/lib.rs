@@ -1,8 +1,8 @@
 use std::path::{Path, PathBuf};
 
-use sha1::{Digest, Sha1};
-use loredex_core::{list_page_files, Evidence, Status, WikiPage, WikiError};
+use loredex_core::{list_page_files, Evidence, Status, WikiError, WikiPage};
 use loredex_git::GitRepo;
+use sha1::{Digest, Sha1};
 
 pub mod auto;
 pub mod drift;
@@ -18,11 +18,11 @@ pub use drift::{project_evidence, project_range, refresh_page_with_drift, DriftO
 pub use index::{all_wiki_links, generate_index, is_generated, INDEX_ID, QUICKSTART_ID};
 pub use lint::{lint, LintIssue};
 pub use modules::{discover as discover_modules, ModuleInfo};
-pub use playbook::{registry as playbook_registry, TypePlaybook};
 pub use plan::{
-    close_run, compute_tasks, load_ledger, mark_task, plan as open_plan, plan_with, PlanTask, RunLedger,
-    RunRecord, TaskKind, TaskStatus,
+    close_run, compute_tasks, load_ledger, mark_task, plan as open_plan, plan_with, PlanTask,
+    RunLedger, RunRecord, TaskKind, TaskStatus,
 };
+pub use playbook::{registry as playbook_registry, TypePlaybook};
 pub use put::{put_page, PutOutcome};
 
 pub type Result<T> = std::result::Result<T, WikiError>;
@@ -135,10 +135,7 @@ pub fn check_page(page: &WikiPage, repo: &GitRepo) -> Result<PageReport> {
         reports.push(EvidenceReport {
             path: "<commit>".into(),
             ok: false,
-            detail: format!(
-                "generated against unknown commit {}",
-                page.meta.commit
-            ),
+            detail: format!("generated against unknown commit {}", page.meta.commit),
         });
     }
 
@@ -156,13 +153,11 @@ pub fn check_page(page: &WikiPage, repo: &GitRepo) -> Result<PageReport> {
             None => {
                 stale = true;
                 if renames.is_none() {
-                    renames = Some(
-                        if repo.commit_exists(&page.meta.commit) {
-                            repo.renames_since(&page.meta.commit).into_iter().collect()
-                        } else {
-                            Default::default()
-                        },
-                    );
+                    renames = Some(if repo.commit_exists(&page.meta.commit) {
+                        repo.renames_since(&page.meta.commit).into_iter().collect()
+                    } else {
+                        Default::default()
+                    });
                 }
                 let map = renames.as_ref().unwrap();
                 let detail = match (repo.path_of_blob_in_head(&e.blob)?, map.get(&e.path)) {
@@ -214,7 +209,11 @@ pub fn check_page(page: &WikiPage, repo: &GitRepo) -> Result<PageReport> {
         title: page.meta.title.clone(),
         status_before: page.meta.status,
         is_stale: stale,
-        stale_since: if stale { Some(repo.head_short()?) } else { None },
+        stale_since: if stale {
+            Some(repo.head_short()?)
+        } else {
+            None
+        },
         evidence_reports: reports,
     })
 }
@@ -246,10 +245,13 @@ pub fn verify_page(page: &WikiPage, repo: &GitRepo) -> Result<VerifyReport> {
                         if actual == *expected {
                             (true, format!("snippet {lo}-{hi} matches recorded hash"))
                         } else {
-                            (false, format!(
+                            (
+                                false,
+                                format!(
                                 "snippet {lo}-{hi} hash mismatch (recorded {}, HEAD has {actual})",
                                 &expected[..8.min(expected.len())]
-                            ))
+                            ),
+                            )
                         }
                     }
                 }
@@ -258,7 +260,15 @@ pub fn verify_page(page: &WikiPage, repo: &GitRepo) -> Result<VerifyReport> {
                 let ok = oid == e.blob;
                 (
                     ok,
-                    if ok { "whole-file blob matches".into() } else { format!("whole-file blob changed: {} -> {}", short(&e.blob), short(&oid)) },
+                    if ok {
+                        "whole-file blob matches".into()
+                    } else {
+                        format!(
+                            "whole-file blob changed: {} -> {}",
+                            short(&e.blob),
+                            short(oid)
+                        )
+                    },
                 )
             }
             (None, Some(_), _) => (false, "no lines recorded for snippet hash".into()),

@@ -1,4 +1,6 @@
-use loredex_core::{dedup_citations, parse_citations, Evidence, PageMeta, Status, WikiPage, WikiError};
+use loredex_core::{
+    dedup_citations, parse_citations, Evidence, PageMeta, Status, WikiError, WikiPage,
+};
 use loredex_git::GitRepo;
 
 use crate::{now_iso, record_evidence, Result};
@@ -25,7 +27,9 @@ pub fn put_page(
     page_type: Option<String>,
 ) -> Result<PutOutcome> {
     loredex_core::validate_page_id(id).map_err(|m| {
-        WikiError::Git(format!("invalid page id `{id}` ({m}); use alphanumeric, '-', '_' or '/'"))
+        WikiError::Git(format!(
+            "invalid page id `{id}` ({m}); use alphanumeric, '-', '_' or '/'"
+        ))
     })?;
     let cites = dedup_citations(parse_citations(body).map_err(|e| {
         WikiError::FrontmatterParse(id.into(), format!("citation parse error: {e}"))
@@ -33,21 +37,24 @@ pub fn put_page(
     if cites.is_empty() {
         return Err(WikiError::FrontmatterParse(
             id.into(),
-            "body contains no [[cite:path:Lx-Ly]] markers; every wiki page must cite its sources".into(),
+            "body contains no [[cite:path:Lx-Ly]] markers; every wiki page must cite its sources"
+                .into(),
         ));
     }
 
     let mut evidence: Vec<Evidence> = Vec::new();
     for c in &cites {
         let ev = record_evidence(repo, &c.path, c.lines).map_err(|e| {
-            WikiError::Git(format!("citation [{}] cannot be pinned to HEAD: {e}", c.path))
+            WikiError::Git(format!(
+                "citation [{}] cannot be pinned to HEAD: {e}",
+                c.path
+            ))
         })?;
         evidence.push(ev);
     }
 
     let path = crate::pages_dir(wiki_dir).join(format!("{id}.md"));
-    std::fs::create_dir_all(path.parent().expect("pages dir"))
-        .map_err(WikiError::Io)?;
+    std::fs::create_dir_all(path.parent().expect("pages dir")).map_err(WikiError::Io)?;
     let created = !path.exists();
     let page = WikiPage {
         meta: PageMeta {
