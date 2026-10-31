@@ -2,39 +2,44 @@
 id: entry-mcp-cli
 title: 入口层：MCP server 与 CLI
 status: verified
-generated_at: 2026-10-31T06:11:59Z
-commit: 5cd7de119ad6c36ea4d26a6135f5c455a10d6470
+generated_at: 2026-10-31T06:37:04Z
+commit: 9300a9e46e346049071d99ec7b5433db1d158189
 evidence:
 - path: crates/wiki-mcp/src/main.rs
   lines:
   - 13
-  - 27
-  blob: 0858bf1657cd9bf1f3b7a0c39b912cda6431e34a
-  snippet_sha1: bba4ad020ec9a640906abbe751c7a6d9b776fcf4
+  - 26
+  blob: 96f3586f9003759ec3c801e6e70569a6e61f237e
+  snippet_sha1: 4e5d13878e567c64c7faf162d26c8124c6cddd3b
+  note: drift-projected L13-L27@0858bf16 -> L13-L26 (similarity 0.87)
 - path: crates/wiki-mcp/src/main.rs
   lines:
-  - 434
-  - 460
-  blob: 0858bf1657cd9bf1f3b7a0c39b912cda6431e34a
-  snippet_sha1: 8c96cfca935319c2763c8131e2895860cdd457a4
+  - 599
+  - 628
+  blob: 96f3586f9003759ec3c801e6e70569a6e61f237e
+  snippet_sha1: 02c857a3fa10bbd39c13ca2ae633a29b7129308a
+  note: drift-projected L434-L460@0858bf16 -> L599-L628 (similarity 0.93)
 - path: crates/wiki-mcp/src/main.rs
   lines:
-  - 281
-  - 330
-  blob: 0858bf1657cd9bf1f3b7a0c39b912cda6431e34a
-  snippet_sha1: a7183fe7539d1e5c27eec9955184634f796ead43
+  - 438
+  - 492
+  blob: 96f3586f9003759ec3c801e6e70569a6e61f237e
+  snippet_sha1: ebecfd1d6b0a7fe5327b349dd772b9230ce67937
+  note: drift-projected L281-L330@0858bf16 -> L438-L492 (similarity 0.92)
 - path: crates/wiki-mcp/src/main.rs
   lines:
-  - 463
-  - 490
-  blob: 0858bf1657cd9bf1f3b7a0c39b912cda6431e34a
-  snippet_sha1: 603e23b04c5926ecaaf03b00453d7003f0b75e83
+  - 630
+  - 660
+  blob: 96f3586f9003759ec3c801e6e70569a6e61f237e
+  snippet_sha1: d09252da0f8b077f027807042e55d6f4353ca157
+  note: drift-projected L463-L490@0858bf16 -> L630-L660 (similarity 0.93)
 - path: crates/wiki-mcp/src/main.rs
   lines:
-  - 365
-  - 405
-  blob: 0858bf1657cd9bf1f3b7a0c39b912cda6431e34a
-  snippet_sha1: 11b9eb57277a8eac0a6837faba30493e548d0205
+  - 526
+  - 569
+  blob: 96f3586f9003759ec3c801e6e70569a6e61f237e
+  snippet_sha1: a90fffd59738d29694297da772e81fb9e5626cc0
+  note: drift-projected L365-L405@0858bf16 -> L526-L569 (similarity 0.95)
 - path: crates/wiki-cli/src/main.rs
   lines:
   - 21

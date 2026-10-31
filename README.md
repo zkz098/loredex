@@ -42,20 +42,30 @@ serve() 在循环中处理请求 [[cite:src/api.rs:L1-L5]]，main 先初始化 d
 
 ## Agent 接入（MCP）
 
-在 MCP 客户端配置中注册：
+**零配置接入（推荐）**：一份全局配置即可服务任意仓库，server 按四层解析链自动定位目标仓库——`--repo` 参数（强制钉定）→ `REPOWIKI_REPO` 环境变量 → 客户端 MCP roots → 进程工作目录（主流客户端都在 workspace 目录 spawn server）：
+
+```json
+{
+  "mcpServers": {
+    "repowiki": { "command": "repowiki-mcp" }
+  }
+}
+```
+
+解析全部失败时工具返回带指引的错误，agent 会调用 `wiki_attach_repo` 显式挂载；`wiki_current_repo` 可随时自省当前仓库及其解析来源。需要钉死单一仓库时：
 
 ```json
 {
   "mcpServers": {
     "repowiki": {
-      "command": "/path/to/repowiki-mcp",
+      "command": "repowiki-mcp",
       "args": ["--repo", "/path/to/your-repo"]
     }
   }
 }
 ```
 
-Server 在 `initialize` 时下发协议契约（先查新鲜度、stale 视为未验证、漂移走 refresh、引用可审计）。所有工具返回结构化 `structuredContent`（`stale_now`、`matches_head`、`projectable` 等字段）。
+Server 在 `initialize` 时下发协议契约（先查新鲜度、stale 视为未验证、漂移走 refresh、引用可审计）与解析链说明。所有工具返回结构化 `structuredContent`（`stale_now`、`matches_head`、`projectable` 等字段）。
 
 | 工具 | 用途 |
 |---|---|
@@ -66,6 +76,7 @@ Server 在 `initialize` 时下发协议契约（先查新鲜度、stale 视为�
 | `wiki_list_modules` | 发现待编写模块，含已有引用覆盖统计 |
 | `wiki_put_page` | 提交 agent 撰写的内容（零引用拒绝） |
 | `wiki_refresh_page` | 漂移投影刷新，逐条返回投影结果 |
+| `wiki_attach_repo` / `wiki_current_repo` | 挂载/切换仓库、自省解析状态 |
 
 ## 工作流
 
@@ -97,6 +108,8 @@ crates/
 - 过期判定 = blob 对比 **和** `生成commit→HEAD` 的 pathspec diff 交叉验证；生成 commit 不可解析也判 stale
 - 漂移投影对旧行→新行建映射（删除行锚定最近存活行、区间坍缩保持宽度），投影后新旧 snippet 相似度 ≥ 0.6 才采纳
 - 引用校验在入库时进行：路径必须在 HEAD 存在，行区间非法直接拒绝
+- MCP 仓库解析四层链（cli > env > roots > cwd），roots 层带客户端能力门控与 3 秒超时，任何失配客户端都不会卡死会话
+- `git2::Repository` 是 `!Sync`，repo 实例存于 `Mutex<RepoSlot>` 内，异步解析只"确保"槽位、工具同步借用（单层的锁纪律）
 
 ## 已知边界
 
