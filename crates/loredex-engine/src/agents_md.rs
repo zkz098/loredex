@@ -49,7 +49,7 @@ This repo keeps an evidence-backed wiki under `.wiki/` (pages in `.wiki/pages/*.
 
 Agent protocol:
 
-1. Look before reading code: `loredex search \"<query>\"` / `loredex show <page>` (or MCP `wiki_search` / `wiki_get_page`).
+1. Look before reading code: `loredex search \"<query>\"` / `loredex show <page>` (or MCP `wiki_search` / `wiki_read`).
 2. Verify freshness before trusting a page: `loredex check` (or MCP `wiki_check_freshness`); STALE pages are unverified — read the source.
 3. After changing code: `loredex auto` heals drifted citations, `loredex plan` lists remaining authoring work.
 4. When writing pages, one inline `[[cite:path:Lx-Ly]]` per claim; bodies without citations are rejected.
@@ -63,7 +63,7 @@ Do not hand-edit this block; regenerate with `loredex agents-md` (remove it with
 
 Agent 协议:
 
-1. 先查 wiki 再读代码:`loredex search \"<关键词>\"` / `loredex show <页面>`(或 MCP `wiki_search` / `wiki_get_page`)。
+1. 先查 wiki 再读代码:`loredex search \"<关键词>\"` / `loredex show <页面>`(或 MCP `wiki_search` / `wiki_read`)。
 2. 信任页面前先验证新鲜度:`loredex check`(或 MCP `wiki_check_freshness`);STALE 页面视为未验证,去读源码。
 3. 修改代码后:`loredex auto` 自愈漂移引用,`loredex plan` 列出剩余写作任务。
 4. 写页面时每条论断配一个行内 `[[cite:path:Lx-Ly]]`;无引用的正文会被拒绝。
