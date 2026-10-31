@@ -1,9 +1,9 @@
 ---
 id: architecture
 title: 总体架构
-status: draft
-generated_at: 2026-10-31T08:59:53Z
-commit: 0f60abeec631b68b376d721d411064df074d5950
+status: verified
+generated_at: 2026-10-31T09:00:24Z
+commit: 5a397a740e6f7ea7d6a3390de9806aab59f96f9c
 evidence:
 - path: Cargo.toml
   lines:
@@ -11,7 +11,6 @@ evidence:
   - 9
   blob: f5c9e850d708484b64bf96e354c09bdb29ec4ac3
   snippet_sha1: 31ef060985310bbefb6844dddd9c673008bc9091
-  note: drift-projected L2-L9@3feb9be7 -> L2-L9 (similarity 1.00)
 - path: crates/wiki-engine/src/lib.rs
   lines:
   - 264
