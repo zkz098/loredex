@@ -31,7 +31,7 @@ and opens a plan run; its pending tasks carry suggested_type + playbook instruct
 Wiki pages live in .wiki/pages/*.md (frontmatter = machine-readable evidence) \
 and are committed to git.
 REPOSITORY RESOLUTION: the server resolves its target repo lazily in this order \
--- --repo flag (pinned), REPOWIKI_REPO env var, client MCP roots, then the \
+-- --repo flag (pinned), LOREDEX_REPO env var, client MCP roots, then the \
 process working directory. If a tool answers 'no repository resolved', call \
 wiki_attach_repo with the workspace path (verify first with wiki_current_repo).";
 
@@ -216,7 +216,7 @@ struct CurrentOut {
 }
 
 /// Lazy, layered repository resolution.
-/// Order: --repo flag (pinned at startup) → REPOWIKI_REPO env → client MCP
+/// Order: --repo flag (pinned at startup) → LOREDEX_REPO env → client MCP
 /// roots (attempted once) → process cwd. All local steps happen without
 /// holding the slot lock across awaits; roots needs the request peer.
 #[derive(Clone)]
@@ -252,7 +252,7 @@ impl WikiServer {
             }
         }
         // env layer
-        if let Ok(p) = std::env::var("REPOWIKI_REPO") {
+        if let Ok(p) = std::env::var("LOREDEX_REPO") {
             if let Ok(r) = GitRepo::discover(Path::new(&p)) {
                 self.set_current(r, "env");
                 return Ok(());
@@ -297,7 +297,7 @@ impl WikiServer {
             }
         }
         Err(ErrorData::invalid_request(
-            "no repository resolved (checked --repo, REPOWIKI_REPO, client roots, cwd). \
+            "no repository resolved (checked --repo, LOREDEX_REPO, client roots, cwd). \
              Call wiki_attach_repo with the workspace path, e.g. /home/user/project.",
             None,
         ))
@@ -932,7 +932,7 @@ pub async fn run(args: Args) -> anyhow::Result<()> {
     } else {
         eprintln!(
             "loredex-mcp: repository resolves lazily on first tool call \
-             (REPOWIKI_REPO env -> client roots -> cwd; or wiki_attach_repo)"
+             (LOREDEX_REPO env -> client roots -> cwd; or wiki_attach_repo)"
         );
         WikiServer::new_open()
     };

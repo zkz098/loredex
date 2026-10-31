@@ -152,10 +152,10 @@ fn structured(res: &rmcp::model::CallToolResult) -> serde_json::Value {
 async fn env_layer_resolves_repo() {
     let _g = ENV_LOCK.lock().await;
     let fx = Fixture::new();
-    std::env::set_var("REPOWIKI_REPO", fx.path());
+    std::env::set_var("LOREDEX_REPO", fx.path());
     let (client, _s) = pair(WikiServer::new_open(), TestClient::no_roots()).await;
     let sc = structured(&call(&client, "wiki_current_repo", serde_json::json!({})).await);
-    std::env::remove_var("REPOWIKI_REPO");
+    std::env::remove_var("LOREDEX_REPO");
     assert_eq!(sc["source"], "env");
     assert!(sc["repo_root"]
         .as_str()
@@ -167,7 +167,7 @@ async fn env_layer_resolves_repo() {
 async fn roots_layer_resolves_repo_when_client_declares_roots() {
     let _g = ENV_LOCK.lock().await;
     let fx = Fixture::new();
-    std::env::remove_var("REPOWIKI_REPO");
+    std::env::remove_var("LOREDEX_REPO");
     let client_handler = TestClient::with_roots(vec![fx.path().to_string_lossy().into()]);
     let asked = client_handler.asked.clone();
     let (client, _s) = pair(WikiServer::new_open(), client_handler).await;
@@ -213,7 +213,7 @@ async fn pinned_server_refuses_attach() {
 async fn attach_tool_switches_repo() {
     let _g = ENV_LOCK.lock().await;
     let fx = Fixture::new();
-    std::env::remove_var("REPOWIKI_REPO");
+    std::env::remove_var("LOREDEX_REPO");
     let (client, _s) = pair(WikiServer::new_open(), TestClient::no_roots()).await;
     // first resolve via cwd (the workspace repo itself)
     let before = structured(&call(&client, "wiki_current_repo", serde_json::json!({})).await);
@@ -241,7 +241,7 @@ async fn attach_tool_switches_repo() {
 async fn tools_run_end_to_end_after_attach() {
     let _g = ENV_LOCK.lock().await;
     let fx = Fixture::new();
-    std::env::remove_var("REPOWIKI_REPO");
+    std::env::remove_var("LOREDEX_REPO");
     let (client, _s) = pair(WikiServer::new_open(), TestClient::no_roots()).await;
     call(
         &client,
@@ -283,7 +283,7 @@ async fn tools_run_end_to_end_after_attach() {
 async fn full_lifecycle_over_protocol_stale_refresh_evidence_search() {
     let _g = ENV_LOCK.lock().await;
     let fx = Fixture::new();
-    std::env::remove_var("REPOWIKI_REPO");
+    std::env::remove_var("LOREDEX_REPO");
     let (client, _s) = pair(WikiServer::new_open(), TestClient::no_roots()).await;
     call(
         &client,
@@ -409,7 +409,7 @@ async fn initialize_advertises_instructions_and_tools() {
 async fn wiki_plan_and_mark_over_protocol() {
     let _g = ENV_LOCK.lock().await;
     let fx = Fixture::new();
-    std::env::remove_var("REPOWIKI_REPO");
+    std::env::remove_var("LOREDEX_REPO");
     let (client, _s) = pair(WikiServer::new_open(), TestClient::no_roots()).await;
     call(
         &client,
@@ -480,7 +480,7 @@ async fn wiki_plan_and_mark_over_protocol() {
 async fn wiki_auto_over_protocol() {
     let _g = ENV_LOCK.lock().await;
     let fx = Fixture::new();
-    std::env::remove_var("REPOWIKI_REPO");
+    std::env::remove_var("LOREDEX_REPO");
     let (client, _s) = pair(WikiServer::new_open(), TestClient::no_roots()).await;
     call(
         &client,
