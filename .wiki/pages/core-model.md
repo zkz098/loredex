@@ -2,8 +2,8 @@
 id: core-model
 title: wiki-core：数据模型与解析
 status: verified
-generated_at: 2026-10-31T06:13:22Z
-commit: 5cd7de119ad6c36ea4d26a6135f5c455a10d6470
+generated_at: 2026-10-31T06:13:37Z
+commit: 64a4260cee243a555fdd403318b9add663e171cb
 evidence:
 - path: crates/wiki-core/src/page.rs
   lines:
@@ -25,16 +25,18 @@ evidence:
   snippet_sha1: 5eef3fa63d88110703d4d0e7e36bb9fe699292c5
 - path: crates/wiki-core/src/cite.rs
   lines:
-  - 15
-  - 44
-  blob: 4677365f4a76a7064d28740eb14ace8cafc03a6b
+  - 17
+  - 46
+  blob: 3cfb4e6899991afb98fe3d93c06ddbcc71205f3e
   snippet_sha1: 1b78c4261e39cb422c6384d65c1ee1abd9d8b77f
+  note: drift-projected L15-L44@4677365f -> L17-L46 (similarity 1.00)
 - path: crates/wiki-core/src/cite.rs
   lines:
-  - 45
-  - 53
-  blob: 4677365f4a76a7064d28740eb14ace8cafc03a6b
+  - 47
+  - 55
+  blob: 3cfb4e6899991afb98fe3d93c06ddbcc71205f3e
   snippet_sha1: 9f49ae32804dc6f0860f79e80e8d796286e2ddf0
+  note: drift-projected L45-L53@4677365f -> L47-L55 (similarity 1.00)
 - path: crates/wiki-core/src/search.rs
   lines:
   - 16
