@@ -1359,6 +1359,22 @@
       "started_at": "2026-10-31T12:29:04Z",
       "base_commit": "1d51e1c5f143342205c6040d13ad0bb8ae955f1d",
       "target_commit": "1d51e1c5f143342205c6040d13ad0bb8ae955f1d",
+      "status": "superseded",
+      "tasks": []
+    },
+    {
+      "id": "run-13-1d2863aa",
+      "started_at": "2026-10-31T12:43:23Z",
+      "base_commit": "1d51e1c5f143342205c6040d13ad0bb8ae955f1d",
+      "target_commit": "1d2863aaea11c84a442cdbf282fb7da8211225cd",
+      "status": "superseded",
+      "tasks": []
+    },
+    {
+      "id": "run-14-1d2863aa",
+      "started_at": "2026-10-31T12:43:35Z",
+      "base_commit": "1d2863aaea11c84a442cdbf282fb7da8211225cd",
+      "target_commit": "1d2863aaea11c84a442cdbf282fb7da8211225cd",
       "status": "active",
       "tasks": []
     }

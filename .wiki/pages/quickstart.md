@@ -2,8 +2,8 @@
 id: quickstart
 title: Wiki quickstart
 status: verified
-generated_at: 2026-10-31T12:29:04Z
-commit: 1d51e1c5f143342205c6040d13ad0bb8ae955f1d
+generated_at: 2026-10-31T12:43:35Z
+commit: 1d2863aaea11c84a442cdbf282fb7da8211225cd
 evidence: []
 tags:
 - generated
@@ -17,15 +17,15 @@ Generated navigation, not evidence-backed. Full catalog: [[wiki:index]].
 
 ### architecture
 
-1. [[wiki:architecture]] — 总体架构
-1. [[wiki:repo-root]] — 仓库根与工程化
+1. [[wiki:architecture]] — Architecture
+1. [[wiki:repo-root]] — Repository root and engineering
 
 ### system
 
-1. [[wiki:core-model]] — wiki-core：数据模型与解析
-1. [[wiki:engine-freshness]] — wiki-engine：过期检测、内容校验与漂移投影
-1. [[wiki:entry-mcp-cli]] — 入口层：MCP server 与 CLI
-1. [[wiki:git-layer]] — wiki-git：git 只读封装
+1. [[wiki:core-model]] — loredex-core: data model and parsing
+1. [[wiki:engine-freshness]] — loredex-engine: staleness, verification, drift projection
+1. [[wiki:entry-mcp-cli]] — Entry layer: MCP server and CLI
+1. [[wiki:git-layer]] — loredex-git: read-only git wrapper
 
 
 ## How to use this wiki (agent protocol)
