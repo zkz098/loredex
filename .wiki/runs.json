@@ -1139,6 +1139,226 @@
       "started_at": "2026-10-31T10:11:31Z",
       "base_commit": "6fbcd9636a4d01a534e61920acc5758c98aef7b4",
       "target_commit": "8ad1b31b81e67eda6f2d06f9600a3da9de012c40",
+      "status": "superseded",
+      "tasks": []
+    },
+    {
+      "id": "run-10-1d51e1c5",
+      "started_at": "2026-10-31T12:26:49Z",
+      "base_commit": "8ad1b31b81e67eda6f2d06f9600a3da9de012c40",
+      "target_commit": "1d51e1c5f143342205c6040d13ad0bb8ae955f1d",
+      "status": "superseded",
+      "tasks": [
+        {
+          "page_id": "architecture",
+          "kind": "refresh",
+          "purpose": "page status is `draft`",
+          "seeds": [
+            "Cargo.toml",
+            "crates/loredex-engine/src/lib.rs",
+            "crates/loredex-core/src/page.rs"
+          ],
+          "status": "pending",
+          "suggested_type": "architecture",
+          "instructions": "Write page `architecture` of type `architecture`. Sections: system purpose -> module map & layering -> data flow -> failure domains -> key invariants. Answer concretely, each claim cited: What are the top-level units and what does each own? Which dependencies are allowed in which direction? What breaks first when X fails?. Close with an inline [[cite:path:Lx-Ly]] for every statement."
+        },
+        {
+          "page_id": "loredex-core-page_extra",
+          "kind": "new",
+          "purpose": "module `loredex-core/page_extra` (1 files) has no wiki coverage",
+          "seeds": [
+            "crates/loredex-core/tests/page_extra.rs"
+          ],
+          "status": "pending",
+          "suggested_type": "system",
+          "instructions": "Write page `loredex-core-page_extra` of type `system`. Sections: responsibility -> public surface -> internal mechanics -> configuration -> resources & lifecycle. Answer concretely, each claim cited: What does this component expose and to whom? What state does it own and where is it persisted? What knobs exist and what are their defaults?. Close with an inline [[cite:path:Lx-Ly]] for every statement."
+        },
+        {
+          "page_id": "loredex-engine-loredex_engine",
+          "kind": "new",
+          "purpose": "module `loredex-engine/loredex_engine` (9 files) has no wiki coverage",
+          "seeds": [
+            "crates/loredex-engine/src/auto.rs",
+            "crates/loredex-engine/src/index.rs",
+            "crates/loredex-engine/src/lint.rs",
+            "crates/loredex-engine/src/modules.rs",
+            "crates/loredex-engine/src/plan.rs",
+            "crates/loredex-engine/src/playbook.rs"
+          ],
+          "status": "pending",
+          "suggested_type": "system",
+          "instructions": "Write page `loredex-engine-loredex_engine` of type `system`. Sections: responsibility -> public surface -> internal mechanics -> configuration -> resources & lifecycle. Answer concretely, each claim cited: What does this component expose and to whom? What state does it own and where is it persisted? What knobs exist and what are their defaults?. Close with an inline [[cite:path:Lx-Ly]] for every statement."
+        },
+        {
+          "page_id": "loredex-engine-e2e",
+          "kind": "new",
+          "purpose": "module `loredex-engine/e2e` (2 files) has no wiki coverage",
+          "seeds": [
+            "crates/loredex-engine/tests/e2e.rs",
+            "crates/loredex-engine/tests/plan_lint.rs"
+          ],
+          "status": "pending",
+          "suggested_type": "system",
+          "instructions": "Write page `loredex-engine-e2e` of type `system`. Sections: responsibility -> public surface -> internal mechanics -> configuration -> resources & lifecycle. Answer concretely, each claim cited: What does this component expose and to whom? What state does it own and where is it persisted? What knobs exist and what are their defaults?. Close with an inline [[cite:path:Lx-Ly]] for every statement."
+        },
+        {
+          "page_id": "loredex-engine-plan_lint",
+          "kind": "new",
+          "purpose": "module `loredex-engine/plan_lint` (2 files) has no wiki coverage",
+          "seeds": [
+            "crates/loredex-engine/tests/e2e.rs",
+            "crates/loredex-engine/tests/plan_lint.rs"
+          ],
+          "status": "pending",
+          "suggested_type": "system",
+          "instructions": "Write page `loredex-engine-plan_lint` of type `system`. Sections: responsibility -> public surface -> internal mechanics -> configuration -> resources & lifecycle. Answer concretely, each claim cited: What does this component expose and to whom? What state does it own and where is it persisted? What knobs exist and what are their defaults?. Close with an inline [[cite:path:Lx-Ly]] for every statement."
+        },
+        {
+          "page_id": "loredex-mcp-loredex_mcp",
+          "kind": "new",
+          "purpose": "module `loredex-mcp/loredex_mcp` (2 files) has no wiki coverage",
+          "seeds": [
+            "crates/loredex-mcp/src/main.rs"
+          ],
+          "status": "pending",
+          "suggested_type": "system",
+          "instructions": "Write page `loredex-mcp-loredex_mcp` of type `system`. Sections: responsibility -> public surface -> internal mechanics -> configuration -> resources & lifecycle. Answer concretely, each claim cited: What does this component expose and to whom? What state does it own and where is it persisted? What knobs exist and what are their defaults?. Close with an inline [[cite:path:Lx-Ly]] for every statement."
+        },
+        {
+          "page_id": "loredex-mcp-loredex-mcp",
+          "kind": "new",
+          "purpose": "module `loredex-mcp/loredex-mcp` (2 files) has no wiki coverage",
+          "seeds": [
+            "crates/loredex-mcp/src/main.rs"
+          ],
+          "status": "pending",
+          "suggested_type": "system",
+          "instructions": "Write page `loredex-mcp-loredex-mcp` of type `system`. Sections: responsibility -> public surface -> internal mechanics -> configuration -> resources & lifecycle. Answer concretely, each claim cited: What does this component expose and to whom? What state does it own and where is it persisted? What knobs exist and what are their defaults?. Close with an inline [[cite:path:Lx-Ly]] for every statement."
+        },
+        {
+          "page_id": "loredex-mcp-mcp_resolution",
+          "kind": "new",
+          "purpose": "module `loredex-mcp/mcp_resolution` (1 files) has no wiki coverage",
+          "seeds": [
+            "crates/loredex-mcp/tests/mcp_resolution.rs"
+          ],
+          "status": "pending",
+          "suggested_type": "system",
+          "instructions": "Write page `loredex-mcp-mcp_resolution` of type `system`. Sections: responsibility -> public surface -> internal mechanics -> configuration -> resources & lifecycle. Answer concretely, each claim cited: What does this component expose and to whom? What state does it own and where is it persisted? What knobs exist and what are their defaults?. Close with an inline [[cite:path:Lx-Ly]] for every statement."
+        }
+      ]
+    },
+    {
+      "id": "run-11-1d51e1c5",
+      "started_at": "2026-10-31T12:28:41Z",
+      "base_commit": "1d51e1c5f143342205c6040d13ad0bb8ae955f1d",
+      "target_commit": "1d51e1c5f143342205c6040d13ad0bb8ae955f1d",
+      "status": "superseded",
+      "tasks": [
+        {
+          "page_id": "architecture",
+          "kind": "refresh",
+          "purpose": "page status is `draft`",
+          "seeds": [
+            "Cargo.toml",
+            "crates/loredex-engine/src/lib.rs",
+            "crates/loredex-core/src/page.rs"
+          ],
+          "status": "done",
+          "suggested_type": "architecture",
+          "instructions": "Write page `architecture` of type `architecture`. Sections: system purpose -> module map & layering -> data flow -> failure domains -> key invariants. Answer concretely, each claim cited: What are the top-level units and what does each own? Which dependencies are allowed in which direction? What breaks first when X fails?. Close with an inline [[cite:path:Lx-Ly]] for every statement."
+        },
+        {
+          "page_id": "loredex-core-page_extra",
+          "kind": "new",
+          "purpose": "module `loredex-core/page_extra` (1 files) has no wiki coverage",
+          "seeds": [
+            "crates/loredex-core/tests/page_extra.rs"
+          ],
+          "status": "skipped",
+          "suggested_type": "system",
+          "instructions": "Write page `loredex-core-page_extra` of type `system`. Sections: responsibility -> public surface -> internal mechanics -> configuration -> resources & lifecycle. Answer concretely, each claim cited: What does this component expose and to whom? What state does it own and where is it persisted? What knobs exist and what are their defaults?. Close with an inline [[cite:path:Lx-Ly]] for every statement."
+        },
+        {
+          "page_id": "loredex-engine-loredex_engine",
+          "kind": "new",
+          "purpose": "module `loredex-engine/loredex_engine` (9 files) has no wiki coverage",
+          "seeds": [
+            "crates/loredex-engine/src/auto.rs",
+            "crates/loredex-engine/src/index.rs",
+            "crates/loredex-engine/src/lint.rs",
+            "crates/loredex-engine/src/modules.rs",
+            "crates/loredex-engine/src/plan.rs",
+            "crates/loredex-engine/src/playbook.rs"
+          ],
+          "status": "skipped",
+          "suggested_type": "system",
+          "instructions": "Write page `loredex-engine-loredex_engine` of type `system`. Sections: responsibility -> public surface -> internal mechanics -> configuration -> resources & lifecycle. Answer concretely, each claim cited: What does this component expose and to whom? What state does it own and where is it persisted? What knobs exist and what are their defaults?. Close with an inline [[cite:path:Lx-Ly]] for every statement."
+        },
+        {
+          "page_id": "loredex-engine-e2e",
+          "kind": "new",
+          "purpose": "module `loredex-engine/e2e` (2 files) has no wiki coverage",
+          "seeds": [
+            "crates/loredex-engine/tests/e2e.rs",
+            "crates/loredex-engine/tests/plan_lint.rs"
+          ],
+          "status": "skipped",
+          "suggested_type": "system",
+          "instructions": "Write page `loredex-engine-e2e` of type `system`. Sections: responsibility -> public surface -> internal mechanics -> configuration -> resources & lifecycle. Answer concretely, each claim cited: What does this component expose and to whom? What state does it own and where is it persisted? What knobs exist and what are their defaults?. Close with an inline [[cite:path:Lx-Ly]] for every statement."
+        },
+        {
+          "page_id": "loredex-engine-plan_lint",
+          "kind": "new",
+          "purpose": "module `loredex-engine/plan_lint` (2 files) has no wiki coverage",
+          "seeds": [
+            "crates/loredex-engine/tests/e2e.rs",
+            "crates/loredex-engine/tests/plan_lint.rs"
+          ],
+          "status": "skipped",
+          "suggested_type": "system",
+          "instructions": "Write page `loredex-engine-plan_lint` of type `system`. Sections: responsibility -> public surface -> internal mechanics -> configuration -> resources & lifecycle. Answer concretely, each claim cited: What does this component expose and to whom? What state does it own and where is it persisted? What knobs exist and what are their defaults?. Close with an inline [[cite:path:Lx-Ly]] for every statement."
+        },
+        {
+          "page_id": "loredex-mcp-loredex_mcp",
+          "kind": "new",
+          "purpose": "module `loredex-mcp/loredex_mcp` (2 files) has no wiki coverage",
+          "seeds": [
+            "crates/loredex-mcp/src/main.rs"
+          ],
+          "status": "skipped",
+          "suggested_type": "system",
+          "instructions": "Write page `loredex-mcp-loredex_mcp` of type `system`. Sections: responsibility -> public surface -> internal mechanics -> configuration -> resources & lifecycle. Answer concretely, each claim cited: What does this component expose and to whom? What state does it own and where is it persisted? What knobs exist and what are their defaults?. Close with an inline [[cite:path:Lx-Ly]] for every statement."
+        },
+        {
+          "page_id": "loredex-mcp-loredex-mcp",
+          "kind": "new",
+          "purpose": "module `loredex-mcp/loredex-mcp` (2 files) has no wiki coverage",
+          "seeds": [
+            "crates/loredex-mcp/src/main.rs"
+          ],
+          "status": "skipped",
+          "suggested_type": "system",
+          "instructions": "Write page `loredex-mcp-loredex-mcp` of type `system`. Sections: responsibility -> public surface -> internal mechanics -> configuration -> resources & lifecycle. Answer concretely, each claim cited: What does this component expose and to whom? What state does it own and where is it persisted? What knobs exist and what are their defaults?. Close with an inline [[cite:path:Lx-Ly]] for every statement."
+        },
+        {
+          "page_id": "loredex-mcp-mcp_resolution",
+          "kind": "new",
+          "purpose": "module `loredex-mcp/mcp_resolution` (1 files) has no wiki coverage",
+          "seeds": [
+            "crates/loredex-mcp/tests/mcp_resolution.rs"
+          ],
+          "status": "skipped",
+          "suggested_type": "system",
+          "instructions": "Write page `loredex-mcp-mcp_resolution` of type `system`. Sections: responsibility -> public surface -> internal mechanics -> configuration -> resources & lifecycle. Answer concretely, each claim cited: What does this component expose and to whom? What state does it own and where is it persisted? What knobs exist and what are their defaults?. Close with an inline [[cite:path:Lx-Ly]] for every statement."
+        }
+      ]
+    },
+    {
+      "id": "run-12-1d51e1c5",
+      "started_at": "2026-10-31T12:29:04Z",
+      "base_commit": "1d51e1c5f143342205c6040d13ad0bb8ae955f1d",
+      "target_commit": "1d51e1c5f143342205c6040d13ad0bb8ae955f1d",
       "status": "active",
       "tasks": []
     }
