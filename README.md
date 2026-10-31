@@ -36,7 +36,7 @@ cargo build --release
 
 ```bash
 cd /path/to/your-repo          # must have at least one commit
-loredex init                   # creates .wiki/, gitignores .wiki/.cache/
+loredex init                   # creates .wiki/pages/ + wiki.toml (language setting); gitignores .wiki/.cache/
 
 loredex modules                # module discovery (cargo targets / directory groups)
 loredex put core --title "Core layer" --body notes.md --type system
@@ -51,6 +51,9 @@ loredex task <id> skipped      # resolve a plan task by hand (skips are remember
 loredex templates --out contrib    # export GitHub Action + post-merge hook templates
 loredex verify core            # content-hash verification (does not rely on commit ids)
 loredex refresh core           # drift projection refresh
+loredex config --language zh   # locale for tool-generated skeleton text (index/quickstart, playbook instructions, AGENTS.md block); agent-authored bodies are never translated
+loredex agents-md              # write the managed discovery block into AGENTS.md (`--check` for CI, `--remove`, `--file CLAUDE.md`)
+loredex import ./openwiki      # migrate an openwiki / Google OKF bundle; bodies without resolvable citations land as draft for `plan` to backfill (`--dry-run` / `--force` / `--prefix`)
 ```
 
 `--body -` reads from stdin. A page body looks like:
@@ -114,6 +117,8 @@ discover modules -> read source -> put_page (with citations) -> [code evolves] -
 - Pages and `.wiki/` are committed together, shared with the team, reviewable in PRs; `runs.json` lives in git too, so interrupted generation resumes automatically via `wiki_plan`
 - Plan tasks carry `suggested_type` and playbook `instructions` (which sections a page of that type needs, which questions it must answer), so any producer agent writes structurally consistent pages without hidden prompts; extend types via `.wiki/wiki.toml [page_types.<name>]`; unregistered types are flagged by `lint`
 - `loredex lint` belongs in CI; page ids support hierarchy (`architecture/overview`), `--type` labels the kind
+- `loredex agents-md` keeps a marked block (`<!-- BEGIN loredex -->`) in AGENTS.md/CLAUDE.md so agents entering the repo discover the wiki and its freshness protocol — only the marked region is ever rewritten; `loredex config --language zh` switches the locale of all generated skeleton text
+- `loredex import` migrates an existing openwiki / Google OKF bundle; the trust model survives the move — pages without resolvable citations land as `draft` and get backfilled via `plan`
 
 ## Architecture
 
@@ -125,7 +130,9 @@ crates/
 │                   direct object-db access, rename detection
 ├── loredex-engine  business layer: check_page (dual staleness verdicts),
 │                   verify_page (sha1), drift projection (similar), put_page,
-│                   modules discovery, plan/run ledger, index, lint, auto
+│                   modules discovery, plan/run ledger, index, lint, auto,
+│                   wiki.toml config ([wiki] language), AGENTS.md managed
+│                   block, openwiki/OKF importer
 ├── loredex-cli     clap entry (loredex)
 └── loredex-mcp     rmcp 3.8 stdio server (loredex-mcp), lib+bin for in-process tests
 ```

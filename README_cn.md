@@ -36,7 +36,7 @@ cargo build --release
 
 ```bash
 cd /path/to/your-repo          # 需至少有一个 commit
-loredex init                  # 创建 .wiki/，gitignore .wiki/.cache/
+loredex init                  # 创建 .wiki/pages/ + wiki.toml（语言设置），gitignore .wiki/.cache/
 
 loredex modules               # 模块发现（cargo targets / 目录分组）
 loredex put core --title "核心层" --body notes.md
@@ -51,6 +51,9 @@ loredex task <id> skipped     # 手工销账 plan 任务（skip 会被记住，�
 loredex templates --out contrib   # 导出 GitHub Action 模板 + post-merge hook 模板
 loredex verify core           # 内容哈希级校验（不依赖 commit 号）
 loredex refresh core          # 漂移投影刷新
+loredex config --language zh  # 工具生成骨架文本的语言（index/quickstart、playbook 指南、AGENTS.md 块）；agent 撰写的正文不会被翻译
+loredex agents-md             # 在 AGENTS.md 写入托管发现块（--check 供 CI、--remove、--file CLAUDE.md）
+loredex import ./openwiki     # 导入 openwiki / Google OKF 包；无可解析引用的正文落为 draft 交由 plan 补引用（--dry-run / --force / --prefix）
 ```
 
 `--body -` 从 stdin 读取。页面正文示例：
@@ -114,6 +117,8 @@ Server 在 `initialize` 时下发协议契约（先查新鲜度、stale 视为�
 - 页面与 `.wiki/` 一起提交进 git，团队共享、PR 可 review；`runs.json` 账本同样入库，agent 中断后 `wiki_plan` 自动续传 pending 任务
 - plan 任务自带 `suggested_type` 与 playbook `instructions`（该类型页面应有哪些章节、回答哪些问题），生产 agent 无需隐藏 prompt 也能写出结构一致的页面；类型可在 `.wiki/wiki.toml [page_types.<name>]` 扩展，未注册的 type 会被 `lint` 标出
 - `loredex lint`（断链/stale/漂移）适合挂 CI；页面 id 支持 `architecture/overview` 式分层，`--type` 标注页面种类
+- `loredex agents-md` 在 AGENTS.md/CLAUDE.md 维护标记块（`<!-- BEGIN loredex -->`），让进入仓库的 agent 自动发现 wiki 与新鲜度协议——只重写标记区域，用户内容不碰；`loredex config --language zh` 切换所有工具生成骨架文本的语言
+- `loredex import` 迁移既有 openwiki / OKF 包，信任模型不破——引用不可解析的页面一律落为 `draft`，由 plan 补引用而不是洗白成 verified
 
 ## 架构
 
@@ -123,7 +128,9 @@ crates/
 │                 引用语法解析器、分词 + 倒排索引（无 IO）
 ├── loredex-git      git2 只读封装：HEAD blob、行区间、tree diff、对象库直读
 ├── loredex-engine   业务层：check_page（双重过期判定）、verify_page（sha1 校验）、
-│                 drift 投影（similar 行级 diff）、put_page、modules 发现
+│                 drift 投影（similar 行级 diff）、put_page、modules 发现、
+│                 plan/run 账本、index、lint、auto、wiki.toml 配置（[wiki] language）、
+│                 AGENTS.md 托管块、openwiki/OKF 导入器
 ├── loredex-cli   clap 入口（loredex）
 └── loredex-mcp   rmcp 3.8 stdio server（loredex-mcp）
 ```
@@ -161,5 +168,5 @@ cargo llvm-cov nextest --workspace --summary-only   # 覆盖率基线
 ```
 
 - 测试栈：cargo-nextest（每测试独立进程，env 操纵安全；`.config/nextest.toml` 配 15s slow-timeout，死锁会失败而非挂起）+ cargo-llvm-cov
-- 当前覆盖：总计 ~75% 区域 / 79% 行；核心层（core/engine/git/modules）80-98%，`wiki-mcp` 77%（进程内 duplex client↔server 走真实协议栈验证四层解析链、roots 能力门控、全生命周期），CLI 入口为薄参数映射未单测
-- wiki-mcp 拆为 lib+bin：集成测试直接构造 `WikiServer::new_open()/pinned()`
+- 当前覆盖：总计 ~75% 区域 / 79% 行；核心层（core/engine/git/modules）80-98%，`loredex-mcp` 77%（进程内 duplex client↔server 走真实协议栈验证四层解析链、roots 能力门控、全生命周期），CLI 入口为薄参数映射未单测
+- loredex-mcp 拆为 lib+bin：集成测试直接构造 `WikiServer::new_open()/pinned()`
