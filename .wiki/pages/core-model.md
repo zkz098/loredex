@@ -2,51 +2,58 @@
 id: core-model
 title: wiki-core：数据模型与解析
 status: verified
-generated_at: 2026-10-31T12:28:41Z
-commit: 1d51e1c5f143342205c6040d13ad0bb8ae955f1d
+generated_at: 2026-10-31T12:38:40Z
+commit: dd7d0c43dedd0de3296c4118c8b6f5443cb1bfeb
 evidence:
 - path: crates/loredex-core/src/page.rs
   lines:
   - 9
   - 26
-  blob: 8a7f7f40314c2e465b9d82e29458ffb45a964f46
+  blob: e814a40a848673def3eb54918a306230323ab57e
   snippet_sha1: 969389b2ae71fbef2971bc79a759298546071e44
+  note: drift-projected L9-L26@8a7f7f40 -> L9-L26 (similarity 1.00)
 - path: crates/loredex-core/src/page.rs
   lines:
   - 68
   - 94
-  blob: 8a7f7f40314c2e465b9d82e29458ffb45a964f46
+  blob: e814a40a848673def3eb54918a306230323ab57e
   snippet_sha1: 293aece1073df13d3589bcd028ff5c64d9f62413
+  note: drift-projected L68-L94@8a7f7f40 -> L68-L94 (similarity 1.00)
 - path: crates/loredex-core/src/page.rs
   lines:
-  - 106
-  - 115
-  blob: 8a7f7f40314c2e465b9d82e29458ffb45a964f46
-  snippet_sha1: 55f7cd120f99578059c718ab7a1721c04430ae3c
+  - 112
+  - 124
+  blob: e814a40a848673def3eb54918a306230323ab57e
+  snippet_sha1: c2851e6ee8582e5996db4fabb92712f011c35a8a
+  note: drift-projected L106-L115@8a7f7f40 -> L112-L124 (similarity 0.90)
 - path: crates/loredex-core/src/cite.rs
   lines:
   - 17
-  - 45
-  blob: 5a9ffc43c0907ffd62ac1196ccc7081393aad952
-  snippet_sha1: e017a162a4931f12fafbeeb47044aa9fb7e7a907
+  - 48
+  blob: 7c13345cd8f6b37e43dfc9feab20fdeb141d73f0
+  snippet_sha1: 7feaf9a2dc20ac97b290b999ad7ad50df5190ec4
+  note: drift-projected L17-L45@5a9ffc43 -> L17-L48 (similarity 0.96)
 - path: crates/loredex-core/src/cite.rs
   lines:
-  - 47
-  - 55
-  blob: 5a9ffc43c0907ffd62ac1196ccc7081393aad952
+  - 50
+  - 58
+  blob: 7c13345cd8f6b37e43dfc9feab20fdeb141d73f0
   snippet_sha1: 9f49ae32804dc6f0860f79e80e8d796286e2ddf0
+  note: drift-projected L47-L55@5a9ffc43 -> L50-L58 (similarity 1.00)
 - path: crates/loredex-core/src/search.rs
   lines:
   - 16
-  - 60
-  blob: 686ff8abe056e68dc44f4ca7344f49fb49743b52
-  snippet_sha1: a16238f7b3915fd95f40938d7114f92cdea69e2b
+  - 67
+  blob: 43bd12e11aaec651533de243ed002ed88ef5bf18
+  snippet_sha1: 2ee041598080a40998d83778745f2e2b3a0ee9e5
+  note: drift-projected L16-L60@686ff8ab -> L16-L67 (similarity 0.98)
 - path: crates/loredex-core/src/search.rs
   lines:
-  - 112
-  - 160
-  blob: 686ff8abe056e68dc44f4ca7344f49fb49743b52
-  snippet_sha1: ee1ddbf56de66e2bcafcd17927e8da845d840ca2
+  - 119
+  - 177
+  blob: 43bd12e11aaec651533de243ed002ed88ef5bf18
+  snippet_sha1: 77d85e50ee5c84ac7814c8f6949b621bee30b3bc
+  note: drift-projected L112-L160@686ff8ab -> L119-L177 (similarity 0.92)
 type: system
 ---
 # wiki-core：数据模型与解析

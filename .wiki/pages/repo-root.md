@@ -1,23 +1,24 @@
 ---
 id: repo-root
 title: 仓库根与工程化
-status: draft
-generated_at: 2026-10-31T12:26:49Z
-commit: 1d51e1c5f143342205c6040d13ad0bb8ae955f1d
+status: verified
+generated_at: 2026-10-31T12:38:40Z
+commit: dd7d0c43dedd0de3296c4118c8b6f5443cb1bfeb
 evidence:
 - path: Cargo.toml
   lines:
   - 1
   - 9
-  blob: d90ecb196ee1a92ffee0dd63ab4b77f2ae37cea7
+  blob: c548aeb1cd615b0910f518e0a0fcd1b5d747b566
   snippet_sha1: 5313a611bf4562bc9dd637aa2e8cfecb6eed6074
+  note: drift-projected L1-L9@d90ecb19 -> L1-L9 (similarity 1.00)
 - path: README.md
   lines:
   - 1
-  - 6
-  blob: fdf0643c206dae527fb472c355f7f2911b6e6c65
-  snippet_sha1: ff5363b1b6524e4b425282d134d3369155d7d5de
-  note: drift-projected L1-L6@b879739b -> L1-L6 (similarity 0.80)
+  - 9
+  blob: d43556aa7c539171753d6368aeb5564bdc9528e1
+  snippet_sha1: 20f47e4407be332a12e1ea438df09aec009c8f38
+  note: drift-projected L1-L6@fdf0643c -> L1-L9 (similarity 1.00)
 - path: .config/nextest.toml
   lines:
   - 1

@@ -2,45 +2,51 @@
 id: entry-mcp-cli
 title: 入口层：MCP server 与 CLI
 status: verified
-generated_at: 2026-10-31T12:28:41Z
-commit: 1d51e1c5f143342205c6040d13ad0bb8ae955f1d
+generated_at: 2026-10-31T12:38:40Z
+commit: dd7d0c43dedd0de3296c4118c8b6f5443cb1bfeb
 evidence:
 - path: crates/loredex-mcp/src/lib.rs
   lines:
-  - 13
-  - 34
-  blob: b8d56815a8a962e476ff2883f6d9f58a5252081d
+  - 16
+  - 37
+  blob: 372678cfc21e34760f235e041b79fc0b05dd3815
   snippet_sha1: c4d6803623c6856b89ae65bac3d1bad6e40f9657
-- path: crates/loredex-mcp/src/lib.rs
-  lines:
-  - 434
-  - 460
-  blob: b8d56815a8a962e476ff2883f6d9f58a5252081d
-  snippet_sha1: 10ee0efee1ae460459724456b972aacdf2235b39
-- path: crates/loredex-mcp/src/lib.rs
-  lines:
-  - 528
-  - 575
-  blob: b8d56815a8a962e476ff2883f6d9f58a5252081d
-  snippet_sha1: 364b96e7c95b07e38a909b54d481887533b09eec
+  note: drift-projected L13-L34@b8d56815 -> L16-L37 (similarity 1.00)
 - path: crates/loredex-mcp/src/lib.rs
   lines:
   - 463
-  - 490
-  blob: b8d56815a8a962e476ff2883f6d9f58a5252081d
-  snippet_sha1: 57456b4a2ca33ff3d209e3160692a8eeb48375c3
+  - 500
+  blob: 372678cfc21e34760f235e041b79fc0b05dd3815
+  snippet_sha1: dcad0e03b6d42de21c5adbc0454da6ac46edd828
+  note: drift-projected L434-L460@b8d56815 -> L463-L500 (similarity 0.85)
 - path: crates/loredex-mcp/src/lib.rs
   lines:
-  - 365
-  - 405
-  blob: b8d56815a8a962e476ff2883f6d9f58a5252081d
-  snippet_sha1: 60e52a81813bbd2a06c26ebbfb1ea97afd69b245
+  - 575
+  - 629
+  blob: 372678cfc21e34760f235e041b79fc0b05dd3815
+  snippet_sha1: eed71446943545c1e9db446ff18484bbe23657e0
+  note: drift-projected L528-L575@b8d56815 -> L575-L629 (similarity 0.92)
+- path: crates/loredex-mcp/src/lib.rs
+  lines:
+  - 503
+  - 538
+  blob: 372678cfc21e34760f235e041b79fc0b05dd3815
+  snippet_sha1: 1af8dbde32efea57e4df3d685780f6367e4e2f81
+  note: drift-projected L463-L490@b8d56815 -> L503-L538 (similarity 0.86)
+- path: crates/loredex-mcp/src/lib.rs
+  lines:
+  - 373
+  - 422
+  blob: 372678cfc21e34760f235e041b79fc0b05dd3815
+  snippet_sha1: fea225fdd09429e69d02d171ce7277f166baa666
+  note: drift-projected L365-L405@b8d56815 -> L373-L422 (similarity 0.93)
 - path: crates/loredex-cli/src/main.rs
   lines:
-  - 22
-  - 72
-  blob: 1ec52da9ff3f777a1add6b314e31812c9a81587d
+  - 25
+  - 75
+  blob: 7800424e8e44e00edc78fc7265aedf01f4a33ecd
   snippet_sha1: 3aacd3c3ea97884790fb1c66af586fbdc403a1a6
+  note: drift-projected L22-L72@1ec52da9 -> L25-L75 (similarity 1.00)
 type: system
 ---
 # 入口层：MCP server 与 CLI

@@ -2,27 +2,30 @@
 id: architecture
 title: 总体架构
 status: verified
-generated_at: 2026-10-31T12:29:04Z
-commit: 1d51e1c5f143342205c6040d13ad0bb8ae955f1d
+generated_at: 2026-10-31T12:38:40Z
+commit: dd7d0c43dedd0de3296c4118c8b6f5443cb1bfeb
 evidence:
 - path: Cargo.toml
   lines:
   - 2
   - 9
-  blob: d90ecb196ee1a92ffee0dd63ab4b77f2ae37cea7
+  blob: c548aeb1cd615b0910f518e0a0fcd1b5d747b566
   snippet_sha1: cdb93553223a82b1c268fcf7d31a0b5c0dd928c0
+  note: drift-projected L2-L9@d90ecb19 -> L2-L9 (similarity 1.00)
 - path: crates/loredex-engine/src/lib.rs
   lines:
-  - 264
-  - 276
-  blob: fcac5a00a2f8473e23d77eab839a4ea40aa76d8d
+  - 274
+  - 286
+  blob: f716c3c7fc54d6c9bfa7dea6970eaddf0b4eadf7
   snippet_sha1: 02ad668b7bdf2cb5db082b398c984b1233f151ee
+  note: drift-projected L264-L276@fcac5a00 -> L274-L286 (similarity 1.00)
 - path: crates/loredex-core/src/page.rs
   lines:
   - 29
   - 40
-  blob: 8a7f7f40314c2e465b9d82e29458ffb45a964f46
+  blob: e814a40a848673def3eb54918a306230323ab57e
   snippet_sha1: c29606ed08aec635918031cfd27810613803de0c
+  note: drift-projected L29-L40@8a7f7f40 -> L29-L40 (similarity 1.00)
 type: architecture
 ---
 # 总体架构
