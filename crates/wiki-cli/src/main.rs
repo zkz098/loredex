@@ -65,6 +65,17 @@ enum Command {
     },
     /// Regenerate the navigation index page (.wiki/pages/index.md)
     Index,
+    /// One-call maintenance: project recoverable drifts, lint, open plan for the rest.
+    /// Exit 1 when authoring work remains (CI/hook friendly).
+    Auto {
+        #[arg(long)]
+        json: bool,
+    },
+    /// Write automation templates (GitHub Action + post-merge hook) into a directory
+    Templates {
+        #[arg(long, default_value = "contrib")]
+        out: PathBuf,
+    },
     /// List page-type playbooks (built-in + wiki.toml extensions)
     Playbooks,
     /// Structural checks: broken wiki links, stale-but-verified, evidence drift
@@ -279,6 +290,55 @@ fn main() -> anyhow::Result<()> {
             for page in engine::generate_index(&repo, &wiki_dir)? {
                 println!("wrote {}", page.source_path.unwrap().display());
             }
+        }
+        Command::Auto { json } => {
+            let report = engine::auto_refresh(&repo, &wiki_dir)?;
+            if json {
+                println!(
+                    "{}",
+                    serde_json::to_string_pretty(&report).map_err(|e| anyhow::anyhow!(e))?
+                );
+            } else {
+                println!(
+                    "checked {} page(s) at HEAD {} — {} recovered by projection, {} need rewriting",
+                    report.checked, report.head,
+                    report.recovered.len(), report.needs_rewrite.len()
+                );
+                for r in &report.recovered {
+                    println!("  [recovered] {}: {}", r.page_id, r.summary);
+                }
+                for n in &report.needs_rewrite {
+                    println!("  [rewrite]   {}: {}", n.page_id, n.reason);
+                }
+                for i in &report.lint_issues {
+                    println!("  [lint:{}] {}: {}", i.kind, i.page, i.detail);
+                }
+                let pending: Vec<_> = report
+                    .plan
+                    .tasks
+                    .iter()
+                    .filter(|t| t.status == wiki_engine::TaskStatus::Pending)
+                    .collect();
+                if !pending.is_empty() {
+                    println!("  [plan] {} pending task(s):", pending.len());
+                    for t in pending {
+                        println!("     [{:?}] {} [{:?}] — {}", t.status, t.page_id, t.kind, t.purpose);
+                    }
+                }
+            }
+            if !report.all_clean {
+                std::process::exit(1);
+            }
+        }
+        Command::Templates { out } => {
+            std::fs::create_dir_all(&out)?;
+            let action = include_str!("../../../templates/repowiki-refresh.yml");
+            let hook = include_str!("../../../templates/repowiki-post-merge");
+            let a = out.join("repowiki-refresh.yml");
+            let h = out.join("repowiki-post-merge");
+            std::fs::write(&a, action)?;
+            std::fs::write(&h, hook)?;
+            println!("wrote {} and {} (read the header comments for install)", a.display(), h.display());
         }
         Command::Playbooks => {
             let reg = engine::playbook_registry(&wiki_dir);

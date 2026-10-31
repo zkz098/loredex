@@ -1,30 +1,62 @@
 {
-  "schema": 1,
+  "schema": 0,
   "runs": [
     {
-      "id": "run-1-44f159de",
-      "started_at": "2026-10-31T09:19:50Z",
-      "base_commit": "44f159de5936bc4418e5b0ecc3d80fa2c793ebf9",
-      "target_commit": "44f159de5936bc4418e5b0ecc3d80fa2c793ebf9",
+      "id": "run-1-6b1d1ea7",
+      "started_at": "2026-10-31T10:07:41Z",
+      "base_commit": "6b1d1ea7e407da0b5b41e502ed18b9a324920c74",
+      "target_commit": "6b1d1ea7e407da0b5b41e502ed18b9a324920c74",
       "status": "active",
       "tasks": [
         {
+          "page_id": "wiki-core-page_extra",
+          "kind": "new",
+          "purpose": "module `wiki-core/page_extra` (1 files) has no wiki coverage",
+          "seeds": [
+            "crates/wiki-core/tests/page_extra.rs"
+          ],
+          "status": "pending",
+          "suggested_type": "system",
+          "instructions": "Write page `wiki-core-page_extra` of type `system`. Sections: responsibility -> public surface -> internal mechanics -> configuration -> resources & lifecycle. Answer concretely, each claim cited: What does this component expose and to whom? What state does it own and where is it persisted? What knobs exist and what are their defaults?. Close with an inline [[cite:path:Lx-Ly]] for every statement."
+        },
+        {
+          "page_id": "wiki-engine-wiki_engine",
+          "kind": "new",
+          "purpose": "module `wiki-engine/wiki_engine` (8 files) has no wiki coverage",
+          "seeds": [
+            "crates/wiki-engine/src/index.rs",
+            "crates/wiki-engine/src/lint.rs",
+            "crates/wiki-engine/src/modules.rs",
+            "crates/wiki-engine/src/plan.rs",
+            "crates/wiki-engine/src/playbook.rs"
+          ],
+          "status": "pending",
+          "suggested_type": "system",
+          "instructions": "Write page `wiki-engine-wiki_engine` of type `system`. Sections: responsibility -> public surface -> internal mechanics -> configuration -> resources & lifecycle. Answer concretely, each claim cited: What does this component expose and to whom? What state does it own and where is it persisted? What knobs exist and what are their defaults?. Close with an inline [[cite:path:Lx-Ly]] for every statement."
+        },
+        {
           "page_id": "wiki-engine-e2e",
           "kind": "new",
-          "purpose": "module `wiki-engine/e2e` (1 files) has no wiki coverage",
+          "purpose": "module `wiki-engine/e2e` (2 files) has no wiki coverage",
           "seeds": [
-            "crates/wiki-engine/tests/e2e.rs"
+            "crates/wiki-engine/tests/e2e.rs",
+            "crates/wiki-engine/tests/plan_lint.rs"
           ],
-          "status": "pending"
+          "status": "pending",
+          "suggested_type": "system",
+          "instructions": "Write page `wiki-engine-e2e` of type `system`. Sections: responsibility -> public surface -> internal mechanics -> configuration -> resources & lifecycle. Answer concretely, each claim cited: What does this component expose and to whom? What state does it own and where is it persisted? What knobs exist and what are their defaults?. Close with an inline [[cite:path:Lx-Ly]] for every statement."
         },
         {
           "page_id": "wiki-engine-plan_lint",
           "kind": "new",
-          "purpose": "module `wiki-engine/plan_lint` (1 files) has no wiki coverage",
+          "purpose": "module `wiki-engine/plan_lint` (2 files) has no wiki coverage",
           "seeds": [
-            "crates/wiki-engine/tests/e2e.rs"
+            "crates/wiki-engine/tests/e2e.rs",
+            "crates/wiki-engine/tests/plan_lint.rs"
           ],
-          "status": "pending"
+          "status": "pending",
+          "suggested_type": "system",
+          "instructions": "Write page `wiki-engine-plan_lint` of type `system`. Sections: responsibility -> public surface -> internal mechanics -> configuration -> resources & lifecycle. Answer concretely, each claim cited: What does this component expose and to whom? What state does it own and where is it persisted? What knobs exist and what are their defaults?. Close with an inline [[cite:path:Lx-Ly]] for every statement."
         },
         {
           "page_id": "wiki-mcp-wiki_mcp",
@@ -33,7 +65,9 @@
           "seeds": [
             "crates/wiki-mcp/src/main.rs"
           ],
-          "status": "pending"
+          "status": "pending",
+          "suggested_type": "system",
+          "instructions": "Write page `wiki-mcp-wiki_mcp` of type `system`. Sections: responsibility -> public surface -> internal mechanics -> configuration -> resources & lifecycle. Answer concretely, each claim cited: What does this component expose and to whom? What state does it own and where is it persisted? What knobs exist and what are their defaults?. Close with an inline [[cite:path:Lx-Ly]] for every statement."
         },
         {
           "page_id": "wiki-mcp-repowiki-mcp",
@@ -42,7 +76,9 @@
           "seeds": [
             "crates/wiki-mcp/src/main.rs"
           ],
-          "status": "pending"
+          "status": "pending",
+          "suggested_type": "system",
+          "instructions": "Write page `wiki-mcp-repowiki-mcp` of type `system`. Sections: responsibility -> public surface -> internal mechanics -> configuration -> resources & lifecycle. Answer concretely, each claim cited: What does this component expose and to whom? What state does it own and where is it persisted? What knobs exist and what are their defaults?. Close with an inline [[cite:path:Lx-Ly]] for every statement."
         },
         {
           "page_id": "wiki-mcp-mcp_resolution",
@@ -51,7 +87,9 @@
           "seeds": [
             "crates/wiki-mcp/tests/mcp_resolution.rs"
           ],
-          "status": "pending"
+          "status": "pending",
+          "suggested_type": "system",
+          "instructions": "Write page `wiki-mcp-mcp_resolution` of type `system`. Sections: responsibility -> public surface -> internal mechanics -> configuration -> resources & lifecycle. Answer concretely, each claim cited: What does this component expose and to whom? What state does it own and where is it persisted? What knobs exist and what are their defaults?. Close with an inline [[cite:path:Lx-Ly]] for every statement."
         },
         {
           "page_id": "repo-root",
@@ -62,7 +100,9 @@
             "Cargo.lock",
             "README.md"
           ],
-          "status": "pending"
+          "status": "pending",
+          "suggested_type": "architecture",
+          "instructions": "Write page `repo-root` of type `architecture`. Sections: system purpose -> module map & layering -> data flow -> failure domains -> key invariants. Answer concretely, each claim cited: What are the top-level units and what does each own? Which dependencies are allowed in which direction? What breaks first when X fails?. Close with an inline [[cite:path:Lx-Ly]] for every statement."
         },
         {
           "page_id": "config",
@@ -71,7 +111,9 @@
           "seeds": [
             ".config/nextest.toml"
           ],
-          "status": "pending"
+          "status": "pending",
+          "suggested_type": "system",
+          "instructions": "Write page `config` of type `system`. Sections: responsibility -> public surface -> internal mechanics -> configuration -> resources & lifecycle. Answer concretely, each claim cited: What does this component expose and to whom? What state does it own and where is it persisted? What knobs exist and what are their defaults?. Close with an inline [[cite:path:Lx-Ly]] for every statement."
         },
         {
           "page_id": "crates-wiki-cli",
@@ -80,7 +122,9 @@
           "seeds": [
             "crates/wiki-cli/Cargo.toml"
           ],
-          "status": "pending"
+          "status": "pending",
+          "suggested_type": "system",
+          "instructions": "Write page `crates-wiki-cli` of type `system`. Sections: responsibility -> public surface -> internal mechanics -> configuration -> resources & lifecycle. Answer concretely, each claim cited: What does this component expose and to whom? What state does it own and where is it persisted? What knobs exist and what are their defaults?. Close with an inline [[cite:path:Lx-Ly]] for every statement."
         },
         {
           "page_id": "crates-wiki-core",
@@ -89,7 +133,9 @@
           "seeds": [
             "crates/wiki-core/Cargo.toml"
           ],
-          "status": "pending"
+          "status": "pending",
+          "suggested_type": "system",
+          "instructions": "Write page `crates-wiki-core` of type `system`. Sections: responsibility -> public surface -> internal mechanics -> configuration -> resources & lifecycle. Answer concretely, each claim cited: What does this component expose and to whom? What state does it own and where is it persisted? What knobs exist and what are their defaults?. Close with an inline [[cite:path:Lx-Ly]] for every statement."
         },
         {
           "page_id": "crates-wiki-engine",
@@ -98,7 +144,9 @@
           "seeds": [
             "crates/wiki-engine/Cargo.toml"
           ],
-          "status": "pending"
+          "status": "pending",
+          "suggested_type": "system",
+          "instructions": "Write page `crates-wiki-engine` of type `system`. Sections: responsibility -> public surface -> internal mechanics -> configuration -> resources & lifecycle. Answer concretely, each claim cited: What does this component expose and to whom? What state does it own and where is it persisted? What knobs exist and what are their defaults?. Close with an inline [[cite:path:Lx-Ly]] for every statement."
         },
         {
           "page_id": "crates-wiki-git",
@@ -107,7 +155,9 @@
           "seeds": [
             "crates/wiki-git/Cargo.toml"
           ],
-          "status": "pending"
+          "status": "pending",
+          "suggested_type": "system",
+          "instructions": "Write page `crates-wiki-git` of type `system`. Sections: responsibility -> public surface -> internal mechanics -> configuration -> resources & lifecycle. Answer concretely, each claim cited: What does this component expose and to whom? What state does it own and where is it persisted? What knobs exist and what are their defaults?. Close with an inline [[cite:path:Lx-Ly]] for every statement."
         },
         {
           "page_id": "crates-wiki-mcp",
@@ -116,7 +166,180 @@
           "seeds": [
             "crates/wiki-mcp/Cargo.toml"
           ],
-          "status": "pending"
+          "status": "pending",
+          "suggested_type": "system",
+          "instructions": "Write page `crates-wiki-mcp` of type `system`. Sections: responsibility -> public surface -> internal mechanics -> configuration -> resources & lifecycle. Answer concretely, each claim cited: What does this component expose and to whom? What state does it own and where is it persisted? What knobs exist and what are their defaults?. Close with an inline [[cite:path:Lx-Ly]] for every statement."
+        }
+      ]
+    },
+    {
+      "id": "run-2-6b1d1ea7",
+      "started_at": "2026-10-31T10:08:06Z",
+      "base_commit": "6b1d1ea7e407da0b5b41e502ed18b9a324920c74",
+      "target_commit": "6b1d1ea7e407da0b5b41e502ed18b9a324920c74",
+      "status": "active",
+      "tasks": [
+        {
+          "page_id": "wiki-core-page_extra",
+          "kind": "new",
+          "purpose": "module `wiki-core/page_extra` (1 files) has no wiki coverage",
+          "seeds": [
+            "crates/wiki-core/tests/page_extra.rs"
+          ],
+          "status": "pending",
+          "suggested_type": "system",
+          "instructions": "Write page `wiki-core-page_extra` of type `system`. Sections: responsibility -> public surface -> internal mechanics -> configuration -> resources & lifecycle. Answer concretely, each claim cited: What does this component expose and to whom? What state does it own and where is it persisted? What knobs exist and what are their defaults?. Close with an inline [[cite:path:Lx-Ly]] for every statement."
+        },
+        {
+          "page_id": "wiki-engine-wiki_engine",
+          "kind": "new",
+          "purpose": "module `wiki-engine/wiki_engine` (8 files) has no wiki coverage",
+          "seeds": [
+            "crates/wiki-engine/src/index.rs",
+            "crates/wiki-engine/src/lint.rs",
+            "crates/wiki-engine/src/modules.rs",
+            "crates/wiki-engine/src/plan.rs",
+            "crates/wiki-engine/src/playbook.rs"
+          ],
+          "status": "pending",
+          "suggested_type": "system",
+          "instructions": "Write page `wiki-engine-wiki_engine` of type `system`. Sections: responsibility -> public surface -> internal mechanics -> configuration -> resources & lifecycle. Answer concretely, each claim cited: What does this component expose and to whom? What state does it own and where is it persisted? What knobs exist and what are their defaults?. Close with an inline [[cite:path:Lx-Ly]] for every statement."
+        },
+        {
+          "page_id": "wiki-engine-e2e",
+          "kind": "new",
+          "purpose": "module `wiki-engine/e2e` (2 files) has no wiki coverage",
+          "seeds": [
+            "crates/wiki-engine/tests/e2e.rs",
+            "crates/wiki-engine/tests/plan_lint.rs"
+          ],
+          "status": "pending",
+          "suggested_type": "system",
+          "instructions": "Write page `wiki-engine-e2e` of type `system`. Sections: responsibility -> public surface -> internal mechanics -> configuration -> resources & lifecycle. Answer concretely, each claim cited: What does this component expose and to whom? What state does it own and where is it persisted? What knobs exist and what are their defaults?. Close with an inline [[cite:path:Lx-Ly]] for every statement."
+        },
+        {
+          "page_id": "wiki-engine-plan_lint",
+          "kind": "new",
+          "purpose": "module `wiki-engine/plan_lint` (2 files) has no wiki coverage",
+          "seeds": [
+            "crates/wiki-engine/tests/e2e.rs",
+            "crates/wiki-engine/tests/plan_lint.rs"
+          ],
+          "status": "pending",
+          "suggested_type": "system",
+          "instructions": "Write page `wiki-engine-plan_lint` of type `system`. Sections: responsibility -> public surface -> internal mechanics -> configuration -> resources & lifecycle. Answer concretely, each claim cited: What does this component expose and to whom? What state does it own and where is it persisted? What knobs exist and what are their defaults?. Close with an inline [[cite:path:Lx-Ly]] for every statement."
+        },
+        {
+          "page_id": "wiki-mcp-wiki_mcp",
+          "kind": "new",
+          "purpose": "module `wiki-mcp/wiki_mcp` (2 files) has no wiki coverage",
+          "seeds": [
+            "crates/wiki-mcp/src/main.rs"
+          ],
+          "status": "pending",
+          "suggested_type": "system",
+          "instructions": "Write page `wiki-mcp-wiki_mcp` of type `system`. Sections: responsibility -> public surface -> internal mechanics -> configuration -> resources & lifecycle. Answer concretely, each claim cited: What does this component expose and to whom? What state does it own and where is it persisted? What knobs exist and what are their defaults?. Close with an inline [[cite:path:Lx-Ly]] for every statement."
+        },
+        {
+          "page_id": "wiki-mcp-repowiki-mcp",
+          "kind": "new",
+          "purpose": "module `wiki-mcp/repowiki-mcp` (2 files) has no wiki coverage",
+          "seeds": [
+            "crates/wiki-mcp/src/main.rs"
+          ],
+          "status": "pending",
+          "suggested_type": "system",
+          "instructions": "Write page `wiki-mcp-repowiki-mcp` of type `system`. Sections: responsibility -> public surface -> internal mechanics -> configuration -> resources & lifecycle. Answer concretely, each claim cited: What does this component expose and to whom? What state does it own and where is it persisted? What knobs exist and what are their defaults?. Close with an inline [[cite:path:Lx-Ly]] for every statement."
+        },
+        {
+          "page_id": "wiki-mcp-mcp_resolution",
+          "kind": "new",
+          "purpose": "module `wiki-mcp/mcp_resolution` (1 files) has no wiki coverage",
+          "seeds": [
+            "crates/wiki-mcp/tests/mcp_resolution.rs"
+          ],
+          "status": "pending",
+          "suggested_type": "system",
+          "instructions": "Write page `wiki-mcp-mcp_resolution` of type `system`. Sections: responsibility -> public surface -> internal mechanics -> configuration -> resources & lifecycle. Answer concretely, each claim cited: What does this component expose and to whom? What state does it own and where is it persisted? What knobs exist and what are their defaults?. Close with an inline [[cite:path:Lx-Ly]] for every statement."
+        },
+        {
+          "page_id": "repo-root",
+          "kind": "new",
+          "purpose": "module `.` (4 files) has no wiki coverage",
+          "seeds": [
+            ".gitignore",
+            "Cargo.lock",
+            "README.md"
+          ],
+          "status": "pending",
+          "suggested_type": "architecture",
+          "instructions": "Write page `repo-root` of type `architecture`. Sections: system purpose -> module map & layering -> data flow -> failure domains -> key invariants. Answer concretely, each claim cited: What are the top-level units and what does each own? Which dependencies are allowed in which direction? What breaks first when X fails?. Close with an inline [[cite:path:Lx-Ly]] for every statement."
+        },
+        {
+          "page_id": "config",
+          "kind": "new",
+          "purpose": "module `.config` (1 files) has no wiki coverage",
+          "seeds": [
+            ".config/nextest.toml"
+          ],
+          "status": "pending",
+          "suggested_type": "system",
+          "instructions": "Write page `config` of type `system`. Sections: responsibility -> public surface -> internal mechanics -> configuration -> resources & lifecycle. Answer concretely, each claim cited: What does this component expose and to whom? What state does it own and where is it persisted? What knobs exist and what are their defaults?. Close with an inline [[cite:path:Lx-Ly]] for every statement."
+        },
+        {
+          "page_id": "crates-wiki-cli",
+          "kind": "new",
+          "purpose": "module `crates/wiki-cli` (1 files) has no wiki coverage",
+          "seeds": [
+            "crates/wiki-cli/Cargo.toml"
+          ],
+          "status": "pending",
+          "suggested_type": "system",
+          "instructions": "Write page `crates-wiki-cli` of type `system`. Sections: responsibility -> public surface -> internal mechanics -> configuration -> resources & lifecycle. Answer concretely, each claim cited: What does this component expose and to whom? What state does it own and where is it persisted? What knobs exist and what are their defaults?. Close with an inline [[cite:path:Lx-Ly]] for every statement."
+        },
+        {
+          "page_id": "crates-wiki-core",
+          "kind": "new",
+          "purpose": "module `crates/wiki-core` (1 files) has no wiki coverage",
+          "seeds": [
+            "crates/wiki-core/Cargo.toml"
+          ],
+          "status": "pending",
+          "suggested_type": "system",
+          "instructions": "Write page `crates-wiki-core` of type `system`. Sections: responsibility -> public surface -> internal mechanics -> configuration -> resources & lifecycle. Answer concretely, each claim cited: What does this component expose and to whom? What state does it own and where is it persisted? What knobs exist and what are their defaults?. Close with an inline [[cite:path:Lx-Ly]] for every statement."
+        },
+        {
+          "page_id": "crates-wiki-engine",
+          "kind": "new",
+          "purpose": "module `crates/wiki-engine` (1 files) has no wiki coverage",
+          "seeds": [
+            "crates/wiki-engine/Cargo.toml"
+          ],
+          "status": "pending",
+          "suggested_type": "system",
+          "instructions": "Write page `crates-wiki-engine` of type `system`. Sections: responsibility -> public surface -> internal mechanics -> configuration -> resources & lifecycle. Answer concretely, each claim cited: What does this component expose and to whom? What state does it own and where is it persisted? What knobs exist and what are their defaults?. Close with an inline [[cite:path:Lx-Ly]] for every statement."
+        },
+        {
+          "page_id": "crates-wiki-git",
+          "kind": "new",
+          "purpose": "module `crates/wiki-git` (1 files) has no wiki coverage",
+          "seeds": [
+            "crates/wiki-git/Cargo.toml"
+          ],
+          "status": "pending",
+          "suggested_type": "system",
+          "instructions": "Write page `crates-wiki-git` of type `system`. Sections: responsibility -> public surface -> internal mechanics -> configuration -> resources & lifecycle. Answer concretely, each claim cited: What does this component expose and to whom? What state does it own and where is it persisted? What knobs exist and what are their defaults?. Close with an inline [[cite:path:Lx-Ly]] for every statement."
+        },
+        {
+          "page_id": "crates-wiki-mcp",
+          "kind": "new",
+          "purpose": "module `crates/wiki-mcp` (1 files) has no wiki coverage",
+          "seeds": [
+            "crates/wiki-mcp/Cargo.toml"
+          ],
+          "status": "pending",
+          "suggested_type": "system",
+          "instructions": "Write page `crates-wiki-mcp` of type `system`. Sections: responsibility -> public surface -> internal mechanics -> configuration -> resources & lifecycle. Answer concretely, each claim cited: What does this component expose and to whom? What state does it own and where is it persisted? What knobs exist and what are their defaults?. Close with an inline [[cite:path:Lx-Ly]] for every statement."
         }
       ]
     }

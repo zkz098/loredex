@@ -307,3 +307,51 @@ fn generated_pages_excluded_from_plans() {
         "{issues:?}"
     );
 }
+
+#[test]
+fn auto_recovers_drift_and_reports_clean() {
+    let fx = Fx::new(&[("src.rs", SRC)]);
+    put_page(
+        &fx.repo,
+        &fx.wiki(),
+        "root",
+        "Root",
+        "behavior [[cite:src.rs:L2-L4]]",
+        vec![],
+        Some("system".into()),
+    )
+    .unwrap();
+    fx.edit("src.rs", &format!("// inserted\n{SRC}"));
+    let report = wiki_engine::auto_refresh(&fx.repo, &fx.wiki()).unwrap();
+    assert_eq!(report.recovered.len(), 1, "{report:?}");
+    assert!(report.needs_rewrite.is_empty());
+    assert!(report.lint_issues.is_empty());
+    assert!(report.all_clean, "projection should close everything: {:?}", report.plan.tasks);
+}
+
+#[test]
+fn auto_routes_lost_content_to_rewrite_and_plan() {
+    let fx = Fx::new(&[("src.rs", SRC)]);
+    put_page(
+        &fx.repo,
+        &fx.wiki(),
+        "root",
+        "Root",
+        "behavior [[cite:src.rs:L2-L4]]",
+        vec![],
+        Some("system".into()),
+    )
+    .unwrap();
+    fx.edit("src.rs", "fn nothing_like_before() {}\n");
+    let report = wiki_engine::auto_refresh(&fx.repo, &fx.wiki()).unwrap();
+    assert_eq!(report.needs_rewrite.len(), 1);
+    assert!(!report.all_clean);
+    // draft-aware planning: the now-draft page appears as a pending task
+    assert!(report
+        .plan
+        .tasks
+        .iter()
+        .any(|t| t.page_id == "root" && t.status == TaskStatus::Pending));
+    // and the run ledger persisted the same
+    assert!(load_ledger(&fx.wiki()).active_run().is_some());
+}

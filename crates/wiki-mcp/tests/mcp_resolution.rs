@@ -451,3 +451,29 @@ async fn wiki_plan_and_mark_over_protocol() {
     let read = structured(&call(&client, "wiki_read", serde_json::json!({"id": page_id})).await);
     assert_eq!(read["page_type"], serde_json::json!("system"));
 }
+
+#[tokio::test]
+async fn wiki_auto_over_protocol() {
+    let _g = ENV_LOCK.lock().unwrap();
+    let fx = Fixture::new();
+    std::env::remove_var("REPOWIKI_REPO");
+    let (client, _s) = pair(WikiServer::new_open(), TestClient::no_roots()).await;
+    call(
+        &client,
+        "wiki_attach_repo",
+        serde_json::json!({ "path": fx.path().to_string_lossy() }),
+    )
+    .await;
+    let rep = structured(&call(&client, "wiki_auto", serde_json::json!({})).await);
+    assert_eq!(rep["checked"], serde_json::json!(0));
+    assert_eq!(rep["recovered"].as_array().unwrap().len(), 0);
+    // no pages yet -> the uncovered module is pending authoring work, not clean
+    assert_eq!(rep["all_clean"], serde_json::json!(false));
+    let pending = rep["plan"]["tasks"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .filter(|t| t["status"] == serde_json::json!("pending"))
+        .count();
+    assert!(pending >= 1, "{rep}");
+}

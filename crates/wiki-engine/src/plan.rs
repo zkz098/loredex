@@ -103,6 +103,22 @@ pub fn compute_tasks(repo: &GitRepo, wiki_dir: &Path) -> Result<Vec<PlanTask>> {
             cited.insert(e.path.clone());
         }
         let report = check_page(p, repo)?;
+        if !report.is_stale && p.meta.status != wiki_core::Status::Verified {
+            // draft/stale-flagged pages are authoring work even when git-clean
+            tasks.push(PlanTask {
+                suggested_type: p.meta.page_type.clone().unwrap_or_else(|| "system".into()),
+                instructions: instr(
+                    p.meta.page_type.as_deref().unwrap_or("system"),
+                    &p.meta.id,
+                ),
+                page_id: p.meta.id.clone(),
+                kind: TaskKind::Refresh,
+                purpose: format!("page status is `{}`", p.meta.status.as_str()),
+                seeds: p.meta.evidence.iter().map(|e| e.path.clone()).collect(),
+                status: TaskStatus::Pending,
+            });
+            continue;
+        }
         if report.is_stale {
             let why = report
                 .evidence_reports
@@ -126,8 +142,8 @@ pub fn compute_tasks(repo: &GitRepo, wiki_dir: &Path) -> Result<Vec<PlanTask>> {
     }
 
     for m in discover_modules(repo)? {
-        if m.name == ".wiki" || m.name.starts_with(".wiki/") {
-            continue;
+        if m.name.starts_with(".wiki") || m.name.starts_with('.') {
+            continue; // dot-directories are tooling config, not doc subjects
         }
         let pid_check = suggest_page_id(&m.name);
         if pages.iter().any(|p| p.meta.id == pid_check) {
@@ -139,7 +155,16 @@ pub fn compute_tasks(repo: &GitRepo, wiki_dir: &Path) -> Result<Vec<PlanTask>> {
             .filter(|f| !cited.contains(*f) && !f.starts_with(".wiki/"))
             .cloned()
             .collect();
-        if uncovered.len() as f64 >= m.files.len() as f64 * 0.5 && !uncovered.is_empty() {
+        let config_only = uncovered.iter().all(|f| {
+            matches!(
+                f.rsplit('/').next().unwrap_or(f),
+                "Cargo.toml" | "Cargo.lock" | ".gitignore" | "rust-toolchain.toml" | "package-lock.json"
+            )
+        });
+        if !config_only
+            && uncovered.len() as f64 >= m.files.len() as f64 * 0.5
+            && !uncovered.is_empty()
+        {
             let mut seeds = uncovered;
             seeds.truncate(12);
             let pid = suggest_page_id(&m.name);

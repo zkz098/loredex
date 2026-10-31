@@ -4,6 +4,7 @@ use sha1::{Digest, Sha1};
 use wiki_core::{list_page_files, Evidence, Status, WikiPage, WikiError};
 use wiki_git::GitRepo;
 
+pub mod auto;
 pub mod drift;
 pub mod index;
 pub mod lint;
@@ -12,6 +13,7 @@ pub mod plan;
 pub mod playbook;
 pub mod put;
 
+pub use auto::{auto_refresh, AutoReport};
 pub use drift::{project_evidence, project_range, refresh_page_with_drift, DriftOutcome};
 pub use index::{all_wiki_links, generate_index, is_generated, INDEX_ID, QUICKSTART_ID};
 pub use lint::{lint, LintIssue};

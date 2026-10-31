@@ -389,6 +389,20 @@ impl WikiServer {
     }
 
     #[tool(
+        name = "wiki_auto",
+        description = "One-call wiki maintenance: recovers every drift/rename that projection can fix (zero model tokens), lints structure, then opens a plan run for the remaining authoring work. Returns the full report; pending tasks are persisted in .wiki/runs.json."
+    )]
+    async fn wiki_auto(&self, peer: Peer<RoleServer>) -> Result<Json<serde_json::Value>, ErrorData> {
+        self.ensure_repo(&peer).await?;
+        let slot = self.slot.lock().unwrap();
+        let repo = slot.current.as_ref().ok_or_else(|| Self::err("repository not resolved"))?;
+        let report = engine::auto_refresh(repo, &repo.wiki_dir()).map_err(Self::err)?;
+        serde_json::to_value(report)
+            .map(Json)
+            .map_err(|e| Self::err(e.to_string()))
+    }
+
+    #[tool(
         name = "wiki_playbooks",
         description = "Page-type authoring guides (architecture/workflow/system/integration/testing + repo-local wiki.toml extensions). Use the plan task's `instructions` field, or this registry to pick/define the right type."
     )]
