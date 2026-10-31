@@ -65,6 +65,8 @@ enum Command {
     },
     /// Regenerate the navigation index page (.wiki/pages/index.md)
     Index,
+    /// List page-type playbooks (built-in + wiki.toml extensions)
+    Playbooks,
     /// Structural checks: broken wiki links, stale-but-verified, evidence drift
     Lint {
         #[arg(long)]
@@ -274,8 +276,22 @@ fn main() -> anyhow::Result<()> {
             }
         }
         Command::Index => {
-            let page = engine::generate_index(&repo, &wiki_dir)?;
-            println!("wrote {}", page.source_path.unwrap().display());
+            for page in engine::generate_index(&repo, &wiki_dir)? {
+                println!("wrote {}", page.source_path.unwrap().display());
+            }
+        }
+        Command::Playbooks => {
+            let reg = engine::playbook_registry(&wiki_dir);
+            for (_, pb) in &reg {
+                println!(
+                    "{} — {}",
+                    pb.name, pb.description
+                );
+                println!("   sections: {}", pb.sections.join(" -> "));
+                for c in &pb.checklist {
+                    println!("   - {c}");
+                }
+            }
         }
         Command::Lint { json } => {
             let issues = engine::lint(&repo, &wiki_dir)?;

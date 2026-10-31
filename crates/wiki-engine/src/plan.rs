@@ -14,7 +14,7 @@ use serde::{Deserialize, Serialize};
 use wiki_core::WikiError;
 use wiki_git::GitRepo;
 
-use crate::{discover_modules, load_pages, now_iso, check_page, Result};
+use crate::{check_page, discover_modules, index::is_generated, load_pages, now_iso, playbook, Result};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
@@ -41,6 +41,10 @@ pub struct PlanTask {
     pub purpose: String,
     pub seeds: Vec<String>,
     pub status: TaskStatus,
+    /// suggested page `type` frontmatter value (see playbook registry)
+    pub suggested_type: String,
+    /// playbook-derived authoring instructions for producer agents
+    pub instructions: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -81,11 +85,18 @@ fn save_ledger(wiki_dir: &Path, ledger: &RunLedger) -> Result<()> {
 /// modules with files nobody cites (New). Excludes the generated index page.
 pub fn compute_tasks(repo: &GitRepo, wiki_dir: &Path) -> Result<Vec<PlanTask>> {
     let mut tasks = Vec::new();
+    let reg = playbook::registry(wiki_dir);
     let pages = load_pages(wiki_dir)?;
     let mut cited: BTreeSet<String> = BTreeSet::new();
 
+    let instr = |t: &str, subject: &str| {
+        reg.get(t)
+            .map(|pb| pb.instructions_for(subject))
+            .unwrap_or_else(|| format!("Write page `{subject}` with cited claims (unknown type `{t}`)."))
+    };
+
     for p in &pages {
-        if p.meta.id == "index" {
+        if is_generated(&p.meta.id) {
             continue;
         }
         for e in &p.meta.evidence {
@@ -100,7 +111,11 @@ pub fn compute_tasks(repo: &GitRepo, wiki_dir: &Path) -> Result<Vec<PlanTask>> {
                 .map(|r| format!("{}: {}", r.path, r.detail))
                 .collect::<Vec<_>>()
                 .join("; ");
+            let stype = p.meta.page_type.clone().unwrap_or_else(|| "system".into());
+            let subject = p.meta.id.clone();
             tasks.push(PlanTask {
+                suggested_type: stype.clone(),
+                instructions: instr(&stype, &subject),
                 page_id: p.meta.id.clone(),
                 kind: TaskKind::Refresh,
                 purpose: format!("evidence stale — {why}"),
@@ -114,6 +129,10 @@ pub fn compute_tasks(repo: &GitRepo, wiki_dir: &Path) -> Result<Vec<PlanTask>> {
         if m.name == ".wiki" || m.name.starts_with(".wiki/") {
             continue;
         }
+        let pid_check = suggest_page_id(&m.name);
+        if pages.iter().any(|p| p.meta.id == pid_check) {
+            continue; // root/uncertainty pages already authored
+        }
         let uncovered: Vec<String> = m
             .files
             .iter()
@@ -123,8 +142,12 @@ pub fn compute_tasks(repo: &GitRepo, wiki_dir: &Path) -> Result<Vec<PlanTask>> {
         if uncovered.len() as f64 >= m.files.len() as f64 * 0.5 && !uncovered.is_empty() {
             let mut seeds = uncovered;
             seeds.truncate(12);
+            let pid = suggest_page_id(&m.name);
+            let stype = playbook::suggest_for_module(&m.name).to_string();
             tasks.push(PlanTask {
-                page_id: suggest_page_id(&m.name),
+                suggested_type: stype.clone(),
+                instructions: instr(&stype, &pid),
+                page_id: pid,
                 kind: TaskKind::New,
                 purpose: format!("module `{}` ({} files) has no wiki coverage", m.name, m.files.len()),
                 seeds,

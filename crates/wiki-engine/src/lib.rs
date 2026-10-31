@@ -9,12 +9,14 @@ pub mod index;
 pub mod lint;
 pub mod modules;
 pub mod plan;
+pub mod playbook;
 pub mod put;
 
 pub use drift::{project_evidence, project_range, refresh_page_with_drift, DriftOutcome};
-pub use index::{all_wiki_links, generate_index, INDEX_ID};
+pub use index::{all_wiki_links, generate_index, is_generated, INDEX_ID, QUICKSTART_ID};
 pub use lint::{lint, LintIssue};
 pub use modules::{discover as discover_modules, ModuleInfo};
+pub use playbook::{registry as playbook_registry, TypePlaybook};
 pub use plan::{
     close_run, compute_tasks, load_ledger, mark_task, plan as open_plan, PlanTask, RunLedger,
     RunRecord, TaskKind, TaskStatus,

@@ -389,6 +389,20 @@ impl WikiServer {
     }
 
     #[tool(
+        name = "wiki_playbooks",
+        description = "Page-type authoring guides (architecture/workflow/system/integration/testing + repo-local wiki.toml extensions). Use the plan task's `instructions` field, or this registry to pick/define the right type."
+    )]
+    async fn wiki_playbooks(&self, peer: Peer<RoleServer>) -> Result<Json<serde_json::Value>, ErrorData> {
+        self.ensure_repo(&peer).await?;
+        let slot = self.slot.lock().unwrap();
+        let repo = slot.current.as_ref().ok_or_else(|| Self::err("repository not resolved"))?;
+        let reg = engine::playbook_registry(&repo.wiki_dir());
+        serde_json::to_value(reg)
+            .map(Json)
+            .map_err(|e| Self::err(e.to_string()))
+    }
+
+    #[tool(
         name = "wiki_attach_repo",
         description = "Attach the server to a git repository (path inside the repo you want to serve). Use when automatic resolution fails or you need to switch repositories mid-session. Refused when the server was started with a pinned --repo."
     )]

@@ -32,7 +32,8 @@ repowiki put core --title "核心层" --body notes.md
 repowiki list / show core / search "关键词"
 repowiki check --mark          # 过期扫描，exit code 非 0 = 有 stale（可挂 CI）
 repowiki plan [--json]         # 生成计划：未覆盖模块(New) + stale页(Refresh)，写入 .wiki/runs.json 账本
-repowiki index                 # 重新生成分层导航页 pages/index.md
+repowiki index                 # 重新生成 pages/index.md + pages/quickstart.md（按类型读序 + agent 协议）
+repowiki playbooks             # 页面类型写作指南（内置5类 + wiki.toml 扩展）
 repowiki lint                  # 断链 / stale-but-verified / 正文-frontmatter 漂移，有问题 exit 1
 repowiki verify core           # 内容哈希级校验（不依赖 commit 号）
 repowiki refresh core          # 漂移投影刷新
@@ -82,6 +83,7 @@ Server 在 `initialize` 时下发协议契约（先查新鲜度、stale 视为�
 | `wiki_refresh_page` | 漂移投影刷新，逐条返回投影结果 |
 | `wiki_attach_repo` / `wiki_current_repo` | 挂载/切换仓库、自省解析状态 |
 | `wiki_plan` / `wiki_mark_task` | 打开/续传生成计划 run、销账（put/refresh 自动销账） |
+| `wiki_playbooks` | 页面类型写作指南（plan 任务的 `instructions` 即由此推导） |
 
 ## 工作流
 
@@ -95,6 +97,7 @@ Server 在 `initialize` 时下发协议契约（先查新鲜度、stale 视为�
 ```
 
 - 页面与 `.wiki/` 一起提交进 git，团队共享、PR 可 review；`runs.json` 账本同样入库，agent 中断后 `wiki_plan` 自动续传 pending 任务
+- plan 任务自带 `suggested_type` 与 playbook `instructions`（该类型页面应有哪些章节、回答哪些问题），生产 agent 无需隐藏 prompt 也能写出结构一致的页面；类型可在 `.wiki/wiki.toml [page_types.<name>]` 扩展，未注册的 type 会被 `lint` 标出
 - `repowiki lint`（断链/stale/漂移）适合挂 CI；页面 id 支持 `architecture/overview` 式分层，`--type` 标注页面种类
 
 ## 架构

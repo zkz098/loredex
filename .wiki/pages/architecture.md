@@ -2,8 +2,8 @@
 id: architecture
 title: 总体架构
 status: verified
-generated_at: 2026-10-31T09:20:20Z
-commit: 5fe5c2dc04b8fc113e1131e941939b6d327704cf
+generated_at: 2026-10-31T10:04:14Z
+commit: 2eefe342a01872dd7a037ac697c31468ac07e9ed
 evidence:
 - path: Cargo.toml
   lines:
@@ -13,18 +13,17 @@ evidence:
   snippet_sha1: 31ef060985310bbefb6844dddd9c673008bc9091
 - path: crates/wiki-engine/src/lib.rs
   lines:
-  - 274
-  - 286
+  - 264
+  - 276
   blob: f2a1f0d8da6d83757e2ef7dd594a64f84837e1fe
-  snippet_sha1: 6868d15af20453a2d80cbe56de6950153900bc3f
-  note: drift-projected L264-L276@ebb3f7e5 -> L274-L286 (similarity 1.00)
+  snippet_sha1: 14d520db4237840502828874b31ebf6f071e18c8
 - path: crates/wiki-core/src/page.rs
   lines:
   - 29
   - 40
   blob: 8a7f7f40314c2e465b9d82e29458ffb45a964f46
   snippet_sha1: c29606ed08aec635918031cfd27810613803de0c
-  note: drift-projected L29-L40@823417dc -> L29-L40 (similarity 1.00)
+type: architecture
 ---
 # 总体架构
 

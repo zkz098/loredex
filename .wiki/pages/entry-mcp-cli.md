@@ -2,8 +2,8 @@
 id: entry-mcp-cli
 title: 入口层：MCP server 与 CLI
 status: verified
-generated_at: 2026-10-31T09:20:20Z
-commit: 5fe5c2dc04b8fc113e1131e941939b6d327704cf
+generated_at: 2026-10-31T10:04:14Z
+commit: 2eefe342a01872dd7a037ac697c31468ac07e9ed
 evidence:
 - path: crates/wiki-mcp/src/lib.rs
   lines:
@@ -11,42 +11,37 @@ evidence:
   - 27
   blob: b6c5492cc1da082e66c8601bedd9a78528905982
   snippet_sha1: 7126f3da20da71e3801d1cb78e365b136bd8e30e
-  note: drift-projected L13-L27@bfa09fef -> L13-L27 (similarity 1.00)
 - path: crates/wiki-mcp/src/lib.rs
   lines:
-  - 493
-  - 526
+  - 434
+  - 460
   blob: b6c5492cc1da082e66c8601bedd9a78528905982
-  snippet_sha1: 31f245ff3e87dcca02ea51a48a3045753a05e0a4
-  note: drift-projected L434-L467@bfa09fef -> L493-L526 (similarity 1.00)
+  snippet_sha1: c469b42316340de0e0a1e08d9e51b9f27344efe6
 - path: crates/wiki-mcp/src/lib.rs
   lines:
-  - 293
-  - 342
+  - 281
+  - 330
   blob: b6c5492cc1da082e66c8601bedd9a78528905982
-  snippet_sha1: e047f0e999076e9190db745ff4c9312f7dd2b0c5
-  note: drift-projected L281-L330@bfa09fef -> L293-L342 (similarity 1.00)
+  snippet_sha1: faf2ebae8bad11c17b7b96bc90c2ed385bb71d4e
 - path: crates/wiki-mcp/src/lib.rs
   lines:
-  - 529
-  - 556
-  blob: b6c5492cc1da082e66c8601bedd9a78528905982
-  snippet_sha1: cfbfd4ce826b8c4a48ce70de3e7c18f9c05ba032
-  note: drift-projected L470-L497@bfa09fef -> L529-L556 (similarity 1.00)
-- path: crates/wiki-mcp/src/lib.rs
-  lines:
-  - 423
   - 463
+  - 490
   blob: b6c5492cc1da082e66c8601bedd9a78528905982
-  snippet_sha1: 89afa4e23e1ab7723774678b501c35ff13e49061
-  note: drift-projected L365-L405@bfa09fef -> L423-L463 (similarity 1.00)
+  snippet_sha1: 625cce13af77a3e41240b272cef8ad246898dc24
+- path: crates/wiki-mcp/src/lib.rs
+  lines:
+  - 365
+  - 405
+  blob: b6c5492cc1da082e66c8601bedd9a78528905982
+  snippet_sha1: a6aab4d8e489de717e9974fff0b2377eb9d02ddf
 - path: crates/wiki-cli/src/main.rs
   lines:
-  - 22
-  - 73
+  - 21
+  - 54
   blob: 644ba14a39ae8603b8f096bd526b85024dc03261
-  snippet_sha1: 0d7ff3225c75749c42a992ac693c6cbd91f9bf90
-  note: drift-projected L21-L54@48bbff45 -> L22-L73 (similarity 1.00)
+  snippet_sha1: b5c72adc90ab24918f1cb8569487ca0aaba4b3a3
+type: system
 ---
 # 入口层：MCP server 与 CLI
 

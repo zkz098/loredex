@@ -11,18 +11,33 @@ use wiki_git::GitRepo;
 use crate::{check_page, load_pages, now_iso, pages_dir, Result};
 
 pub const INDEX_ID: &str = "index";
+pub const QUICKSTART_ID: &str = "quickstart";
+
+/// Generated navigation pages: excluded from plans, evidence checks and lint.
+pub fn is_generated(id: &str) -> bool {
+    id == INDEX_ID || id == QUICKSTART_ID
+}
+
+const TYPE_ORDER: [&str; 5] =
+    ["architecture", "workflow", "system", "integration", "testing"];
 
 /// Build index.md content grouped by top-level directory (or "top level"),
 /// each line linking the page with live git freshness, never a plain text dump.
-pub fn generate_index(repo: &GitRepo, wiki_dir: &Path) -> Result<WikiPage> {
+pub fn generate_index(repo: &GitRepo, wiki_dir: &Path) -> Result<Vec<WikiPage>> {
     let pages = load_pages(wiki_dir)?;
     let mut groups: BTreeMap<String, Vec<String>> = BTreeMap::new();
     let mut stale_count = 0usize;
-    for p in pages.iter().filter(|p| p.meta.id != INDEX_ID) {
+    let mut typed: Vec<(String, String, String)> = Vec::new(); // (type, id, title)
+    for p in pages.iter().filter(|p| !is_generated(&p.meta.id)) {
         let live_stale = check_page(p, repo).map(|r| r.is_stale).unwrap_or(false);
         if live_stale {
             stale_count += 1;
         }
+        typed.push((
+            p.meta.page_type.clone().unwrap_or_else(|| "other".into()),
+            p.meta.id.clone(),
+            p.meta.title.clone(),
+        ));
         let group = match p.meta.id.split_once('/') {
             Some((head, _)) => head.to_string(),
             None => ".".to_string(),
@@ -48,25 +63,72 @@ pub fn generate_index(repo: &GitRepo, wiki_dir: &Path) -> Result<WikiPage> {
     }
     body.push_str(&format!(
         "_{} page(s), {stale_count} stale, generated {}_\n",
-        pages.iter().filter(|p| p.meta.id != INDEX_ID).count(),
+        pages.iter().filter(|p| !is_generated(&p.meta.id)).count(),
         now_iso()
     ));
-    let page = WikiPage {
+    let mk = |id: &str, title: &str, pt: &str, body: String| WikiPage {
         meta: wiki_core::PageMeta {
-            id: INDEX_ID.into(),
-            title: "Wiki index".into(),
+            id: id.into(),
+            title: title.into(),
             status: Status::Verified,
             generated_at: now_iso(),
-            commit: repo.head_commit()?,
+            commit: repo.head_commit().unwrap_or_default(),
             evidence: vec![],
             tags: vec!["generated".into()],
-            page_type: Some("index".into()),
+            page_type: Some(pt.into()),
         },
         body,
-        source_path: Some(pages_dir(wiki_dir).join(format!("{INDEX_ID}.md"))),
+        source_path: Some(pages_dir(wiki_dir).join(format!("{id}.md"))),
     };
-    page.save_in_place()?;
-    Ok(page)
+    let index = mk(INDEX_ID, "Wiki index", "index", body);
+    index.save_in_place()?;
+
+    // quickstart: a guided reading path (openwiki's entry page analog)
+    let repo_name = repo
+        .workdir()
+        .file_name()
+        .map(|n| n.to_string_lossy().to_string())
+        .unwrap_or_else(|| "this repository".into());
+    let mut qs = format!(
+        "# {repo_name} wiki — quickstart\n\nGenerated navigation, not evidence-backed. Full catalog: [[wiki:{INDEX_ID}]].\n\n\
+         ## Recommended reading path\n\n"
+    );
+    let mut listed = 0usize;
+    for t in TYPE_ORDER {
+        let mut items = Vec::new();
+        for (pt, id, title) in &typed {
+            if pt == t {
+                items.push(format!("1. [[wiki:{id}]] — {title}"));
+            }
+        }
+        if !items.is_empty() {
+            qs.push_str(&format!("### {t}\n\n{}\n\n", items.join("\n")));
+            listed += items.len();
+        }
+    }
+    if listed == 0 {
+        qs.push_str("_No pages yet — run `repowiki plan` and author the first module page._\n\n");
+    }
+    let others: Vec<String> = typed
+        .iter()
+        .filter(|(pt, _, _)| !TYPE_ORDER.contains(&pt.as_str()))
+        .map(|(_, id, title)| format!("- [[wiki:{id}]] — {title}"))
+        .collect();
+    if !others.is_empty() {
+        qs.push_str("### other\n\n");
+        qs.push_str(&others.join("\n"));
+        qs.push('\n');
+    }
+    qs.push_str(
+        "\n## How to use this wiki (agent protocol)\n\n\
+         1. Call `wiki_check_freshness` (or `repowiki check`) before trusting any page; treat stale pages as unverified and read the source.\n\
+         2. Audit claims with `wiki_get_evidence` — every citation resolves to the exact file content at current git HEAD.\n\
+         3. Keep the wiki fresh: `wiki_plan` lists what needs writing or repair; author with inline `[[cite:path:Lx-Ly]]` markers, one per claim; `wiki_refresh_page` auto-heals drifted citations.\n",
+    );
+    let quickstart = mk(QUICKSTART_ID, "Wiki quickstart", "index", qs);
+    quickstart.save_in_place()?;
+
+    Ok(vec![index, quickstart])
 }
 
 /// Collect all [[wiki:id]] targets across pages (for lint).

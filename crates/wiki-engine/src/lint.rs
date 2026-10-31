@@ -39,8 +39,21 @@ pub fn lint(repo: &GitRepo, wiki_dir: &Path) -> Result<Vec<LintIssue>> {
             }
         }
 
-        if p.meta.id == "index" {
+        if crate::index::is_generated(&p.meta.id) {
             continue; // generated, no evidence
+        }
+        // 0. declared type must exist in the playbook registry
+        if let Some(t) = &p.meta.page_type {
+            if !crate::playbook::registry(wiki_dir).contains_key(t) {
+                issues.push(LintIssue {
+                    page: p.meta.id.clone(),
+                    kind: "unknown-type".into(),
+                    detail: format!(
+                        "type `{t}` has no playbook; known: {:?} (extend via .wiki/wiki.toml [page_types.{t}])",
+                        crate::playbook::registry(wiki_dir).keys().collect::<Vec<_>>()
+                    ),
+                });
+            }
         }
 
         // 2. status field contradicts live git state
