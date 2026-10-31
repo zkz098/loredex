@@ -2,8 +2,8 @@
 id: core-model
 title: wiki-core：数据模型与解析
 status: verified
-generated_at: 2026-10-31T06:13:37Z
-commit: e3027cd3a60bc0b433860ebc35bbdbf781cf3af1
+generated_at: 2026-10-31T06:13:49Z
+commit: aac4996f46e9a540934b4917901b7ff5e72e5afb
 evidence:
 - path: crates/wiki-core/src/page.rs
   lines:
