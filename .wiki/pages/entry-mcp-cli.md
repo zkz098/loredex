@@ -2,8 +2,8 @@
 id: entry-mcp-cli
 title: 入口层：MCP server 与 CLI
 status: verified
-generated_at: 2026-10-31T08:50:44Z
-commit: b52597525329a2216add92f38aa484a0e0aed12d
+generated_at: 2026-10-31T08:50:59Z
+commit: 11fb67f355bd5b29a6b5a6187382ac22bff485ef
 evidence:
 - path: crates/wiki-mcp/src/lib.rs
   lines:
@@ -35,55 +35,6 @@ evidence:
   - 405
   blob: 60348614a0a09cbcd050cd0aa3255d27ede64ece
   snippet_sha1: 89afa4e23e1ab7723774678b501c35ff13e49061
-- path: crates/wiki-cli/src/main.rs
-  lines:
-  - 21
-  - 54
-  blob: 48bbff454e7322794d9e0d14c8dc677e845e4623
-  snippet_sha1: d3348ac276888a9c4561eb814467b36d39b1b7e9
----
----
-id: entry-mcp-cli
-title: 入口层：MCP server 与 CLI
-status: verified
-generated_at: 2026-10-31T06:37:04Z
-commit: 9300a9e46e346049071d99ec7b5433db1d158189
-evidence:
-- path: crates/wiki-mcp/src/lib.rs
-  lines:
-  - 13
-  - 26
-  blob: 96f3586f9003759ec3c801e6e70569a6e61f237e
-  snippet_sha1: 4e5d13878e567c64c7faf162d26c8124c6cddd3b
-  note: drift-projected L13-L27@0858bf16 -> L13-L26 (similarity 0.87)
-- path: crates/wiki-mcp/src/lib.rs
-  lines:
-  - 599
-  - 628
-  blob: 96f3586f9003759ec3c801e6e70569a6e61f237e
-  snippet_sha1: 02c857a3fa10bbd39c13ca2ae633a29b7129308a
-  note: drift-projected L434-L460@0858bf16 -> L599-L628 (similarity 0.93)
-- path: crates/wiki-mcp/src/lib.rs
-  lines:
-  - 438
-  - 492
-  blob: 96f3586f9003759ec3c801e6e70569a6e61f237e
-  snippet_sha1: ebecfd1d6b0a7fe5327b349dd772b9230ce67937
-  note: drift-projected L281-L330@0858bf16 -> L438-L492 (similarity 0.92)
-- path: crates/wiki-mcp/src/lib.rs
-  lines:
-  - 630
-  - 660
-  blob: 96f3586f9003759ec3c801e6e70569a6e61f237e
-  snippet_sha1: d09252da0f8b077f027807042e55d6f4353ca157
-  note: drift-projected L463-L490@0858bf16 -> L630-L660 (similarity 0.93)
-- path: crates/wiki-mcp/src/lib.rs
-  lines:
-  - 526
-  - 569
-  blob: 96f3586f9003759ec3c801e6e70569a6e61f237e
-  snippet_sha1: a90fffd59738d29694297da772e81fb9e5626cc0
-  note: drift-projected L365-L405@0858bf16 -> L526-L569 (similarity 0.95)
 - path: crates/wiki-cli/src/main.rs
   lines:
   - 21
