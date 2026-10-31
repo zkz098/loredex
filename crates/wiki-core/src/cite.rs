@@ -1,3 +1,5 @@
+// Citation syntax is enforced at page-write time: a body
+// without markers is rejected by wiki-engine::put_page.
 use regex::Regex;
 
 use crate::error::{WikiError, Result};
