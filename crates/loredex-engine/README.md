@@ -22,4 +22,4 @@ for page in &pages {
 }
 ```
 
-Built on [`loredex-core`](https://github.com/zkz098/loredex/blob/master/crates/loredex-core/README.md) (page model) and [`loredex-git`](https://github.com/zkz098/loredex/blob/master/crates/loredex-git/README.md) (evidence); consumed by [`loredex-cli`](https://github.com/zkz098/loredex/blob/master/crates/loredex-cli/README.md) and [`loredex-mcp`](https://github.com/zkz098/loredex/blob/master/crates/loredex-mcp/README.md). License: GPL-3.0-or-later.
+Built on [`loredex-core`](https://github.com/zkz098/loredex/blob/main/crates/loredex-core/README.md) (page model) and [`loredex-git`](https://github.com/zkz098/loredex/blob/main/crates/loredex-git/README.md) (evidence); consumed by [`loredex-cli`](https://github.com/zkz098/loredex/blob/main/crates/loredex-cli/README.md) and [`loredex-mcp`](https://github.com/zkz098/loredex/blob/main/crates/loredex-mcp/README.md). License: GPL-3.0-or-later.

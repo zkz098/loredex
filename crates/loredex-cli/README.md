@@ -1,6 +1,6 @@
 # loredex-cli
 
-The `loredex` command: maintain an [evidence-backed repository wiki](https://github.com/zkz098/loredex) for humans and AI coding agents. Thin clap argument mapping over [`loredex-engine`](https://github.com/zkz098/loredex/blob/master/crates/loredex-engine/README.md) — all logic lives there.
+The `loredex` command: maintain an [evidence-backed repository wiki](https://github.com/zkz098/loredex) for humans and AI coding agents. Thin clap argument mapping over [`loredex-engine`](https://github.com/zkz098/loredex/blob/main/crates/loredex-engine/README.md) — all logic lives there.
 
 ```bash
 cargo install loredex-cli

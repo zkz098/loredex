@@ -30,6 +30,6 @@ Tools (all return structured `structuredContent`, e.g. `stale_now`, `matches_hea
 
 The server advertises a behavioral contract at `initialize`: check freshness before trusting, stale means unverified, drift goes through refresh, citations are auditable.
 
-Split lib + bin: `WikiServer::new_open()` (lazy resolution) and `WikiServer::pinned(GitRepo)` let integration tests drive the real protocol stack in-process. All business logic comes from [`loredex-engine`](https://github.com/zkz098/loredex/blob/master/crates/loredex-engine/README.md).
+Split lib + bin: `WikiServer::new_open()` (lazy resolution) and `WikiServer::pinned(GitRepo)` let integration tests drive the real protocol stack in-process. All business logic comes from [`loredex-engine`](https://github.com/zkz098/loredex/blob/main/crates/loredex-engine/README.md).
 
 License: GPL-3.0-or-later.
