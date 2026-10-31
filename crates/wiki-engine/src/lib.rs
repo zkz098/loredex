@@ -5,11 +5,20 @@ use wiki_core::{list_page_files, Evidence, Status, WikiPage, WikiError};
 use wiki_git::GitRepo;
 
 pub mod drift;
+pub mod index;
+pub mod lint;
 pub mod modules;
+pub mod plan;
 pub mod put;
 
 pub use drift::{project_evidence, project_range, refresh_page_with_drift, DriftOutcome};
+pub use index::{all_wiki_links, generate_index, INDEX_ID};
+pub use lint::{lint, LintIssue};
 pub use modules::{discover as discover_modules, ModuleInfo};
+pub use plan::{
+    close_run, compute_tasks, load_ledger, mark_task, plan as open_plan, PlanTask, RunLedger,
+    RunRecord, TaskKind, TaskStatus,
+};
 pub use put::{put_page, PutOutcome};
 
 pub type Result<T> = std::result::Result<T, WikiError>;
@@ -64,6 +73,7 @@ pub fn load_pages(wiki_dir: &Path) -> Result<Vec<WikiPage>> {
 }
 
 pub fn find_page(wiki_dir: &Path, id: &str) -> Result<WikiPage> {
+    wiki_core::validate_page_id(id).map_err(WikiError::Git)?;
     let path = pages_dir(wiki_dir).join(format!("{id}.md"));
     if path.is_file() {
         WikiPage::load(&path)

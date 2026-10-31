@@ -217,6 +217,7 @@ pub fn head_lines_string(repo: &GitRepo, path: &str, lo: u32, hi: u32) -> Result
 pub fn refresh_page_with_drift(
     page: &mut WikiPage,
     repo: &GitRepo,
+    wiki_dir: &std::path::Path,
 ) -> Result<Vec<(String, DriftOutcome)>> {
     let mut outcomes = Vec::new();
     let mut evidence = Vec::new();
@@ -256,6 +257,10 @@ pub fn refresh_page_with_drift(
         wiki_core::Status::Verified
     };
     page.save_in_place()?;
+    // a successful refresh resolves a pending Refresh task
+    if !any_lost {
+        let _ = crate::plan::mark_task(wiki_dir, &page.meta.id, crate::plan::TaskStatus::Done);
+    }
     Ok(outcomes)
 }
 

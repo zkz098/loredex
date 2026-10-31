@@ -22,12 +22,11 @@ pub fn put_page(
     title: &str,
     body: &str,
     tags: Vec<String>,
+    page_type: Option<String>,
 ) -> Result<PutOutcome> {
-    if id.is_empty() || !id.chars().all(|c| c.is_alphanumeric() || c == '-' || c == '_') {
-        return Err(WikiError::Git(format!(
-            "invalid page id `{id}` (letters, digits, '-' or '_')"
-        )));
-    }
+    wiki_core::validate_page_id(id).map_err(|m| {
+        WikiError::Git(format!("invalid page id `{id}` ({m}); use alphanumeric, '-', '_' or '/'"))
+    })?;
     let cites = dedup_citations(parse_citations(body).map_err(|e| {
         WikiError::FrontmatterParse(id.into(), format!("citation parse error: {e}"))
     })?);
@@ -59,11 +58,14 @@ pub fn put_page(
             commit: repo.head_commit()?,
             evidence,
             tags,
+            page_type,
         },
         body: body.to_string(),
         source_path: Some(path.clone()),
     };
     page.save(&path)?;
+    // authoring a page resolves its plan task, if one is pending
+    let _ = crate::plan::mark_task(wiki_dir, id, crate::plan::TaskStatus::Done);
     Ok(PutOutcome {
         page,
         citations: cites.len(),

@@ -2,6 +2,7 @@ use std::io::Read;
 use std::path::PathBuf;
 
 use clap::{Parser, Subcommand};
+use serde_json;
 use wiki_core::{Status, WikiPage};
 use wiki_engine::{self as engine};
 use wiki_git::GitRepo;
@@ -32,6 +33,9 @@ enum Command {
         body: String,
         #[arg(long)]
         tag: Vec<String>,
+        /// Page kind, e.g. architecture | workflow | system | testing
+        #[arg(long = "type")]
+        page_type: Option<String>,
     },
     /// List pages with status
     List,
@@ -51,6 +55,21 @@ enum Command {
     Search { query: String },
     /// List discoverable modules (cargo targets / directory groups) for wiki authoring
     Modules,
+    /// Compute the generation plan (new-coverage + stale-refresh tasks) and record a run
+    Plan {
+        #[arg(long)]
+        json: bool,
+        /// Close the active run instead of opening/resuming one
+        #[arg(long)]
+        close: bool,
+    },
+    /// Regenerate the navigation index page (.wiki/pages/index.md)
+    Index,
+    /// Structural checks: broken wiki links, stale-but-verified, evidence drift
+    Lint {
+        #[arg(long)]
+        json: bool,
+    },
 }
 
 fn open_repo(cli: &Cli) -> anyhow::Result<GitRepo> {
@@ -86,7 +105,7 @@ fn main() -> anyhow::Result<()> {
                 wiki_dir.display()
             );
         }
-        Command::Put { id, title, body, tag } => {
+        Command::Put { id, title, body, tag, page_type } => {
             let body_text = if body == "-" {
                 let mut buf = String::new();
                 std::io::stdin().read_to_string(&mut buf)?;
@@ -94,7 +113,7 @@ fn main() -> anyhow::Result<()> {
             } else {
                 std::fs::read_to_string(&body)?
             };
-            let outcome = engine::put_page(&repo, &wiki_dir, &id, &title, &body_text, tag)?;
+            let outcome = engine::put_page(&repo, &wiki_dir, &id, &title, &body_text, tag, page_type)?;
             println!(
                 "{} {}: {} evidence citation(s), pinned to HEAD {}",
                 if outcome.created { "created" } else { "updated" },
@@ -183,7 +202,7 @@ fn main() -> anyhow::Result<()> {
         }
         Command::Refresh { id } => {
             let mut page = engine::find_page(&wiki_dir, &id)?;
-            let outcomes = engine::refresh_page_with_drift(&mut page, &repo)?;
+            let outcomes = engine::refresh_page_with_drift(&mut page, &repo, &wiki_dir)?;
             for (path, outcome) in &outcomes {
                 println!("  {path}: {outcome:?}");
             }
@@ -216,6 +235,64 @@ fn main() -> anyhow::Result<()> {
                 for l in &h.matched_lines {
                     println!("   {l}");
                 }
+            }
+        }
+        Command::Plan { json, close } => {
+            if close {
+                match engine::close_run(&wiki_dir)? {
+                    Some(id) => println!("closed run {id}"),
+                    None => println!("no active run"),
+                }
+                return Ok(());
+            }
+            let run = engine::open_plan(&repo, &wiki_dir)?;
+            if json {
+                println!(
+                    "{}",
+                    serde_json::to_string_pretty(&run).map_err(|e| anyhow::anyhow!(e))?
+                );
+            } else {
+                println!(
+                    "run {} (base {} -> target {}, {} task(s))",
+                    run.id,
+                    &run.base_commit[..8.min(run.base_commit.len())],
+                    &run.target_commit[..8.min(run.target_commit.len())],
+                    run.tasks.len()
+                );
+                for t in &run.tasks {
+                    println!(
+                        "  [{:?}] {:<24} {:?} — {}",
+                        t.status, t.page_id, t.kind, t.purpose
+                    );
+                    for seed in t.seeds.iter().take(4) {
+                        println!("         seed: {seed}");
+                    }
+                }
+                if run.tasks.is_empty() {
+                    println!("  wiki fully covered and fresh");
+                }
+            }
+        }
+        Command::Index => {
+            let page = engine::generate_index(&repo, &wiki_dir)?;
+            println!("wrote {}", page.source_path.unwrap().display());
+        }
+        Command::Lint { json } => {
+            let issues = engine::lint(&repo, &wiki_dir)?;
+            if json {
+                println!(
+                    "{}",
+                    serde_json::to_string_pretty(&issues).map_err(|e| anyhow::anyhow!(e))?
+                );
+            } else if issues.is_empty() {
+                println!("lint clean");
+            } else {
+                for i in &issues {
+                    println!("[{}] {}: {}", i.kind, i.page, i.detail);
+                }
+            }
+            if !issues.is_empty() {
+                std::process::exit(1);
             }
         }
         Command::Modules => {

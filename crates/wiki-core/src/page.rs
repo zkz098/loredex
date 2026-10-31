@@ -50,6 +50,9 @@ pub struct PageMeta {
     pub evidence: Vec<Evidence>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub tags: Vec<String>,
+    /// openwiki-style page kind (architecture | workflow | system | integration | testing | ...)
+    #[serde(default, skip_serializing_if = "Option::is_none", rename = "type")]
+    pub page_type: Option<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -103,7 +106,7 @@ impl WikiPage {
     pub fn save(&self, path: &Path) -> Result<()> {
         let md = self.to_markdown()?;
         // atomic write: temp file + rename
-        let tmp = path.with_extension("md.tmp");
+        let tmp = path.with_file_name(format!(".{}.tmp", path.file_name().unwrap().to_string_lossy().into_owned()));
         std::fs::write(&tmp, md)?;
         std::fs::rename(&tmp, path)?;
         Ok(())
@@ -118,19 +121,46 @@ impl WikiPage {
     }
 }
 
-/// List page files in a wiki pages directory.
+/// List page files in a wiki pages directory, recursively (hierarchical ids).
 pub fn list_page_files(pages_dir: &Path) -> Result<Vec<PathBuf>> {
     let mut out = Vec::new();
     if pages_dir.is_dir() {
-        for entry in std::fs::read_dir(pages_dir)? {
-            let path = entry?.path();
-            if path.is_file() && path.extension().map(|e| e == "md").unwrap_or(false) {
-                out.push(path);
-            }
-        }
+        walk(pages_dir, &mut out);
     }
     out.sort();
     Ok(out)
+}
+
+fn walk(dir: &Path, out: &mut Vec<PathBuf>) {
+    let Ok(entries) = std::fs::read_dir(dir) else { return };
+    for entry in entries.flatten() {
+        let path = entry.path();
+        if path.is_dir() {
+            walk(&path, out);
+        } else if path.extension().map(|e| e == "md").unwrap_or(false) {
+            out.push(path);
+        }
+    }
+}
+
+/// Validate a hierarchical page id: alphanumeric plus '-', '_', '/';
+/// no traversal, no leading/trailing slash, no empty segments.
+pub fn validate_page_id(id: &str) -> std::result::Result<(), String> {
+    if id.is_empty() {
+        return Err("empty id".into());
+    }
+    for seg in id.split('/') {
+        if seg.is_empty() {
+            return Err(format!("empty path segment in `{id}`"));
+        }
+        if seg == "." || seg == ".." {
+            return Err(format!("traversal segment `{seg}` in `{id}`"));
+        }
+        if !seg.chars().all(|c| c.is_alphanumeric() || c == '-' || c == '_') {
+            return Err(format!("invalid characters in `{seg}`"));
+        }
+    }
+    Ok(())
 }
 
 #[cfg(test)]
@@ -153,6 +183,7 @@ mod tests {
                     note: None,
                 }],
                 tags: vec!["core".into()],
+                page_type: Some("architecture".into()),
             },
             body: "# overview\n\ntext".into(),
             source_path: None,

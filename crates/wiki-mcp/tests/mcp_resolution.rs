@@ -11,6 +11,7 @@
 use std::future::Future;
 use std::sync::{Arc, Mutex, atomic::{AtomicUsize, Ordering}};
 
+#[allow(deprecated)]
 use rmcp::model::{
     ClientCapabilities, ClientConfig, Implementation, ListRootsResult, Root,
 };
@@ -385,4 +386,68 @@ async fn initialize_advertises_instructions_and_tools() {
     ] {
         assert!(names.contains(&expected), "missing tool {expected}");
     }
+}
+
+#[tokio::test]
+async fn wiki_plan_and_mark_over_protocol() {
+    let _g = ENV_LOCK.lock().unwrap();
+    let fx = Fixture::new();
+    std::env::remove_var("REPOWIKI_REPO");
+    let (client, _s) = pair(WikiServer::new_open(), TestClient::no_roots()).await;
+    call(
+        &client,
+        "wiki_attach_repo",
+        serde_json::json!({ "path": fx.path().to_string_lossy() }),
+    )
+    .await;
+
+    // plan: fixture has uncovered lib.rs -> at least one New task
+    let plan = structured(&call(&client, "wiki_plan", serde_json::json!({})).await);
+    let tasks = plan["tasks"].as_array().unwrap();
+    assert!(!tasks.is_empty(), "uncovered module must plan a task");
+    let page_id = tasks[0]["page_id"].as_str().unwrap().to_string();
+
+    // authoring with that id resolves the task automatically
+    call(
+        &client,
+        "wiki_put_page",
+        serde_json::json!({
+            "id": page_id,
+            "title": "Lib",
+            "body": "g is stub [[cite:lib.rs:L1-L1]]",
+            "type": "system"
+        }),
+    )
+    .await;
+    let plan2 = structured(&call(&client, "wiki_plan", serde_json::json!({})).await);
+    let done = plan2["tasks"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|t| t["page_id"] == serde_json::json!(page_id));
+    // task dropped from fresh computation (covered) — pending carryover is empty
+    assert!(done.map(|t| t["status"].as_str() == Some("done")).unwrap_or(true));
+
+    // explicit mark on the next pending task
+    if let Some(t) = plan2["tasks"].as_array().unwrap().iter().find(|t| t["status"] == serde_json::json!("pending")) {
+        let pid = t["page_id"].as_str().unwrap().to_string();
+        let res = structured(
+            &call(
+                &client,
+                "wiki_mark_task",
+                serde_json::json!({ "page_id": pid, "status": "skipped" }),
+            )
+            .await,
+        );
+        assert!(res["tasks"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|x| x["page_id"] == serde_json::json!(pid)
+                && x["status"] == serde_json::json!("skipped")));
+    }
+
+    // read the authored page back: type field present
+    let read = structured(&call(&client, "wiki_read", serde_json::json!({"id": page_id})).await);
+    assert_eq!(read["page_type"], serde_json::json!("system"));
 }

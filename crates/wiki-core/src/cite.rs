@@ -80,3 +80,28 @@ mod tests {
         assert_eq!(cites.len(), 2);
     }
 }
+
+/// Extract `[[wiki:<page-id>]]` cross-page link targets from body text.
+pub fn parse_wiki_links(body: &str) -> Vec<String> {
+    let Ok(re) = Regex::new(r"\[\[wiki:([A-Za-z0-9_\-./]+)\]\]") else {
+        return Vec::new();
+    };
+    re.captures_iter(body)
+        .filter_map(|c| {
+            let t = &c[1];
+            (!t.contains("..")).then(|| t.to_string())
+        })
+        .collect()
+}
+
+#[cfg(test)]
+mod link_tests {
+    use super::parse_wiki_links;
+    #[test]
+    fn extracts_clean_links() {
+        assert_eq!(
+            parse_wiki_links("a [[wiki:x/y-1]] b [[wiki:index]] c [[wiki:bad..x]]"),
+            vec!["x/y-1", "index"]
+        );
+    }
+}

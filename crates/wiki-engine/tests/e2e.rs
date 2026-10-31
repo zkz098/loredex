@@ -96,6 +96,7 @@ fn make_page(fx: &Fixture) -> WikiPage {
         "Entry & API",
         &cited_body(),
         vec![],
+        None,
     )
     .expect("put_page");
     assert!(out.created);
@@ -132,7 +133,7 @@ fn drift_projection_adopts_shifted_lines() {
         .any(|r| !r.ok && r.detail.contains("blob changed")));
 
     let mut page = stale.clone();
-    let outcomes = refresh_page_with_drift(&mut page, &fx.repo).unwrap();
+    let outcomes = refresh_page_with_drift(&mut page, &fx.repo, &fx.wiki_dir()).unwrap();
     assert!(outcomes
         .iter()
         .all(|(_, o)| matches!(o, DriftOutcome::Projected { score, .. } if *score == 1.0)));
@@ -169,7 +170,7 @@ fn lost_snippet_downgrades_to_draft() {
     );
 
     let mut page = stale;
-    let outcomes = refresh_page_with_drift(&mut page, &fx.repo).unwrap();
+    let outcomes = refresh_page_with_drift(&mut page, &fx.repo, &fx.wiki_dir()).unwrap();
     assert!(
         outcomes
             .iter()
@@ -195,7 +196,7 @@ fn deleted_evidence_file_reports_stale() {
         .evidence_reports
         .iter()
         .any(|r| !r.ok && r.detail.contains("no longer exists")));
-    assert!(refresh_page_with_drift(&mut page.clone(), &fx.repo).is_err());
+    assert!(refresh_page_with_drift(&mut page.clone(), &fx.repo, &fx.wiki_dir()).is_err());
 }
 
 // ---------- unknown generation commit ----------
@@ -261,7 +262,7 @@ fn plain_git_mv_recovered_by_content_addressing() {
             && r.detail.contains("identical blob")));
 
     let mut page = stale;
-    let outcomes = refresh_page_with_drift(&mut page, &fx.repo).unwrap();
+    let outcomes = refresh_page_with_drift(&mut page, &fx.repo, &fx.wiki_dir()).unwrap();
     assert!(outcomes
         .iter()
         .all(|(_, o)| matches!(o, DriftOutcome::Renamed { new_path, exact: true }
@@ -285,7 +286,7 @@ fn mv_with_minor_edit_renamed_and_projected() {
     assert!(check_page(&stale, &fx.repo).unwrap().is_stale);
 
     let mut page = stale;
-    let outcomes = refresh_page_with_drift(&mut page, &fx.repo).unwrap();
+    let outcomes = refresh_page_with_drift(&mut page, &fx.repo, &fx.wiki_dir()).unwrap();
     // tier-1 exact fails (blob changed); similarity rename + projection wins
     assert!(outcomes.iter().all(|(_, o)| matches!(
         o,
@@ -308,14 +309,14 @@ fn mv_with_minor_edit_then_total_rewrite_recovers_at_move_target() {
     // step 1: plain mv -> tier-1 content-addressed recovery re-points path
     fx.mv("src/api.rs", "new/api.rs");
     let mut page = find_page(&fx.wiki_dir(), "entry").unwrap();
-    refresh_page_with_drift(&mut page, &fx.repo).unwrap();
+    refresh_page_with_drift(&mut page, &fx.repo, &fx.wiki_dir()).unwrap();
     assert_eq!(page.meta.status, Status::Verified);
     assert!(page.meta.evidence.iter().all(|e| e.path == "new/api.rs"));
 
     // step 2: total rewrite at the new path -> Lost, draft, but path anchors hold
     fx.rewrite("new/api.rs", "pub fn totally_different() {}\n");
     let mut page = find_page(&fx.wiki_dir(), "entry").unwrap();
-    let outcomes = refresh_page_with_drift(&mut page, &fx.repo).unwrap();
+    let outcomes = refresh_page_with_drift(&mut page, &fx.repo, &fx.wiki_dir()).unwrap();
     assert!(
         outcomes.iter().any(|(_, o)| *o == DriftOutcome::Lost),
         "{outcomes:?}"
@@ -337,7 +338,7 @@ fn heavy_rewrite_without_rename_hint_stays_unresolvable() {
     }
     fx.commit_file("new/api.rs", "pub fn totally_different() {}\n");
     let page = find_page(&fx.wiki_dir(), "entry").unwrap();
-    assert!(refresh_page_with_drift(&mut page.clone(), &fx.repo).is_err());
+    assert!(refresh_page_with_drift(&mut page.clone(), &fx.repo, &fx.wiki_dir()).is_err());
 }
 
 // ---------- put rejection matrix ----------
@@ -345,7 +346,7 @@ fn heavy_rewrite_without_rename_hint_stays_unresolvable() {
 #[test]
 fn reject_body_without_citations() {
     let fx = Fixture::new(&[("src/api.rs", API_RS)]);
-    let err = put_page(&fx.repo, &fx.wiki_dir(), "x", "t", "plain prose only", vec![])
+    let err = put_page(&fx.repo, &fx.wiki_dir(), "x", "t", "plain prose only", vec![], None)
         .expect_err("must reject uncited body");
     assert!(err.to_string().contains("no [[cite:path:Lx-Ly]] markers"));
 }
@@ -361,6 +362,7 @@ fn reject_citation_to_untracked_path() {
         "t",
         "[[cite:draft.rs:L1-L1]]",
         vec![],
+        None,
     )
     .expect_err("uncommitted file cannot be cited");
     assert!(err.to_string().contains("not tracked at HEAD"));
@@ -376,7 +378,7 @@ fn reject_malformed_citation_syntax() {
         // the whole token and fails pinning instead
         ("[[cite:src/api.rs:Lx-L2]]", "cannot be pinned"),
     ] {
-        let err = put_page(&fx.repo, &fx.wiki_dir(), "x", "t", body, vec![])
+        let err = put_page(&fx.repo, &fx.wiki_dir(), "x", "t", body, vec![], None)
             .expect_err("must reject malformed citation");
         assert!(err.to_string().contains(expect), "{body} -> {err}");
     }
@@ -385,7 +387,7 @@ fn reject_malformed_citation_syntax() {
 #[test]
 fn reject_invalid_page_ids() {
     let fx = Fixture::new(&[("src/api.rs", API_RS)]);
-    for id in ["", "with space", "path/../trick", "sl/ash"] {
+    for id in ["", "with space", "path/../trick", "/abs", "a//b"] {
         let err = put_page(
             &fx.repo,
             &fx.wiki_dir(),
@@ -393,6 +395,7 @@ fn reject_invalid_page_ids() {
             "t",
             "[[cite:src/api.rs:L1-L1]]",
             vec![],
+            None,
         )
         .expect_err("invalid id must be rejected");
         assert!(err.to_string().contains("invalid page id"), "{id}");
@@ -404,7 +407,7 @@ fn put_updates_existing_page_and_dedups_citations() {
     let fx = Fixture::new(&[("src/api.rs", API_RS)]);
     make_page(&fx);
     let body = "# v2\n\nsame thing [[cite:src/api.rs:L1-L5]] and again [[cite:src/api.rs:L1-L5]].\n";
-    let out = put_page(&fx.repo, &fx.wiki_dir(), "entry", "Entry v2", body, vec![]).unwrap();
+    let out = put_page(&fx.repo, &fx.wiki_dir(), "entry", "Entry v2", body, vec![], None).unwrap();
     assert!(!out.created, "second put updates in place");
     assert_eq!(out.citations, 1, "duplicate citations dedup");
 

@@ -66,6 +66,7 @@ struct ListOut {
 struct PageOut {
     id: String,
     title: String,
+    page_type: Option<String>,
     status: String,
     stale_now: bool,
     stale_reasons: Vec<String>,
@@ -179,6 +180,17 @@ struct PutPageParam {
     body: String,
     #[serde(default)]
     tags: Option<Vec<String>>,
+    /// Page kind: architecture | workflow | system | integration | testing | ...
+    #[serde(default, rename = "type")]
+    page_type: Option<String>,
+}
+
+#[derive(Debug, Deserialize, schemars::JsonSchema)]
+struct MarkTaskParam {
+    /// page id of the pending plan task
+    page_id: String,
+    /// done | skipped | failed
+    status: String,
 }
 
 #[derive(Debug, Deserialize, schemars::JsonSchema)]
@@ -331,6 +343,52 @@ fn uri_to_path(uri: &str) -> Option<PathBuf> {
 #[tool_router]
 impl WikiServer {
     #[tool(
+        name = "wiki_plan",
+        description = "Open/resume the wiki generation run: lists concrete work items (New = uncovered module with seed files, Refresh = stale page) tracked in .wiki/runs.json. Pending tasks carry over between runs, so interrupted generation resumes exactly. Authoring via wiki_put_page or refreshing a page auto-completes its task."
+    )]
+    async fn wiki_plan(&self, peer: Peer<RoleServer>) -> Result<Json<serde_json::Value>, ErrorData> {
+        self.ensure_repo(&peer).await?;
+        let slot = self.slot.lock().unwrap();
+        let repo = slot.current.as_ref().ok_or_else(|| Self::err("repository not resolved"))?;
+        // NB: put/refresh inside mark hooks lock nothing here; synchronous engine call
+        let run = engine::open_plan(repo, &repo.wiki_dir()).map_err(Self::err)?;
+        serde_json::to_value(run)
+            .map(Json)
+            .map_err(|e| Self::err(format!("plan serialization: {e}")))
+    }
+
+    #[tool(
+        name = "wiki_mark_task",
+        description = "Explicitly resolve a wiki_plan task when you decide to skip or cannot complete it (status: skipped | failed). done is set automatically by wiki_put_page / wiki_refresh_page."
+    )]
+    async fn wiki_mark_task(
+        &self,
+        Parameters(p): Parameters<MarkTaskParam>,
+        peer: Peer<RoleServer>,
+    ) -> Result<Json<serde_json::Value>, ErrorData> {
+        self.ensure_repo(&peer).await?;
+        let slot = self.slot.lock().unwrap();
+        let repo = slot.current.as_ref().ok_or_else(|| Self::err("repository not resolved"))?;
+        let wiki_dir = repo.wiki_dir();
+        let status = match p.status.as_str() {
+            "done" => engine::TaskStatus::Done,
+            "skipped" => engine::TaskStatus::Skipped,
+            "failed" => engine::TaskStatus::Failed,
+            other => {
+                return Err(ErrorData::invalid_request(
+                    format!("unknown task status {other}"),
+                    None,
+                ))
+            }
+        };
+        engine::mark_task(&wiki_dir, &p.page_id, status).map_err(Self::err)?;
+        let ledger = engine::load_ledger(&wiki_dir);
+        serde_json::to_value(ledger.active_run())
+            .map(Json)
+            .map_err(|e| Self::err(e.to_string()))
+    }
+
+    #[tool(
         name = "wiki_attach_repo",
         description = "Attach the server to a git repository (path inside the repo you want to serve). Use when automatic resolution fails or you need to switch repositories mid-session. Refused when the server was started with a pinned --repo."
     )]
@@ -415,6 +473,7 @@ impl WikiServer {
         Ok(Json(PageOut {
             id: page.meta.id.clone(),
             title: page.meta.title.clone(),
+            page_type: page.meta.page_type.clone(),
             status: page.meta.status.as_str().to_string(),
             stale_now: report.is_stale,
             stale_reasons: reasons,
@@ -615,6 +674,7 @@ impl WikiServer {
             &p.title,
             &p.body,
             p.tags.unwrap_or_default(),
+            p.page_type,
         )
         .map_err(|e| ErrorData::invalid_request(e.to_string(), None))?;
         Ok(Json(PutOut {
@@ -640,7 +700,7 @@ impl WikiServer {
         let slot = self.slot.lock().unwrap();
         let repo = slot.current.as_ref().ok_or_else(|| Self::err("repository not resolved"))?;
         let mut page = engine::find_page(&repo.wiki_dir(), &p.id).map_err(|e| Self::err(e.to_string()))?;
-        let outcomes = engine::refresh_page_with_drift(&mut page, &repo).map_err(Self::err)?;
+        let outcomes = engine::refresh_page_with_drift(&mut page, &repo, &repo.wiki_dir()).map_err(Self::err)?;
         Ok(Json(RefreshOut {
             id: page.meta.id.clone(),
             new_status: page.meta.status.as_str().to_string(),

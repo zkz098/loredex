@@ -1,0 +1,124 @@
+{
+  "schema": 1,
+  "runs": [
+    {
+      "id": "run-1-44f159de",
+      "started_at": "2026-10-31T09:19:50Z",
+      "base_commit": "44f159de5936bc4418e5b0ecc3d80fa2c793ebf9",
+      "target_commit": "44f159de5936bc4418e5b0ecc3d80fa2c793ebf9",
+      "status": "active",
+      "tasks": [
+        {
+          "page_id": "wiki-engine-e2e",
+          "kind": "new",
+          "purpose": "module `wiki-engine/e2e` (1 files) has no wiki coverage",
+          "seeds": [
+            "crates/wiki-engine/tests/e2e.rs"
+          ],
+          "status": "pending"
+        },
+        {
+          "page_id": "wiki-engine-plan_lint",
+          "kind": "new",
+          "purpose": "module `wiki-engine/plan_lint` (1 files) has no wiki coverage",
+          "seeds": [
+            "crates/wiki-engine/tests/e2e.rs"
+          ],
+          "status": "pending"
+        },
+        {
+          "page_id": "wiki-mcp-wiki_mcp",
+          "kind": "new",
+          "purpose": "module `wiki-mcp/wiki_mcp` (2 files) has no wiki coverage",
+          "seeds": [
+            "crates/wiki-mcp/src/main.rs"
+          ],
+          "status": "pending"
+        },
+        {
+          "page_id": "wiki-mcp-repowiki-mcp",
+          "kind": "new",
+          "purpose": "module `wiki-mcp/repowiki-mcp` (2 files) has no wiki coverage",
+          "seeds": [
+            "crates/wiki-mcp/src/main.rs"
+          ],
+          "status": "pending"
+        },
+        {
+          "page_id": "wiki-mcp-mcp_resolution",
+          "kind": "new",
+          "purpose": "module `wiki-mcp/mcp_resolution` (1 files) has no wiki coverage",
+          "seeds": [
+            "crates/wiki-mcp/tests/mcp_resolution.rs"
+          ],
+          "status": "pending"
+        },
+        {
+          "page_id": "repo-root",
+          "kind": "new",
+          "purpose": "module `.` (4 files) has no wiki coverage",
+          "seeds": [
+            ".gitignore",
+            "Cargo.lock",
+            "README.md"
+          ],
+          "status": "pending"
+        },
+        {
+          "page_id": "config",
+          "kind": "new",
+          "purpose": "module `.config` (1 files) has no wiki coverage",
+          "seeds": [
+            ".config/nextest.toml"
+          ],
+          "status": "pending"
+        },
+        {
+          "page_id": "crates-wiki-cli",
+          "kind": "new",
+          "purpose": "module `crates/wiki-cli` (1 files) has no wiki coverage",
+          "seeds": [
+            "crates/wiki-cli/Cargo.toml"
+          ],
+          "status": "pending"
+        },
+        {
+          "page_id": "crates-wiki-core",
+          "kind": "new",
+          "purpose": "module `crates/wiki-core` (1 files) has no wiki coverage",
+          "seeds": [
+            "crates/wiki-core/Cargo.toml"
+          ],
+          "status": "pending"
+        },
+        {
+          "page_id": "crates-wiki-engine",
+          "kind": "new",
+          "purpose": "module `crates/wiki-engine` (1 files) has no wiki coverage",
+          "seeds": [
+            "crates/wiki-engine/Cargo.toml"
+          ],
+          "status": "pending"
+        },
+        {
+          "page_id": "crates-wiki-git",
+          "kind": "new",
+          "purpose": "module `crates/wiki-git` (1 files) has no wiki coverage",
+          "seeds": [
+            "crates/wiki-git/Cargo.toml"
+          ],
+          "status": "pending"
+        },
+        {
+          "page_id": "crates-wiki-mcp",
+          "kind": "new",
+          "purpose": "module `crates/wiki-mcp` (1 files) has no wiki coverage",
+          "seeds": [
+            "crates/wiki-mcp/Cargo.toml"
+          ],
+          "status": "pending"
+        }
+      ]
+    }
+  ]
+}

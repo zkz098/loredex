@@ -13,3 +13,4 @@ clap = { workspace = true }
 wiki-core = { workspace = true }
 wiki-git = { workspace = true }
 wiki-engine = { workspace = true }
+serde_json = { workspace = true }
