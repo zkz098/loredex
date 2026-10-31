@@ -166,7 +166,7 @@ GNU GPL v3.0 或更新版本（见 [LICENSE](LICENSE)）。`.wiki/` 中的 wiki 
 ## 开发
 
 ```bash
-cargo nextest run --workspace          # 71 个测试（单测 + git-fixture 集成 + MCP 协议内测试）
+cargo nextest run --workspace          # 80 个测试（单测 + git-fixture 集成 + MCP 协议内测试）
 cargo llvm-cov nextest --workspace --summary-only   # 覆盖率基线
 cargo bench -p loredex-engine --bench scan -- --budget   # 扫描/索引回归下限（CI 门禁）
 ```

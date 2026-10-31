@@ -109,7 +109,10 @@ fn recover_renamed(
         let new_content = view.head_file_content(new_path)?;
         if let (Some(o), Some(n)) = (old_content, new_content) {
             if let Some([lo, hi]) = ev.lines {
-                let (range, score) = project_range(&o, &n, lo, hi);
+                let (range, score) = match view.line_map(&ev.blob, new_path)? {
+                    Some(map) => project_with_map(&map, &o, &n, lo, hi),
+                    None => project_range(&o, &n, lo, hi),
+                };
                 if score >= DRIFT_THRESHOLD {
                     let blob = view
                         .head_blob_oid(new_path)?
@@ -147,6 +150,31 @@ fn recover_renamed(
     // The path is gone and no rename leads to it: an honest Lost, not an
     // error that would abort the whole page refresh.
     Ok((DriftOutcome::Lost, None))
+}
+
+/// Fast projection over a git xdiff line map: same range/score semantics as
+/// `project_range`, but the whole-file diff was computed once per file pair.
+fn project_with_map(
+    map: &loredex_git::LineMap,
+    old_content: &str,
+    new_content: &str,
+    lo: u32,
+    hi: u32,
+) -> ([u32; 2], f64) {
+    let old_lines: Vec<&str> = old_content.split('\n').collect();
+    let new_lines: Vec<&str> = new_content.split('\n').collect();
+    if old_lines.is_empty() || new_lines.is_empty() {
+        return ([lo, hi], 0.0);
+    }
+    let lo0 = (lo.max(1) as usize - 1).min(old_lines.len() - 1);
+    let hi0 = (hi as usize).saturating_sub(1).min(old_lines.len() - 1);
+    let (nlo, nhi) = map.project(lo0, hi0);
+    let nlo = nlo.min(new_lines.len() - 1);
+    let nhi = nhi.min(new_lines.len() - 1);
+    let old_snippet = old_lines[lo0..=hi0].join("\n");
+    let new_snippet = new_lines[nlo..=nhi].join("\n");
+    let score = similarity(&old_snippet, &new_snippet);
+    ([nlo as u32 + 1, nhi as u32 + 1], score)
 }
 
 fn similarity(a: &str, b: &str) -> f64 {
@@ -213,7 +241,10 @@ pub fn project_evidence_with(
         Some(c) => c,
         None => return Ok((DriftOutcome::Lost, None)),
     };
-    let (new_range, score) = project_range(&old_content, &new_content, lo, hi);
+    let (new_range, score) = match view.line_map(&ev.blob, &ev.path)? {
+        Some(map) => project_with_map(&map, &old_content, &new_content, lo, hi),
+        None => project_range(&old_content, &new_content, lo, hi),
+    };
     if score < DRIFT_THRESHOLD {
         return Ok((DriftOutcome::Lost, None));
     }
@@ -291,6 +322,25 @@ pub fn refresh_page_with_drift_view(
     view: &GitView,
     wiki_dir: &std::path::Path,
 ) -> Result<Vec<(String, DriftOutcome)>> {
+    refresh_page_with_drift_view_inner(page, view, wiki_dir, true)
+}
+
+/// Batch variant for `auto`: the caller resolves every recovered page with a
+/// single ledger write instead of one read+write per page.
+pub(crate) fn refresh_page_with_drift_view_deferred(
+    page: &mut WikiPage,
+    view: &GitView,
+    wiki_dir: &std::path::Path,
+) -> Result<Vec<(String, DriftOutcome)>> {
+    refresh_page_with_drift_view_inner(page, view, wiki_dir, false)
+}
+
+fn refresh_page_with_drift_view_inner(
+    page: &mut WikiPage,
+    view: &GitView,
+    wiki_dir: &std::path::Path,
+    mark_done: bool,
+) -> Result<Vec<(String, DriftOutcome)>> {
     let mut outcomes = Vec::new();
     let mut evidence = Vec::new();
     let renames: Rc<BTreeMap<String, String>> = if view.commit_exists(&page.meta.commit) {
@@ -360,7 +410,7 @@ pub fn refresh_page_with_drift_view(
     };
     page.save_in_place()?;
     // a successful refresh resolves a pending Refresh task
-    if !any_lost {
+    if mark_done && !any_lost {
         let _ = crate::plan::mark_task(wiki_dir, &page.meta.id, crate::plan::TaskStatus::Done);
     }
     Ok(outcomes)

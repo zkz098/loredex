@@ -5,7 +5,9 @@
 //! Ledger: `.wiki/runs.json`, append-only run history. A run is opened when
 //! `plan` is executed; its pending tasks carry over to the next `plan`
 //! invocation (resume) instead of being discarded — interrupted generation
-//! (openwiki's actual failure mode) never loses the worklist.
+//! (openwiki's actual failure mode) never loses the worklist. Resolved tasks
+//! keep their resolution state; their authoring payload is compacted once the
+//! run is superseded so the committed ledger stays small.
 
 use std::collections::BTreeSet;
 use std::path::Path;
@@ -40,12 +42,19 @@ pub enum TaskStatus {
 pub struct PlanTask {
     pub page_id: String,
     pub kind: TaskKind,
+    // The fields below are defaults so superseded runs can drop the payload
+    // of resolved tasks while keeping the resolution itself (see
+    // `compact_resolved_tasks`). Pending tasks always carry the full payload.
+    #[serde(default, skip_serializing_if = "String::is_empty")]
     pub purpose: String,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub seeds: Vec<String>,
     pub status: TaskStatus,
     /// suggested page `type` frontmatter value (see playbook registry)
+    #[serde(default, skip_serializing_if = "String::is_empty")]
     pub suggested_type: String,
     /// playbook-derived authoring instructions for producer agents
+    #[serde(default, skip_serializing_if = "String::is_empty")]
     pub instructions: String,
 }
 
@@ -81,8 +90,24 @@ pub fn load_ledger(wiki_dir: &Path) -> RunLedger {
 
 fn save_ledger(wiki_dir: &Path, ledger: &RunLedger) -> Result<()> {
     std::fs::create_dir_all(wiki_dir).map_err(WikiError::Io)?;
-    let text = serde_json::to_string_pretty(ledger).map_err(|e| WikiError::Git(e.to_string()))?;
+    // Compact JSON: the ledger is committed to git and rewritten on every
+    // put/refresh/plan, so pretty-printing only adds I/O and review noise.
+    let text = serde_json::to_string(ledger).map_err(|e| WikiError::Git(e.to_string()))?;
     std::fs::write(runs_path(wiki_dir), text).map_err(WikiError::Io)
+}
+
+/// Resolved tasks only contribute resolution state to future plans; their
+/// authoring payload is regenerable from the playbook registry. Dropping it
+/// keeps a long-lived ledger small instead of re-parsing megabytes per write.
+fn compact_resolved_tasks(run: &mut RunRecord) {
+    for t in &mut run.tasks {
+        if t.status != TaskStatus::Pending {
+            t.purpose.clear();
+            t.seeds.clear();
+            t.suggested_type.clear();
+            t.instructions.clear();
+        }
+    }
 }
 
 /// Which pages/modules need work right now: stale pages (Refresh) and
@@ -292,6 +317,7 @@ pub fn plan_with_view(view: &GitView, wiki_dir: &Path, reset: bool) -> Result<Ru
     for r in &mut ledger.runs {
         if r.status == "active" {
             r.status = "superseded".into();
+            compact_resolved_tasks(r);
         }
     }
     // keep at most 32 runs
@@ -312,11 +338,25 @@ impl RunLedger {
 /// Mark a task in the active run as resolved. Called automatically from
 /// put_page / refresh hooks and explicitly from wiki_mark_task.
 pub fn mark_task(wiki_dir: &Path, page_id: &str, status: TaskStatus) -> Result<()> {
+    mark_tasks(wiki_dir, std::iter::once(page_id), status)
+}
+
+/// Batch form of `mark_task`: resolve many page ids with one ledger read and
+/// one write. Batch maintenance (auto) must use this instead of marking per
+/// page, which is quadratic in ledger size.
+pub fn mark_tasks<'a, I>(wiki_dir: &Path, page_ids: I, status: TaskStatus) -> Result<()>
+where
+    I: IntoIterator<Item = &'a str>,
+{
+    let ids: BTreeSet<&str> = page_ids.into_iter().collect();
+    if ids.is_empty() {
+        return Ok(());
+    }
     let mut ledger = load_ledger(wiki_dir);
     let mut changed = false;
     if let Some(run) = ledger.runs.iter_mut().rev().find(|r| r.status == "active") {
         for t in &mut run.tasks {
-            if t.page_id == page_id && t.status == TaskStatus::Pending {
+            if t.status == TaskStatus::Pending && ids.contains(t.page_id.as_str()) {
                 t.status = status;
                 changed = true;
             }

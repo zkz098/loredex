@@ -377,6 +377,116 @@ fn modules_cargo_targets_discovered() {
     assert_ne!(std::fs::read_to_string(&cache).unwrap(), first);
 }
 
+// ---------- insertions around the cited range ----------
+
+#[test]
+fn insertions_before_and_after_the_citation_keep_it_aligned() {
+    let fx = Fixture::new(&[("src/one.rs", "pub fn f() {}\n")]);
+    put_page(
+        &fx.repo,
+        &fx.wiki_dir(),
+        "entry",
+        "Entry",
+        "f is a stub [[cite:src/one.rs:L1-L1]]",
+        vec![],
+        None,
+    )
+    .unwrap();
+    // one hunk before the cited line and one after it
+    fx.rewrite("src/one.rs", "// a\n// b\npub fn f() {}\npub fn g() {}\n");
+    let mut page = find_page(&fx.wiki_dir(), "entry").unwrap();
+    let outcomes = refresh_page_with_drift(&mut page, &fx.repo, &fx.wiki_dir()).unwrap();
+    assert!(
+        outcomes
+            .iter()
+            .all(|(_, o)| matches!(o, DriftOutcome::Projected { score, .. } if *score == 1.0)),
+        "{outcomes:?}"
+    );
+    assert_eq!(page.meta.evidence[0].lines, Some([3, 3]));
+    assert_eq!(page.meta.status, Status::Verified);
+}
+
+#[test]
+fn insertion_after_the_citation_does_not_shift_it() {
+    let fx = Fixture::new(&[("src/two.rs", "a\nb\nc\n")]);
+    put_page(
+        &fx.repo,
+        &fx.wiki_dir(),
+        "entry",
+        "Entry",
+        "head [[cite:src/two.rs:L1-L2]]",
+        vec![],
+        None,
+    )
+    .unwrap();
+    fx.rewrite("src/two.rs", "a\nb\nx\ny\nc\n");
+    let mut page = find_page(&fx.wiki_dir(), "entry").unwrap();
+    let outcomes = refresh_page_with_drift(&mut page, &fx.repo, &fx.wiki_dir()).unwrap();
+    assert!(
+        outcomes
+            .iter()
+            .all(|(_, o)| matches!(o, DriftOutcome::Projected { score, .. } if *score == 1.0)),
+        "{outcomes:?}"
+    );
+    assert_eq!(page.meta.evidence[0].lines, Some([1, 2]));
+    assert_eq!(page.meta.status, Status::Verified);
+}
+
+#[test]
+fn deletion_before_the_citation_shifts_it_up() {
+    let fx = Fixture::new(&[("src/three.rs", "a\nb\nc\nd\ne\n")]);
+    put_page(
+        &fx.repo,
+        &fx.wiki_dir(),
+        "entry",
+        "Entry",
+        "tail [[cite:src/three.rs:L4-L5]]",
+        vec![],
+        None,
+    )
+    .unwrap();
+    fx.rewrite("src/three.rs", "a\nc\nd\ne\n");
+    let mut page = find_page(&fx.wiki_dir(), "entry").unwrap();
+    let outcomes = refresh_page_with_drift(&mut page, &fx.repo, &fx.wiki_dir()).unwrap();
+    assert!(
+        outcomes
+            .iter()
+            .all(|(_, o)| matches!(o, DriftOutcome::Projected { score, .. } if *score == 1.0)),
+        "{outcomes:?}"
+    );
+    assert_eq!(page.meta.evidence[0].lines, Some([3, 4]));
+    assert_eq!(page.meta.status, Status::Verified);
+}
+
+// ---------- ambiguous duplicated content ----------
+
+#[test]
+fn deleting_one_duplicate_copy_fails_honestly() {
+    let dup = "A\nB\nC\nA\nB\nC\nD\n";
+    let fx = Fixture::new(&[("src/dup.rs", dup)]);
+    put_page(
+        &fx.repo,
+        &fx.wiki_dir(),
+        "entry",
+        "Entry",
+        "second copy [[cite:src/dup.rs:L5-L6]]",
+        vec![],
+        None,
+    )
+    .unwrap();
+    fx.rewrite("src/dup.rs", "A\nB\nC\nD\n");
+
+    let mut page = find_page(&fx.wiki_dir(), "entry").unwrap();
+    let outcomes = refresh_page_with_drift(&mut page, &fx.repo, &fx.wiki_dir()).unwrap();
+    assert!(
+        outcomes
+            .iter()
+            .any(|(_, o)| matches!(o, DriftOutcome::Lost)),
+        "identical look-alike must not be adopted: {outcomes:?}"
+    );
+    assert_eq!(page.meta.status, Status::Draft);
+}
+
 // ---------- rename recovery ----------
 
 #[test]

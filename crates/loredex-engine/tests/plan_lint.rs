@@ -4,8 +4,8 @@
 use git2::{Repository, Signature};
 use loredex_core::Status;
 use loredex_engine::{
-    find_page, generate_index, lint, load_ledger, mark_task, open_plan, playbook_registry,
-    put_page, refresh_page_with_drift, TaskKind, TaskStatus,
+    find_page, generate_index, lint, load_ledger, mark_task, mark_tasks, open_plan,
+    playbook_registry, put_page, refresh_page_with_drift, TaskKind, TaskStatus,
 };
 use loredex_git::GitRepo;
 use tempfile::TempDir;
@@ -444,4 +444,98 @@ fn skipped_new_task_stays_suppressed_until_reset() {
     // reset re-exposes it
     let run3 = loredex_engine::plan_with(&fx.repo, &fx.wiki(), true).unwrap();
     assert!(run3.tasks.iter().any(|t| t.page_id == noise_id));
+}
+
+#[test]
+fn batch_mark_resolves_multiple_pending_tasks() {
+    let fx = Fx::new(&[("src.rs", SRC), ("docs/readme.md", "hello\n")]);
+    let run = open_plan(&fx.repo, &fx.wiki()).unwrap();
+    let ids: Vec<String> = run.tasks.iter().map(|t| t.page_id.clone()).collect();
+    assert!(ids.len() >= 2, "expected several modules: {ids:?}");
+
+    mark_tasks(
+        &fx.wiki(),
+        ids.iter().map(String::as_str),
+        TaskStatus::Skipped,
+    )
+    .unwrap();
+    let ledger = load_ledger(&fx.wiki());
+    let active = ledger.active_run().expect("run stays active");
+    for id in &ids {
+        assert_eq!(
+            active
+                .tasks
+                .iter()
+                .find(|t| &t.page_id == id)
+                .expect("task present")
+                .status,
+            TaskStatus::Skipped
+        );
+    }
+    // an empty batch is a no-op
+    mark_tasks(&fx.wiki(), std::iter::empty(), TaskStatus::Done).unwrap();
+}
+
+#[test]
+fn superseded_runs_keep_resolution_but_drop_payload() {
+    let fx = Fx::new(&[("src.rs", SRC)]);
+    let run1 = open_plan(&fx.repo, &fx.wiki()).unwrap();
+    let new = run1
+        .tasks
+        .iter()
+        .find(|t| t.kind == TaskKind::New)
+        .expect("uncovered module");
+    let pid = new.page_id.clone();
+    assert!(!new.instructions.is_empty());
+    put(&fx, &pid, "Root", None); // resolves the New task
+
+    let _run2 = open_plan(&fx.repo, &fx.wiki()).unwrap();
+    let ledger = load_ledger(&fx.wiki());
+    let superseded = ledger
+        .runs
+        .iter()
+        .find(|r| r.id == run1.id)
+        .expect("previous run kept");
+    let t = superseded
+        .tasks
+        .iter()
+        .find(|t| t.page_id == pid)
+        .expect("task kept");
+    assert_eq!(t.status, TaskStatus::Done);
+    assert_eq!(t.kind, TaskKind::New);
+    assert!(
+        t.instructions.is_empty() && t.seeds.is_empty() && t.purpose.is_empty(),
+        "resolved payload should be compacted: {t:?}"
+    );
+}
+
+#[test]
+fn auto_resolves_recovered_refresh_tasks() {
+    let fx = Fx::new(&[("src.rs", SRC)]);
+    put_page(
+        &fx.repo,
+        &fx.wiki(),
+        "root",
+        "Root",
+        "behavior [[cite:src.rs:L2-L4]]",
+        vec![],
+        Some("system".into()),
+    )
+    .unwrap();
+    fx.edit("src.rs", &format!("// inserted\n{SRC}"));
+    open_plan(&fx.repo, &fx.wiki()).unwrap(); // pending Refresh task
+
+    let report = loredex_engine::auto_refresh(&fx.repo, &fx.wiki()).unwrap();
+    assert!(report.recovered.iter().any(|r| r.page_id == "root"));
+    let ledger = load_ledger(&fx.wiki());
+    assert!(
+        ledger
+            .runs
+            .iter()
+            .flat_map(|r| r.tasks.iter())
+            .any(|t| t.page_id == "root"
+                && t.kind == TaskKind::Refresh
+                && t.status == TaskStatus::Done),
+        "auto must resolve the recovered page's task in its batch mark"
+    );
 }

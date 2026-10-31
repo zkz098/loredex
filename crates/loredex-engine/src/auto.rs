@@ -9,9 +9,10 @@ use std::path::Path;
 use loredex_git::{GitRepo, GitView};
 use serde::Serialize;
 
+use crate::drift::refresh_page_with_drift_view_deferred;
 use crate::{
-    check_page_with, lint_with, load_pages, plan::plan_with_view, refresh_page_with_drift_view,
-    DriftOutcome, LintIssue, Result, RunRecord, TaskStatus,
+    check_page_with, lint_with, load_pages, plan::mark_tasks, plan::plan_with_view, DriftOutcome,
+    LintIssue, Result, RunRecord, TaskStatus,
 };
 
 #[derive(Debug, Serialize)]
@@ -48,6 +49,7 @@ pub fn auto_refresh_with(view: &GitView, wiki_dir: &Path) -> Result<AutoReport> 
     let mut recovered = Vec::new();
     let mut needs_rewrite = Vec::new();
     let mut checked = 0usize;
+    let mut completed: Vec<String> = Vec::new();
 
     let pages = load_pages(wiki_dir)?;
     crate::prime_view(view, &pages)?;
@@ -60,7 +62,7 @@ pub fn auto_refresh_with(view: &GitView, wiki_dir: &Path) -> Result<AutoReport> 
             continue;
         }
         let mut page = p.clone();
-        match refresh_page_with_drift_view(&mut page, view, wiki_dir) {
+        match refresh_page_with_drift_view_deferred(&mut page, view, wiki_dir) {
             Ok(outcomes) => {
                 let lost: Vec<String> = outcomes
                     .iter()
@@ -68,6 +70,7 @@ pub fn auto_refresh_with(view: &GitView, wiki_dir: &Path) -> Result<AutoReport> 
                     .map(|(path, _)| path.clone())
                     .collect();
                 if lost.is_empty() {
+                    completed.push(p.meta.id.clone());
                     recovered.push(RecoveredPage {
                         page_id: p.meta.id.clone(),
                         summary: outcomes
@@ -100,6 +103,13 @@ pub fn auto_refresh_with(view: &GitView, wiki_dir: &Path) -> Result<AutoReport> 
             }),
         }
     }
+    // One ledger read+write for the whole batch: marking per page is quadratic
+    // in ledger size and dominated auto on large wikis.
+    let _ = mark_tasks(
+        wiki_dir,
+        completed.iter().map(String::as_str),
+        TaskStatus::Done,
+    );
 
     let lint_issues = lint_with(view, wiki_dir)?;
     let run = plan_with_view(view, wiki_dir, false)?;

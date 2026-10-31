@@ -168,7 +168,7 @@ GNU GPL v3.0 or later (see [LICENSE](LICENSE)). Wiki data under `.wiki/` is unaf
 ## Development
 
 ```bash
-cargo nextest run --workspace          # 71 tests (unit + git-fixture integration + in-process MCP protocol)
+cargo nextest run --workspace          # 80 tests (unit + git-fixture integration + in-process MCP protocol)
 cargo llvm-cov nextest --workspace --summary-only   # coverage baseline (CI gates at 70% lines)
 cargo bench -p loredex-engine --bench scan -- --budget   # scan/index regression floor (CI gate)
 ```

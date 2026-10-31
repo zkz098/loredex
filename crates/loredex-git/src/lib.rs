@@ -9,6 +9,7 @@ use loredex_core::WikiError;
 
 /// Local git metadata only: foldhash is fast but not HashDoS-resistant.
 type FastMap<K, V> = HashMap<K, V, FastState>;
+type LineMapCache = RefCell<FastMap<(String, String), Option<Rc<LineMap>>>>;
 
 pub type Result<T> = std::result::Result<T, WikiError>;
 
@@ -213,6 +214,9 @@ pub struct GitView<'a> {
     changed_coverage: RefCell<FastMap<String, BTreeSet<String>>>,
     renames: RefCell<FastMap<String, Rc<BTreeMap<String, String>>>>,
     commit_exists: RefCell<FastMap<String, bool>>,
+    /// (old blob, new path) -> xdiff line map, shared by every citation that
+    /// points into the same file.
+    line_maps: LineMapCache,
     dirty: OnceCell<bool>,
 }
 
@@ -228,6 +232,7 @@ impl<'a> GitView<'a> {
             changed_coverage: RefCell::new(FastMap::default()),
             renames: RefCell::new(FastMap::default()),
             commit_exists: RefCell::new(FastMap::default()),
+            line_maps: RefCell::new(FastMap::default()),
             dirty: OnceCell::new(),
         }
     }
@@ -521,6 +526,108 @@ impl<'a> GitView<'a> {
         out
     }
 
+    /// Line map from the recorded blob to `new_path` at HEAD, computed by
+    /// libgit2's xdiff and cached per (blob, path). Drift projection uses this
+    /// instead of a full-file diff per citation: xdiff is linear-ish with
+    /// heuristics, while a pure Myers diff can go quadratic on big rewrites.
+    /// `None` means "not text / blob unavailable"; callers fall back to the
+    /// pure projection.
+    pub fn line_map(&self, old_blob: &str, new_path: &str) -> Result<Option<Rc<LineMap>>> {
+        let key = (old_blob.to_string(), new_path.to_string());
+        if let Some(cached) = self.line_maps.borrow().get(&key).cloned() {
+            return Ok(cached);
+        }
+        let map = self.compute_line_map(old_blob, new_path)?.map(Rc::new);
+        self.line_maps.borrow_mut().insert(key, map.clone());
+        Ok(map)
+    }
+
+    fn compute_line_map(&self, old_blob: &str, new_path: &str) -> Result<Option<LineMap>> {
+        let Some(old_content) = self.blob_content(old_blob)? else {
+            return Ok(None);
+        };
+        let Some(new_content) = self.cached_content(new_path)? else {
+            return Ok(None);
+        };
+        let Ok(oid) = Oid::from_str(old_blob) else {
+            return Ok(None);
+        };
+        let Ok(old_obj) = self.repo.repo.find_blob(oid) else {
+            return Ok(None);
+        };
+        if old_obj.is_binary() {
+            return Ok(None);
+        }
+        let mut opts = DiffOptions::new();
+        opts.context_lines(0);
+        let patch = match git2::Patch::from_blob_and_buffer(
+            &old_obj,
+            Some(Path::new(new_path)),
+            new_content.as_bytes(),
+            Some(Path::new(new_path)),
+            Some(&mut opts),
+        ) {
+            Ok(patch) => patch,
+            Err(_) => return Ok(None),
+        };
+
+        // Walk diff hunks with the same cursor rules as the line-based
+        // reference projection: equal lines map 1:1, deleted lines anchor to
+        // the previous surviving new line, inserted lines only advance new.
+        let old_len = old_content.split('\n').count();
+        let new_len = new_content.split('\n').count();
+        let mut map = vec![0u32; old_len];
+        let (mut oi, mut ni) = (0usize, 0usize);
+        for h in 0..patch.num_hunks() {
+            let (hunk, count) = patch.hunk(h).map_err(|e| WikiError::Git(e.to_string()))?;
+            // For a pure insertion git reports old_start as the number of old
+            // lines before the insertion (0 at the top, N after line N); only
+            // hunks that consume old lines use the 1-based line number.
+            let hunk_old = if hunk.old_lines() == 0 {
+                hunk.old_start() as usize
+            } else {
+                (hunk.old_start() as usize).saturating_sub(1)
+            };
+            while oi < hunk_old && oi < map.len() {
+                map[oi] = ni as u32;
+                oi += 1;
+                ni += 1;
+            }
+            for l in 0..count {
+                let line = patch
+                    .line_in_hunk(h, l)
+                    .map_err(|e| WikiError::Git(e.to_string()))?;
+                match line.origin() {
+                    ' ' => {
+                        if oi < map.len() {
+                            map[oi] = ni as u32;
+                        }
+                        oi += 1;
+                        ni += 1;
+                    }
+                    '-' => {
+                        if oi < map.len() {
+                            map[oi] = ni.saturating_sub(1) as u32;
+                        }
+                        oi += 1;
+                    }
+                    '+' => ni += 1,
+                    _ => {}
+                }
+            }
+        }
+        while oi < map.len() {
+            map[oi] = ni as u32;
+            oi += 1;
+            ni += 1;
+        }
+        let max_new = (new_len - 1) as u32;
+        for slot in &mut map {
+            *slot = (*slot).min(max_new);
+        }
+        Ok(Some(LineMap { map, new_len }))
+    }
+
     pub fn commit_exists(&self, sha: &str) -> bool {
         if let Some(cached) = self.commit_exists.borrow().get(sha) {
             return *cached;
@@ -542,6 +649,33 @@ impl<'a> GitView<'a> {
         let dirty = self.repo.is_dirty()?;
         let _ = self.dirty.set(dirty);
         Ok(dirty)
+    }
+}
+
+/// 0-based line projection from an old blob onto the current file content.
+/// `map[old_line]` is the new line a deleted old line anchors to (the
+/// previous surviving line); equal lines map 1:1.
+pub struct LineMap {
+    map: Vec<u32>,
+    new_len: usize,
+}
+
+impl LineMap {
+    /// Project a 0-based inclusive old range. A collapsed range keeps its
+    /// width when possible, matching the reference projection rules.
+    pub fn project(&self, lo: usize, hi: usize) -> (usize, usize) {
+        let last = self.map.len() - 1;
+        let lo = lo.min(last);
+        let hi = hi.min(last);
+        let mut nlo = self.map[lo] as usize;
+        let mut nhi = self.map[hi] as usize;
+        if nhi < nlo {
+            std::mem::swap(&mut nlo, &mut nhi);
+        }
+        if nlo == nhi && hi > lo {
+            nhi = (nlo + (hi - lo)).min(self.new_len - 1);
+        }
+        (nlo, nhi)
     }
 }
 
