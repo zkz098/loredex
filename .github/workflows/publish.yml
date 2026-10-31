@@ -30,14 +30,18 @@ jobs:
         uses: taiki-e/install-action@nextest
       - name: OIDC diagnostics
         run: |
-          cargo --version
-          rustc --version
-          echo "ACTIONS_ID_TOKEN_REQUEST_URL set: $([ -n "$ACTIONS_ID_TOKEN_REQUEST_URL" ] && echo yes || echo no)"
-          if [ -n "$ACTIONS_ID_TOKEN_REQUEST_URL" ]; then
-            tok=$(curl -s -H "Authorization: bearer ${ACTIONS_ID_TOKEN_REQUEST_TOKEN}" \
-              "$ACTIONS_ID_TOKEN_REQUEST_URL&audience=https://github.com/rust-lang/crates.io" | python3 -c "import json,sys;print(json.load(sys.stdin).get('value','')[:10])")
-            echo "oidc token (crates.io audience) fetchable: $([ -n "$tok" ] && echo yes || echo no)"
-          fi
+          echo "== crates.io audience =="
+          curl -s -H "Authorization: bearer ${ACTIONS_ID_TOKEN_REQUEST_TOKEN}" \
+            "$ACTIONS_ID_TOKEN_REQUEST_URL&audience=https://github.com/rust-lang/crates.io" | head -c 300
+          echo
+          echo "== default audience =="
+          curl -s -H "Authorization: bearer ${ACTIONS_ID_TOKEN_REQUEST_TOKEN}" \
+            "$ACTIONS_ID_TOKEN_REQUEST_URL" | head -c 60
+          echo
+          echo "== empty audience =="
+          curl -s -H "Authorization: bearer ${ACTIONS_ID_TOKEN_REQUEST_TOKEN}" \
+            "$ACTIONS_ID_TOKEN_REQUEST_URL&audience=" | head -c 60
+          echo
       - name: sanity build + tests
         run: |
           cargo build --workspace --locked
