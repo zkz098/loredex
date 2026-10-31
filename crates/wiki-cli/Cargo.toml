@@ -1,0 +1,15 @@
+[package]
+name = "wiki-cli"
+version = "0.1.0"
+edition = "2021"
+
+[[bin]]
+name = "repowiki"
+path = "src/main.rs"
+
+[dependencies]
+anyhow = { workspace = true }
+clap = { workspace = true }
+wiki-core = { workspace = true }
+wiki-git = { workspace = true }
+wiki-engine = { workspace = true }
