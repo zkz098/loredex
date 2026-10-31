@@ -142,7 +142,7 @@ pub fn compute_tasks(repo: &GitRepo, wiki_dir: &Path) -> Result<Vec<PlanTask>> {
     }
 
     for m in discover_modules(repo)? {
-        if m.name.starts_with(".wiki") || m.name.starts_with('.') {
+        if m.name.starts_with(".wiki") || (m.name != "." && m.name.starts_with('.')) {
             continue; // dot-directories are tooling config, not doc subjects
         }
         let pid_check = suggest_page_id(&m.name);
@@ -202,15 +202,35 @@ pub fn suggest_page_id(module_name: &str) -> String {
     }
 }
 
-/// Open (or resume) a run: carry pending tasks from the latest active run,
-/// merge in freshly computed ones, dedupe by page_id (fresh computation wins
-/// over stale pending of kind New that a put already resolved).
+/// Open (or resume) a run (see `plan_with`).
 pub fn plan(repo: &GitRepo, wiki_dir: &Path) -> Result<RunRecord> {
+    plan_with(repo, wiki_dir, false)
+}
+
+/// Open (or resume) a run. Semantics:
+/// - pending tasks carry over from the previous run (interrupted work survives)
+/// - New tasks already resolved (done/skipped/failed) in the previous run stay
+///   suppressed, so `skipped` means a decision, not noise that regrows each run
+/// - Refresh tasks are never suppressed: they are git-truth, not judgement
+/// - `reset` re-exposes previously resolved New tasks
+pub fn plan_with(repo: &GitRepo, wiki_dir: &Path, reset: bool) -> Result<RunRecord> {
     let mut ledger = load_ledger(wiki_dir);
     let fresh = compute_tasks(repo, wiki_dir)?;
 
-    let carried: Vec<PlanTask> = ledger
-        .active_run()
+    let prev = ledger.runs.last();
+    let resolved_new: BTreeSet<String> = if reset {
+        BTreeSet::new()
+    } else {
+        prev.map(|r| {
+            r.tasks
+                .iter()
+                .filter(|t| t.kind == TaskKind::New && t.status != TaskStatus::Pending)
+                .map(|t| t.page_id.clone())
+                .collect()
+        })
+        .unwrap_or_default()
+    };
+    let carried: Vec<PlanTask> = prev
         .map(|r| {
             r.tasks
                 .iter()
@@ -223,6 +243,9 @@ pub fn plan(repo: &GitRepo, wiki_dir: &Path) -> Result<RunRecord> {
     let mut seen: BTreeSet<String> = BTreeSet::new();
     let mut tasks = Vec::new();
     for t in fresh.iter().chain(carried.iter()) {
+        if resolved_new.contains(&t.page_id) {
+            continue;
+        }
         if seen.insert(t.page_id.clone()) {
             tasks.push(t.clone());
         }
@@ -241,6 +264,12 @@ pub fn plan(repo: &GitRepo, wiki_dir: &Path) -> Result<RunRecord> {
         status: "active".into(),
         tasks,
     };
+    // close superseded runs: the new run carries their pending work
+    for r in &mut ledger.runs {
+        if r.status == "active" {
+            r.status = "superseded".into();
+        }
+    }
     // keep at most 32 runs
     if ledger.runs.len() >= 32 {
         ledger.runs.remove(0);

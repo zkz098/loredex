@@ -20,7 +20,7 @@ pub use lint::{lint, LintIssue};
 pub use modules::{discover as discover_modules, ModuleInfo};
 pub use playbook::{registry as playbook_registry, TypePlaybook};
 pub use plan::{
-    close_run, compute_tasks, load_ledger, mark_task, plan as open_plan, PlanTask, RunLedger,
+    close_run, compute_tasks, load_ledger, mark_task, plan as open_plan, plan_with, PlanTask, RunLedger,
     RunRecord, TaskKind, TaskStatus,
 };
 pub use put::{put_page, PutOutcome};

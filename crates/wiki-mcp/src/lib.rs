@@ -23,6 +23,8 @@ snippets are line-projected onto the new revision and stay verified; lost ones \
 must be rewritten via wiki_put_page.
 4. wiki_get_evidence resolves one citation to the file content at current git \
 HEAD, so you can audit claims without opening the repo yourself.
+5. Maintenance is one call: wiki_auto projects recoverable drift (zero tokens), lints, \
+and opens a plan run; its pending tasks carry suggested_type + playbook instructions.
 Wiki pages live in .wiki/pages/*.md (frontmatter = machine-readable evidence) \
 and are committed to git.
 REPOSITORY RESOLUTION: the server resolves its target repo lazily in this order \

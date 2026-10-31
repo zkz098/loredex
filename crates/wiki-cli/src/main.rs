@@ -62,6 +62,9 @@ enum Command {
         /// Close the active run instead of opening/resuming one
         #[arg(long)]
         close: bool,
+        /// Re-expose New tasks previously skipped/failed
+        #[arg(long)]
+        reset: bool,
     },
     /// Regenerate the navigation index page (.wiki/pages/index.md)
     Index,
@@ -75,6 +78,13 @@ enum Command {
     Templates {
         #[arg(long, default_value = "contrib")]
         out: PathBuf,
+    },
+    /// Resolve a pending plan task from the CLI (mirrors wiki_mark_task)
+    Task {
+        page_id: String,
+        /// done | skipped | failed
+        #[arg(default_value = "skipped")]
+        status: String,
     },
     /// List page-type playbooks (built-in + wiki.toml extensions)
     Playbooks,
@@ -250,7 +260,7 @@ fn main() -> anyhow::Result<()> {
                 }
             }
         }
-        Command::Plan { json, close } => {
+        Command::Plan { json, close, reset } => {
             if close {
                 match engine::close_run(&wiki_dir)? {
                     Some(id) => println!("closed run {id}"),
@@ -258,7 +268,7 @@ fn main() -> anyhow::Result<()> {
                 }
                 return Ok(());
             }
-            let run = engine::open_plan(&repo, &wiki_dir)?;
+            let run = engine::plan_with(&repo, &wiki_dir, reset)?;
             if json {
                 println!(
                     "{}",
@@ -339,6 +349,16 @@ fn main() -> anyhow::Result<()> {
             std::fs::write(&a, action)?;
             std::fs::write(&h, hook)?;
             println!("wrote {} and {} (read the header comments for install)", a.display(), h.display());
+        }
+        Command::Task { page_id, status } => {
+            let st = match status.as_str() {
+                "done" => wiki_engine::TaskStatus::Done,
+                "skipped" => wiki_engine::TaskStatus::Skipped,
+                "failed" => wiki_engine::TaskStatus::Failed,
+                other => anyhow::bail!("unknown status {other}"),
+            };
+            engine::mark_task(&wiki_dir, &page_id, st)?;
+            println!("marked {page_id} as {status}");
         }
         Command::Playbooks => {
             let reg = engine::playbook_registry(&wiki_dir);

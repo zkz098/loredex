@@ -355,3 +355,27 @@ fn auto_routes_lost_content_to_rewrite_and_plan() {
     // and the run ledger persisted the same
     assert!(load_ledger(&fx.wiki()).active_run().is_some());
 }
+
+#[test]
+fn skipped_new_task_stays_suppressed_until_reset() {
+    let fx = Fx::new(&[("src.rs", SRC), ("extra/helper.rs", "// helper\n")]);
+    put(&fx, "root", "Root", Some("system")); // cite src.rs only
+    let run1 = open_plan(&fx.repo, &fx.wiki()).unwrap();
+    let noise = run1
+        .tasks
+        .iter()
+        .find(|t| t.kind == TaskKind::New && t.page_id != "root")
+        .expect("second module uncovered");
+    let noise_id = noise.page_id.clone();
+    mark_task(&fx.wiki(), &noise_id, TaskStatus::Skipped).unwrap();
+
+    let run2 = open_plan(&fx.repo, &fx.wiki()).unwrap();
+    assert!(
+        !run2.tasks.iter().any(|t| t.page_id == noise_id),
+        "skipped New task must not regrow: {:?}",
+        run2.tasks.iter().map(|t| &t.page_id).collect::<Vec<_>>()
+    );
+    // reset re-exposes it
+    let run3 = wiki_engine::plan_with(&fx.repo, &fx.wiki(), true).unwrap();
+    assert!(run3.tasks.iter().any(|t| t.page_id == noise_id));
+}

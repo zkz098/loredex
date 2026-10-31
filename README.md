@@ -34,7 +34,10 @@ repowiki check --mark          # 过期扫描，exit code 非 0 = 有 stale（�
 repowiki plan [--json]         # 生成计划：未覆盖模块(New) + stale页(Refresh)，写入 .wiki/runs.json 账本
 repowiki index                 # 重新生成 pages/index.md + pages/quickstart.md（按类型读序 + agent 协议）
 repowiki playbooks             # 页面类型写作指南（内置5类 + wiki.toml 扩展）
-repowiki lint                  # 断链 / stale-but-verified / 正文-frontmatter 漂移，有问题 exit 1
+repowiki lint                  # 断链 / stale-but-verified / 正文-frontmatter 漂移 / 未知 type，有问题 exit 1
+repowiki auto [--json]         # 一条命令维护：投影自愈 -> lint -> 剩余工作开 plan（exit 1 = 有撰写工作）
+repowiki task <id> skipped     # 手工销账 plan 任务（skip 会被记住，不再复发；plan --reset 重新暴露）
+repowiki templates --out contrib   # 导出 GitHub Action 模板 + post-merge hook 模板
 repowiki verify core           # 内容哈希级校验（不依赖 commit 号）
 repowiki refresh core          # 漂移投影刷新
 ```
@@ -84,6 +87,7 @@ Server 在 `initialize` 时下发协议契约（先查新鲜度、stale 视为�
 | `wiki_attach_repo` / `wiki_current_repo` | 挂载/切换仓库、自省解析状态 |
 | `wiki_plan` / `wiki_mark_task` | 打开/续传生成计划 run、销账（put/refresh 自动销账） |
 | `wiki_playbooks` | 页面类型写作指南（plan 任务的 `instructions` 即由此推导） |
+| `wiki_auto` | 维护编排：零 token 投影自愈 + lint + 剩余工作的 plan |
 
 ## 工作流
 
