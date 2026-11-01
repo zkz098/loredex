@@ -365,3 +365,68 @@ fn organize_chains_pages_sharing_different_files() {
     assert_eq!(c.pages, vec!["a", "b", "c"]);
     assert_eq!(c.shared_files, vec!["other.rs", "src.rs"]);
 }
+
+#[test]
+fn overlap_requires_most_of_the_smaller_page_to_coincide() {
+    // a broad page and a focused page that merely share one hot file are
+    // describing different things; that must not read as duplicated coverage
+    let fx = Fx::new(&[
+        ("core.rs", SRC),
+        ("a.rs", SRC),
+        ("b.rs", SRC),
+        ("c.rs", SRC),
+        ("d.rs", SRC),
+        ("e.rs", SRC),
+        ("f.rs", SRC),
+    ]);
+    loredex_engine::init_wiki_layout(&fx.wiki()).unwrap();
+    put_page(
+        &fx.repo,
+        &fx.wiki(),
+        "broad",
+        "Broad",
+        "[[cite:core.rs:L1-L2]] [[cite:a.rs:L1-L2]] [[cite:b.rs:L1-L2]] [[cite:c.rs:L1-L2]] [[cite:d.rs:L1-L2]]",
+        vec![],
+        Some("system".into()),
+    )
+    .unwrap();
+    put_page(
+        &fx.repo,
+        &fx.wiki(),
+        "focused",
+        "Focused",
+        "[[cite:core.rs:L1-L2]] [[cite:e.rs:L1-L2]] [[cite:f.rs:L1-L2]]",
+        vec![],
+        Some("rule".into()),
+    )
+    .unwrap();
+
+    let issues = lint_with(&fx.repo.view(), &fx.wiki()).unwrap();
+    assert!(
+        !issues.iter().any(|i| i.kind == "overlapping-evidence"),
+        "{issues:?}"
+    );
+    assert!(consolidation_clusters(&fx.wiki())
+        .unwrap()
+        .clusters
+        .is_empty());
+
+    // a page covering the same three files as `focused` is a real duplicate
+    put_page(
+        &fx.repo,
+        &fx.wiki(),
+        "twin",
+        "Twin",
+        "[[cite:e.rs:L1-L2]] [[cite:f.rs:L1-L2]] [[cite:core.rs:L1-L2]]",
+        vec![],
+        Some("rule".into()),
+    )
+    .unwrap();
+    let report = consolidation_clusters(&fx.wiki()).unwrap();
+    assert_eq!(report.clusters.len(), 1, "{:?}", report.clusters);
+    assert_eq!(report.clusters[0].pages, vec!["focused", "twin"]);
+    assert_eq!(
+        report.clusters[0].shared_files,
+        vec!["core.rs", "e.rs", "f.rs"]
+    );
+}

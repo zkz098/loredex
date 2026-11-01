@@ -1,22 +1,38 @@
-//! Consolidation report over evidence overlap: pages citing the same files
-//! are prime drift-duplication candidates — the long-term maintenance
-//! question "which notes/rules describe the same thing twice" answered from
-//! the frontmatter rather than prose heuristics. Advisory like `links`:
-//! a cluster is a work item, never a lint error.
+//! Consolidation analysis over recorded evidence: which pages describe the
+//! same thing twice. Computed from the frontmatter pins rather than prose
+//! heuristics, and consumed by two surfaces — `loredex organize` groups the
+//! pairs into clusters, `loredex lint` names them as advisory findings.
+//!
+//! The interesting threshold is *how much* of two pages coincides. Two pages
+//! that both touch a hot core file are normally describing different aspects
+//! of it; only when the shared files make up most of the smaller page does
+//! duplication become the likelier reading.
 
 use std::collections::{BTreeMap, BTreeSet};
 use std::path::Path;
 
-use loredex_core::Status;
+use loredex_core::{Status, WikiPage};
 use serde::Serialize;
 
 use crate::{config::Locale, load_pages, Result};
+
+/// `shared * OVERLAP_RATIO >= smaller` i.e. the overlap must cover at least
+/// half of the smaller page's distinct evidence files.
+const OVERLAP_RATIO: usize = 2;
+
+#[derive(Debug, Clone)]
+pub struct Overlap {
+    /// the two page ids, in load order (sorted by id)
+    pub a: String,
+    pub b: String,
+    pub shared: Vec<String>,
+}
 
 #[derive(Debug, Clone, Serialize)]
 pub struct ConsolidationCandidate {
     /// page ids in the cluster, sorted
     pub pages: Vec<String>,
-    /// evidence paths cited by two or more pages of the cluster
+    /// evidence files binding at least one qualifying pair of the cluster
     pub shared_files: Vec<String>,
     pub suggestion: String,
 }
@@ -28,70 +44,85 @@ pub struct OrganizeReport {
     pub hint: String,
 }
 
-/// Merge pages whose recorded evidence points at the same file, then report
-/// clusters of size >= 2. Draft pages have no pins to compare, so they are
-/// skipped — `plan` queues them for citation backfill first.
-pub fn consolidation_clusters(wiki_dir: &Path) -> Result<OrganizeReport> {
-    let pages = load_pages(wiki_dir)?;
-    let locale = crate::config::locale(wiki_dir);
-
-    // page index list per evidence path, for the union pass
-    let mut ids: Vec<&str> = Vec::new();
-    let mut by_file: BTreeMap<&str, Vec<usize>> = BTreeMap::new();
-    for p in pages.iter() {
+/// Pairs whose evidence sets substantially coincide. Generated navigation
+/// pages carry no pins and drafts have none yet (`plan` queues them for
+/// backfill), so neither participates.
+pub fn overlap_pairs(pages: &[WikiPage]) -> Vec<Overlap> {
+    let mut sets: Vec<(&str, BTreeSet<&str>)> = Vec::new();
+    for p in pages {
         if crate::index::is_generated(&p.meta.id) || p.meta.status == Status::Draft {
             continue;
         }
-        let i = ids.len();
-        let files: BTreeSet<&str> = p.meta.evidence.iter().map(|e| e.path.as_str()).collect();
-        for f in files {
-            by_file.entry(f).or_default().push(i);
-        }
-        ids.push(p.meta.id.as_str());
+        sets.push((
+            p.meta.id.as_str(),
+            p.meta.evidence.iter().map(|e| e.path.as_str()).collect(),
+        ));
     }
-
-    let mut parent: Vec<usize> = (0..ids.len()).collect();
-    let find = |parent: &mut Vec<usize>, mut x: usize| {
-        while parent[x] != x {
-            parent[x] = parent[parent[x]];
-            x = parent[x];
-        }
-        x
-    };
-    for group in by_file.values() {
-        for pair in group.windows(2) {
-            let (a, b) = (find(&mut parent, pair[0]), find(&mut parent, pair[1]));
-            if a != b {
-                parent[b.max(a)] = b.min(a);
-            }
-        }
-    }
-
-    let mut clusters: BTreeMap<usize, Vec<usize>> = BTreeMap::new();
-    for i in 0..ids.len() {
-        clusters.entry(find(&mut parent, i)).or_default().push(i);
-    }
-
     let mut out = Vec::new();
-    for members in clusters.values() {
-        if members.len() < 2 {
+    for i in 0..sets.len() {
+        for j in i + 1..sets.len() {
+            let shared: Vec<&str> = sets[i].1.intersection(&sets[j].1).copied().collect();
+            let smaller = sets[i].1.len().min(sets[j].1.len()).max(1);
+            if shared.is_empty() || shared.len() * OVERLAP_RATIO < smaller {
+                continue;
+            }
+            out.push(Overlap {
+                a: sets[i].0.to_string(),
+                b: sets[j].0.to_string(),
+                shared: shared.into_iter().map(str::to_string).collect(),
+            });
+        }
+    }
+    out
+}
+
+/// Connected components of the overlap graph: a page pair is a duplicate
+/// signal, and pages chained by such pairs are one consolidation job.
+pub fn consolidation_clusters(wiki_dir: &Path) -> Result<OrganizeReport> {
+    let pages = load_pages(wiki_dir)?;
+    let locale = crate::config::locale(wiki_dir);
+    let pairs = overlap_pairs(&pages);
+    let scanned = pages
+        .iter()
+        .filter(|p| !crate::index::is_generated(&p.meta.id) && p.meta.status != Status::Draft)
+        .count();
+
+    let mut adj: BTreeMap<&str, Vec<&str>> = BTreeMap::new();
+    for o in &pairs {
+        adj.entry(o.a.as_str()).or_default().push(o.b.as_str());
+        adj.entry(o.b.as_str()).or_default().push(o.a.as_str());
+    }
+
+    let mut seen: BTreeSet<&str> = BTreeSet::new();
+    let mut out = Vec::new();
+    for start in adj.keys() {
+        if !seen.insert(start) {
             continue;
         }
-        // a chained cluster (a-b share x, b-c share y) has no file every member
-        // cites, so report the files that bind at least two of them
-        let member_set: BTreeSet<usize> = members.iter().copied().collect();
-        let mut shared_files: Vec<String> = by_file
-            .iter()
-            .filter(|(_, group)| group.iter().filter(|m| member_set.contains(*m)).count() > 1)
-            .map(|(path, _)| path.to_string())
-            .collect();
-        shared_files.sort();
-        let mut pages: Vec<String> = members.iter().map(|m| ids[*m].to_string()).collect();
-        pages.sort();
+        let mut stack = vec![*start];
+        let mut comp: BTreeSet<&str> = BTreeSet::new();
+        while let Some(x) = stack.pop() {
+            comp.insert(x);
+            for n in adj.get(x).map(Vec::as_slice).unwrap_or_default() {
+                if seen.insert(n) {
+                    stack.push(n);
+                }
+            }
+        }
+        if comp.len() < 2 {
+            continue;
+        }
+        let mut shared_files: BTreeSet<&str> = BTreeSet::new();
+        for o in &pairs {
+            if comp.contains(o.a.as_str()) && comp.contains(o.b.as_str()) {
+                shared_files.extend(o.shared.iter().map(String::as_str));
+            }
+        }
+        let ids: Vec<String> = comp.iter().map(|s| s.to_string()).collect();
         out.push(ConsolidationCandidate {
-            suggestion: suggestion(&pages, locale),
-            pages,
-            shared_files,
+            suggestion: suggestion(&ids, locale),
+            pages: ids,
+            shared_files: shared_files.iter().map(|s| s.to_string()).collect(),
         });
     }
     out.sort_by(|a, b| {
@@ -102,7 +133,7 @@ pub fn consolidation_clusters(wiki_dir: &Path) -> Result<OrganizeReport> {
     });
 
     Ok(OrganizeReport {
-        pages_scanned: ids.len(),
+        pages_scanned: scanned,
         clusters: out,
         hint: match locale {
             Locale::En => "one owner per claim: merge the cluster into a single page and cross-link the survivors with [[wiki:id]]; `loredex links` ranks the links worth adding".into(),
