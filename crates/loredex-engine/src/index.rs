@@ -18,12 +18,15 @@ pub fn is_generated(id: &str) -> bool {
     id == INDEX_ID || id == QUICKSTART_ID
 }
 
-const TYPE_ORDER: [&str; 5] = [
+const TYPE_ORDER: [&str; 8] = [
     "architecture",
     "workflow",
     "system",
     "integration",
     "testing",
+    "rule",
+    "troubleshooting",
+    "decision",
 ];
 
 /// Skeleton text for generated pages, selected by `[wiki] language`.
@@ -43,7 +46,7 @@ struct Skeleton {
     no_pages: &'static str,
     other_h: &'static str,
     protocol_h: &'static str,
-    protocol_items: [&'static str; 3],
+    protocol_items: [&'static str; 4],
 }
 
 const EN: Skeleton = Skeleton {
@@ -64,6 +67,7 @@ const EN: Skeleton = Skeleton {
         "Call `wiki_check_freshness` (or `loredex check`) before trusting any page; treat stale pages as unverified and read the source.",
         "Audit claims with `wiki_get_evidence` — every citation resolves to the exact file content at current git HEAD.",
         "Keep the wiki fresh: `wiki_plan` lists what needs writing or repair; author with inline `[[cite:path:Lx-Ly]]` markers, one per claim; `wiki_refresh_page` auto-heals drifted citations.",
+        "Policy lives in `rule` / `troubleshooting` / `decision` pages: consult them before coding against the repo, capture findings with `loredex note` (uncited bodies land as drafts for `wiki_plan` to backfill), and fold duplicates together with `loredex organize`.",
     ],
 };
 
@@ -85,6 +89,7 @@ const ZH: Skeleton = Skeleton {
         "信任任何页面前先调用 `wiki_check_freshness`(或 `loredex check`);过期页面按未验证对待,直接读源码。",
         "用 `wiki_get_evidence` 核查论断 —— 每条引用都能解析到当前 git HEAD 上的精确文件内容。",
         "保持 wiki 新鲜:`wiki_plan` 列出待写/待修页面;写作时每条论断配一个行内 `[[cite:path:Lx-Ly]]` 标记;漂移的引用用 `wiki_refresh_page` 自愈。",
+        "仓库政策在 `rule` / `troubleshooting` / `decision` 页面里:动手编码前先查阅;随手发现用 `loredex note` 落入(无引用的正文会存为 draft,由 `wiki_plan` 排队补引用);重复条目用 `loredex organize` 归纳。",
     ],
 };
 

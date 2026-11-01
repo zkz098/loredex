@@ -47,6 +47,28 @@ enum Command {
         #[arg(long)]
         no_redact: bool,
     },
+    /// Capture an agent finding without citations: stored as an unverified
+    /// draft page (with its markers pinned if it happens to carry them),
+    /// queued by `loredex plan` for citation backfill and typing
+    Note {
+        id: String,
+        #[arg(long)]
+        title: String,
+        /// Body from a file, or `-` for stdin
+        #[arg(short, long)]
+        body: String,
+        #[arg(long)]
+        tag: Vec<String>,
+        /// Page kind, e.g. rule | troubleshooting | decision | note
+        #[arg(long = "type")]
+        page_type: Option<String>,
+    },
+    /// Consolidation report: pages whose evidence overlaps, grouped into
+    /// clusters to merge or cross-link (advisory; never fails)
+    Organize {
+        #[arg(long)]
+        json: bool,
+    },
     /// List pages with status
     List,
     /// Print a page
@@ -229,6 +251,7 @@ fn main() -> anyhow::Result<()> {
             };
             let opts = engine::PutOptions {
                 allow_secret_citations: no_redact,
+                ..Default::default()
             };
             let outcome = engine::put_page_with(
                 &repo.view(),
@@ -251,6 +274,60 @@ fn main() -> anyhow::Result<()> {
                 outcome.citations,
                 repo.head_short()?
             );
+        }
+        Command::Note {
+            id,
+            title,
+            body,
+            tag,
+            page_type,
+        } => {
+            let body_text = if body == "-" {
+                let mut buf = String::new();
+                std::io::stdin().read_to_string(&mut buf)?;
+                buf
+            } else {
+                std::fs::read_to_string(&body)?
+            };
+            let outcome =
+                engine::note_page(&repo, &wiki_dir, &id, &title, &body_text, tag, page_type)?;
+            println!(
+                "{} {} as '{}' with {} citation(s){}",
+                if outcome.created {
+                    "captured"
+                } else {
+                    "updated"
+                },
+                outcome.page.meta.id,
+                outcome.page.meta.status.as_str(),
+                outcome.citations,
+                if outcome.page.meta.status == Status::Draft {
+                    " — `loredex plan` queues it for citation backfill"
+                } else {
+                    ""
+                }
+            );
+        }
+        Command::Organize { json } => {
+            let report = engine::organize::consolidation_clusters(&wiki_dir)?;
+            if json {
+                println!(
+                    "{}",
+                    serde_json::to_string_pretty(&report).map_err(|e| anyhow::anyhow!(e))?
+                );
+            } else if report.clusters.is_empty() {
+                println!(
+                    "no consolidation candidates ({} page(s) scanned)",
+                    report.pages_scanned
+                );
+            } else {
+                for c in &report.clusters {
+                    println!("{} page(s): {}", c.pages.len(), c.pages.join(", "));
+                    println!("   shared evidence: {}", c.shared_files.join(", "));
+                    println!("   {}", c.suggestion);
+                }
+                println!("hint: {}", report.hint);
+            }
         }
         Command::List => {
             let pages = engine::load_pages(&wiki_dir)?;
@@ -564,7 +641,12 @@ fn main() -> anyhow::Result<()> {
                     println!("  [rewrite]   {}: {}", n.page_id, n.reason);
                 }
                 for i in &report.lint_issues {
-                    println!("  [lint:{}] {}: {}", i.kind, i.page, i.detail);
+                    let kind = if i.advisory {
+                        format!("advisory:{}", i.kind)
+                    } else {
+                        i.kind.clone()
+                    };
+                    println!("  [lint:{kind}] {}: {}", i.page, i.detail);
                 }
                 let pending: Vec<_> = report
                     .plan
@@ -631,10 +713,15 @@ fn main() -> anyhow::Result<()> {
                 println!("lint clean");
             } else {
                 for i in &issues {
-                    println!("[{}] {}: {}", i.kind, i.page, i.detail);
+                    let tag = if i.advisory {
+                        format!("advisory:{}", i.kind)
+                    } else {
+                        i.kind.clone()
+                    };
+                    println!("[{tag}] {}: {}", i.page, i.detail);
                 }
             }
-            if !issues.is_empty() {
+            if issues.iter().any(|i| !i.advisory) {
                 std::process::exit(1);
             }
         }

@@ -48,8 +48,10 @@ loredex diff --since v0.1.4   # ref→HEAD 变更集触及哪些页面的证据�
 loredex links                 # 基于共引/模块邻接/文本相似度的 [[wiki:id]] 互链推荐（仅供参考，不算 lint 错误）
 loredex plan [--json]         # 生成计划：未覆盖模块(New) + stale页(Refresh)，写入 .wiki/runs.json 账本
 loredex index                 # 重新生成 pages/index.md + pages/quickstart.md（按类型读序 + agent 协议）
-loredex playbooks             # 页面类型写作指南（内置5类 + wiki.toml 扩展）
-loredex lint                  # 断链 / stale-but-verified / 正文-frontmatter 漂移 / 未知 type / 密钥引用回扫，有问题 exit 1
+loredex note retry-loop --title "重试卡死" --body notes.md --type troubleshooting   # 无引用的随手记录：存为 draft，由 plan 排队补引用
+loredex organize              # 把引用同一证据的页面聚成簇，提示合并/互链（参考性，不是错误）
+loredex playbooks             # 页面类型写作指南（内置 8 类：architecture/workflow/system/integration/testing + rule/troubleshooting/decision，另支持 wiki.toml 扩展）
+loredex lint                  # 断链 / stale-but-verified / 正文-frontmatter 漂移 / 未知 type / 密钥引用回扫，有问题 exit 1（overlapping-evidence 属 advisory，不会让 CI 失败）
 loredex auto [--json]         # 一条命令维护：投影自愈 -> lint -> 剩余工作开 plan（exit 1 = 有撰写工作）
 loredex task <id> skipped     # 手工销账 plan 任务（skip 会被记住，不再复发；plan --reset 重新暴露）
 loredex templates --out contrib   # 导出 GitHub Action 模板 + post-merge hook 模板
@@ -98,6 +100,8 @@ Server 在 `initialize` 时下发协议契约（先查新鲜度、stale 视为�
 | `wiki_check_freshness` | 全量 git 过期扫描 + 标注可投影项 |
 | `wiki_diff_since` | ref→HEAD 变更集与各页证据连接（PR 范围过期分析） |
 | `wiki_link_suggestions` | 带理由的跨页 `[[wiki:id]]` 互链推荐（排序输出） |
+| `wiki_note` | 无引用也可落页：正文无引用则存为 `draft`（明确未验证），由 plan 排队补证据 |
+| `wiki_organize` | 将注同一证据的页面聚簇，给出笔记/规则重复项的整理清单 |
 | `wiki_list` / `wiki_read` | 页面清单 / 读页面（stale 带醒目 warning） |
 | `wiki_search` | 分词搜索（驼峰、下划线、CJK 二元组、前缀） |
 | `wiki_get_evidence` | 把单条引用展开为 HEAD 当前源码内容 |
@@ -121,6 +125,7 @@ Server 在 `initialize` 时下发协议契约（先查新鲜度、stale 视为�
                                                 └─ 内容丢失     → draft（保留最后已知 pin），agent 重写
 ```
 
+- agent 随手发现但暂时配不上引用的知识，用 `loredex note` / `wiki_note` 落为 `draft`（显式「未验证」标记，不会被当成事实）；等 `plan` 排队补上证据后才晋升 verified。`loredex organize` 与 `overlapping-evidence` lint 提示负责把长期积累的 notes/rules 重复项聚簇出来，避免不成体系地散落
 - 页面与 `.wiki/` 一起提交进 git，团队共享、PR 可 review；`runs.json` 账本同样入库，agent 中断后 `wiki_plan` 自动续传 pending 任务
 - plan 任务自带 `suggested_type` 与 playbook `instructions`（该类型页面应有哪些章节、回答哪些问题），生产 agent 无需隐藏 prompt 也能写出结构一致的页面；类型可在 `.wiki/wiki.toml [page_types.<name>]` 扩展，未注册的 type 会被 `lint` 标出
 - `loredex lint`（断链/stale/漂移）适合挂 CI；页面 id 支持 `architecture/overview` 式分层，`--type` 标注页面种类

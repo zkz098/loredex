@@ -4,8 +4,10 @@
 //! - body/frontmatter drift: hand-edited markers no longer matching evidence
 //!   (openwiki forbids hand-edits outright; Loredex detects instead)
 //! - cited ranges matching secret patterns at HEAD
+//! - pages whose evidence overlaps without cross-links (advisory: a curation
+//!   work item, not a defect — see `loredex organize` for the cluster view)
 
-use std::collections::BTreeSet;
+use std::collections::{BTreeMap, BTreeSet};
 use std::path::Path;
 
 use loredex_core::{dedup_citations, parse_citations, parse_wiki_links, Status};
@@ -17,8 +19,10 @@ use crate::{check_page_with, load_pages, Result};
 #[derive(Debug, Clone, Serialize)]
 pub struct LintIssue {
     pub page: String,
-    pub kind: String, // broken-link | stale-but-verified | evidence-drift
+    pub kind: String, // broken-link | stale-but-verified | evidence-drift | overlapping-evidence
     pub detail: String,
+    /// true = worth a maintainer's look, false = CI should fail on it
+    pub advisory: bool,
 }
 
 pub fn lint(repo: &GitRepo, wiki_dir: &Path) -> Result<Vec<LintIssue>> {
@@ -42,6 +46,7 @@ pub fn lint_with(view: &GitView, wiki_dir: &Path) -> Result<Vec<LintIssue>> {
                     page: p.meta.id.clone(),
                     kind: "broken-link".into(),
                     detail: format!("[[wiki:{target}]] has no such page"),
+                    advisory: false,
                 });
             }
         }
@@ -59,6 +64,7 @@ pub fn lint_with(view: &GitView, wiki_dir: &Path) -> Result<Vec<LintIssue>> {
                         "type `{t}` has no playbook; known: {:?} (extend via .wiki/wiki.toml [page_types.{t}])",
                         playbooks.keys().collect::<Vec<_>>()
                     ),
+                advisory: false,
                 });
             }
         }
@@ -78,6 +84,7 @@ pub fn lint_with(view: &GitView, wiki_dir: &Path) -> Result<Vec<LintIssue>> {
                         page: p.meta.id.clone(),
                         kind: "stale-but-verified".into(),
                         detail: why,
+                        advisory: false,
                     });
                 }
             }
@@ -109,6 +116,7 @@ pub fn lint_with(view: &GitView, wiki_dir: &Path) -> Result<Vec<LintIssue>> {
                         detail: format!(
                             "body cites {path} but frontmatter has no evidence for it (hand edit? re-put the page)"
                         ),
+                    advisory: false,
                     });
                 }
             }
@@ -129,9 +137,51 @@ pub fn lint_with(view: &GitView, wiki_dir: &Path) -> Result<Vec<LintIssue>> {
                                 lo + f.line as u32 - 1,
                                 f.rule
                             ),
+                        advisory: false,
                         });
                     }
                 }
+            }
+        }
+    }
+
+    // 5. duplicated coverage: two pages pin the same file but neither links
+    //    the other. Advisory — the maintainer decides whether to merge or to
+    //    split responsibilities; `loredex organize` groups these into clusters.
+    let mut by_file: BTreeMap<&str, BTreeSet<&str>> = BTreeMap::new();
+    let mut linked: BTreeMap<&str, BTreeSet<String>> = BTreeMap::new();
+    for p in &pages {
+        if crate::index::is_generated(&p.meta.id) || p.meta.status == Status::Draft {
+            continue;
+        }
+        linked.insert(
+            p.meta.id.as_str(),
+            parse_wiki_links(&p.body).into_iter().collect(),
+        );
+        for e in &p.meta.evidence {
+            by_file
+                .entry(e.path.as_str())
+                .or_default()
+                .insert(p.meta.id.as_str());
+        }
+    }
+    let mut reported: BTreeSet<(String, String)> = BTreeSet::new();
+    for (file, owners) in &by_file {
+        let owners: Vec<&str> = owners.iter().copied().collect();
+        for pair in owners.windows(2) {
+            let (a, b) = (pair[0], pair[1]);
+            if linked.get(a).is_some_and(|l| l.contains(b))
+                || linked.get(b).is_some_and(|l| l.contains(a))
+            {
+                continue;
+            }
+            if reported.insert((a.to_string(), b.to_string())) {
+                issues.push(LintIssue {
+                    page: a.to_string(),
+                    kind: "overlapping-evidence".into(),
+                    detail: format!("`{a}` and `{b}` both cite {file} without linking each other"),
+                    advisory: true,
+                });
             }
         }
     }

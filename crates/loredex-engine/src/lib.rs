@@ -17,6 +17,7 @@ pub mod index;
 pub mod links;
 pub mod lint;
 pub mod modules;
+pub mod organize;
 pub mod plan;
 pub mod playbook;
 pub mod put;
@@ -42,13 +43,14 @@ pub use index::{
 pub use links::{LinkReport, LinkSuggestion};
 pub use lint::{lint, lint_with, LintIssue};
 pub use modules::{discover as discover_modules, discover_with, ModuleInfo};
+pub use organize::{consolidation_clusters, ConsolidationCandidate, OrganizeReport};
 pub use plan::{
     close_run, compute_tasks, compute_tasks_with, load_ledger, mark_task, mark_tasks,
     plan as open_plan, plan_with, plan_with_view, PlanTask, RunLedger, RunRecord, TaskKind,
     TaskStatus,
 };
 pub use playbook::{registry as playbook_registry, TypePlaybook};
-pub use put::{put_page, put_page_with, PutOptions, PutOutcome};
+pub use put::{note_page, put_page, put_page_with, PutOptions, PutOutcome};
 pub use redact::{mask_line, scan_lines, Finding as SecretFinding};
 
 pub type Result<T> = std::result::Result<T, WikiError>;

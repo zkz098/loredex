@@ -25,11 +25,17 @@ wiki_put_page with a markdown body where \
 every claim carries an inline [[cite:path:Lx-Ly]] marker. Pages without citations \
 are rejected; citations whose range matches a secret pattern are rejected too \
 (override only when the user asks: allow_secret_citations).
+2b. When you learn something you cannot cite yet (a rule, a failure diagnosis, a \
+decision), call wiki_note instead: it stores an uncited body as status=draft, which \
+is an explicit 'unverified' flag, and wiki_plan queues it for evidence backfill. \
+Never paraphrase a draft's claims as fact, and never put a guess through wiki_put_page.
 3. When wiki_check_freshness reports drift, call wiki_refresh_page: unchanged \
 snippets are line-projected onto the new revision and stay verified; lost ones \
 must be rewritten via wiki_put_page. To scope damage to a branch or commit \
 range before merging, call wiki_diff_since with that ref. \
-wiki_link_suggestions proposes [[wiki:id]] cross-links worth adding.
+wiki_link_suggestions proposes [[wiki:id]] cross-links worth adding, and \
+wiki_organize clusters pages that pin the same evidence so duplicated notes and \
+rules get consolidated instead of accreting.
 4. wiki_get_evidence resolves one citation to the file content at current git \
 HEAD, so you can audit claims without opening the repo yourself.
 5. Maintenance is one call: wiki_auto projects recoverable drift (zero tokens), lints, \
@@ -142,6 +148,9 @@ struct ModulesOut {
 struct PutOut {
     id: String,
     created: bool,
+    /// `draft` when a note landed without citable evidence: its claims are
+    /// unverified and wiki_plan queues it for backfill
+    status: String,
     citations: usize,
     evidence: Vec<EvidenceOut>,
 }
@@ -197,6 +206,20 @@ struct PutPageParam {
     /// Store citations even when the cited range matches a secret pattern
     #[serde(default)]
     allow_secret_citations: Option<bool>,
+}
+
+#[derive(Debug, Deserialize, schemars::JsonSchema)]
+struct NoteParam {
+    /// kebab/snake case page id, becomes the filename
+    id: String,
+    title: String,
+    /// markdown body; citations are optional, add them where you can
+    body: String,
+    #[serde(default)]
+    tags: Option<Vec<String>>,
+    /// Page kind: rule | troubleshooting | decision | note | system | ...
+    #[serde(default, rename = "type")]
+    page_type: Option<String>,
 }
 
 #[derive(Debug, Deserialize, schemars::JsonSchema)]
@@ -599,7 +622,7 @@ impl WikiServer {
 
     #[tool(
         name = "wiki_playbooks",
-        description = "Page-type authoring guides (architecture/workflow/system/integration/testing + repo-local wiki.toml extensions). Use the plan task's `instructions` field, or this registry to pick/define the right type."
+        description = "Page-type authoring guides (architecture/workflow/system/integration/testing plus the policy types rule/troubleshooting/decision, and repo-local wiki.toml extensions). Use the plan task's `instructions` field, or this registry to pick/define the right type."
     )]
     async fn wiki_playbooks(
         &self,
@@ -1048,6 +1071,25 @@ impl WikiServer {
     }
 
     #[tool(
+        name = "wiki_organize",
+        description = "Consolidation report over recorded evidence: clusters pages that pin the same source files (the drift-duplication candidates that accumulate as notes/rules grow). Advisory — each cluster says whether to merge into one page or split responsibilities and cross-link with [[wiki:id]]. Draft pages are excluded until wiki_plan backfills their citations."
+    )]
+    async fn wiki_organize(
+        &self,
+        peer: Peer<RoleServer>,
+    ) -> Result<Json<serde_json::Value>, ErrorData> {
+        let _gate = self.gate.read().await;
+        let out = self
+            .with_repo(&peer, move |repo| {
+                let report = engine::organize::consolidation_clusters(&repo.wiki_dir())
+                    .map_err(Self::err)?;
+                serde_json::to_value(report).map_err(|e| Self::err(e.to_string()))
+            })
+            .await?;
+        Ok(Json(out))
+    }
+
+    #[tool(
         name = "wiki_put_page",
         description = "Store agent-authored wiki content. Body must contain [[cite:path:Lx-Ly]] markers; each is pinned to the git blob at HEAD as evidence. A body with no citations is rejected."
     )]
@@ -1065,6 +1107,7 @@ impl WikiServer {
         let page_type = p.page_type;
         let opts = engine::PutOptions {
             allow_secret_citations: p.allow_secret_citations.unwrap_or(false),
+            ..Default::default()
         };
         let out = self
             .with_repo(&peer, move |repo| {
@@ -1086,6 +1129,7 @@ impl WikiServer {
                 Ok(PutOut {
                     id: outcome.page.meta.id.clone(),
                     created: outcome.created,
+                    status: outcome.page.meta.status.as_str().to_string(),
                     citations: outcome.citations,
                     evidence: outcome
                         .page
@@ -1093,6 +1137,48 @@ impl WikiServer {
                         .evidence
                         .iter()
                         .map(|e| WikiServer::evidence_out(&view, e))
+                        .collect(),
+                })
+            })
+            .await?;
+        Ok(Json(out))
+    }
+
+    #[tool(
+        name = "wiki_note",
+        description = "Low-friction capture of a finding (rule, troubleshooting step, decision, observation) with NO citation requirement: an uncited body is stored as status=draft, so its claims are explicitly unverified and wiki_plan queues it for evidence backfill and typing. If the body does carry [[cite:...]] markers they are pinned like wiki_put_page and the page lands verified. Use this instead of wiki_put_page when you learned something and cannot cite it yet; never store a guess as a verified page."
+    )]
+    async fn wiki_note(
+        &self,
+        Parameters(p): Parameters<NoteParam>,
+        peer: Peer<RoleServer>,
+    ) -> Result<Json<PutOut>, ErrorData> {
+        let _gate = self.gate.write().await;
+        let cache = self.pages.clone();
+        let id = p.id;
+        let title = p.title;
+        let body = p.body;
+        let tags = p.tags.unwrap_or_default();
+        let page_type = p.page_type;
+        let out = self
+            .with_repo(&peer, move |repo| {
+                let result =
+                    engine::note_page(repo, &repo.wiki_dir(), &id, &title, &body, tags, page_type);
+                // a failed note may still have written a page
+                *cache.lock().unwrap() = PageCache::default();
+                let outcome =
+                    result.map_err(|e| ErrorData::invalid_request(e.to_string(), None))?;
+                Ok(PutOut {
+                    id: outcome.page.meta.id.clone(),
+                    created: outcome.created,
+                    status: outcome.page.meta.status.as_str().to_string(),
+                    citations: outcome.citations,
+                    evidence: outcome
+                        .page
+                        .meta
+                        .evidence
+                        .iter()
+                        .map(|e| WikiServer::evidence_out(&repo.view(), e))
                         .collect(),
                 })
             })

@@ -127,6 +127,50 @@ fn builtin_en() -> Vec<TypePlaybook> {
                 "What regressions does the suite encode?".into(),
             ],
         },
+        TypePlaybook {
+            name: "rule".into(),
+            description: "A convention or constraint the repo enforces".into(),
+            sections: vec![
+                "the constraint".into(),
+                "what it violates if broken".into(),
+                "good vs bad example".into(),
+                "enforcement point".into(),
+            ],
+            checklist: vec![
+                "State the rule in one imperative sentence.".into(),
+                "Which code at HEAD enforces or encodes it (lint rule, test, guard)?".into(),
+                "What breaks for a reader or build when it is violated?".into(),
+            ],
+        },
+        TypePlaybook {
+            name: "troubleshooting".into(),
+            description: "A known failure with its diagnosis and fix".into(),
+            sections: vec![
+                "symptom & error text".into(),
+                "root cause".into(),
+                "fix or workaround".into(),
+                "how to confirm resolved".into(),
+            ],
+            checklist: vec![
+                "Quote the exact symptom (error string, log line) an agent can grep for.".into(),
+                "Where in the code does the failure originate?".into(),
+                "Which command or check proves it is fixed?".into(),
+            ],
+        },
+        TypePlaybook {
+            name: "decision".into(),
+            description: "Why the code is shaped this way (ADR-style)".into(),
+            sections: vec![
+                "context & forces".into(),
+                "options considered".into(),
+                "choice & consequences".into(),
+                "revisit conditions".into(),
+            ],
+            checklist: vec![
+                "Which code or config embodies the decision?".into(),
+                "What is ruled out, and what would reopen it?".into(),
+            ],
+        },
     ]
     .into()
 }
@@ -206,6 +250,50 @@ fn builtin_zh() -> Vec<TypePlaybook> {
             checklist: vec![
                 "哪条命令验证哪种风险?".into(),
                 "测试套件编码了哪些回归?".into(),
+            ],
+        },
+        TypePlaybook {
+            name: "rule".into(),
+            description: "仓库强制执行的约定或约束".into(),
+            sections: vec![
+                "约束本身".into(),
+                "违反的后果".into(),
+                "正例与反例".into(),
+                "强制点".into(),
+            ],
+            checklist: vec![
+                "用一句祈使句写清规则.".into(),
+                "HEAD 上哪段代码执行/编码了它(lint 规则、测试、守卫)?".into(),
+                "违反时构建或读者会遇到什么?".into(),
+            ],
+        },
+        TypePlaybook {
+            name: "troubleshooting".into(),
+            description: "一个已知故障的诊断与修复".into(),
+            sections: vec![
+                "症状与报错原文".into(),
+                "根因".into(),
+                "修复或绕行".into(),
+                "如何确认已解决".into(),
+            ],
+            checklist: vec![
+                "原样引用 agent 可以 grep 的报错/日志行.".into(),
+                "故障起源于代码哪里?".into(),
+                "哪条命令或检查能证明已修复?".into(),
+            ],
+        },
+        TypePlaybook {
+            name: "decision".into(),
+            description: "代码为什么长这样(ADR 风格)".into(),
+            sections: vec![
+                "背景与约束".into(),
+                "备选方案".into(),
+                "选择与代价".into(),
+                "重新评估的条件".into(),
+            ],
+            checklist: vec![
+                "哪段代码或配置体现了该决策?".into(),
+                "排除了什么?什么情况下需要重新讨论?".into(),
             ],
         },
     ]

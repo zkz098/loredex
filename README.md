@@ -48,8 +48,10 @@ loredex diff --since v0.1.4    # which pages' evidence a ref->HEAD change set to
 loredex links                  # suggest [[wiki:id]] cross-links from shared citations/module adjacency/text similarity (advisory)
 loredex plan [--json]          # generation worklist: uncovered modules (New) + stale pages (Refresh), persisted to .wiki/runs.json
 loredex index                  # regenerate pages/index.md + pages/quickstart.md (typed reading path + agent protocol)
-loredex playbooks              # page-type authoring guides (5 built-in + wiki.toml extensions)
-loredex lint                   # broken links / stale-but-verified / body-evidence drift / unknown type / secret-in-evidence; exit 1 on findings
+loredex note retry-loop --title "Retry spins" --body notes.md --type troubleshooting   # uncited capture: lands as draft, plan queues the backfill
+loredex organize               # clusters pages pinning the same evidence, so duplicated notes/rules get consolidated (advisory)
+loredex playbooks              # page-type authoring guides (8 built-in: architecture/workflow/system/integration/testing + rule/troubleshooting/decision, + wiki.toml extensions)
+loredex lint                   # broken links / stale-but-verified / body-evidence drift / unknown type / secret-in-evidence; exit 1 on findings (advisory overlap hints never fail CI)
 loredex auto [--json]          # one-call maintenance: algorithmic self-heal -> lint -> plan for the rest (exit 1 = authoring work remains)
 loredex task <id> skipped      # resolve a plan task by hand (skips are remembered; `plan --reset` re-exposes)
 loredex templates --out contrib    # export GitHub Action + post-merge hook templates
@@ -98,6 +100,8 @@ The server advertises a behavioral contract at `initialize` (check freshness bef
 | `wiki_check_freshness` | Full git staleness scan + projectable-item annotation |
 | `wiki_diff_since` | Ref->HEAD change set joined against page evidence (PR-scope staleness) |
 | `wiki_link_suggestions` | Ranked cross-page `[[wiki:id]]` link proposals with reasons |
+| `wiki_note` | Capture a finding without citations: uncited body = `draft` (explicitly unverified), plan queues it for backfill |
+| `wiki_organize` | Clusters pages that pin the same evidence — the duplicated-note/rule worklist |
 | `wiki_list` / `wiki_read` | Page inventory / read a page (stale pages carry a warning) |
 | `wiki_search` | Tokenized search (camelCase, snake_case, CJK bigrams, prefix) |
 | `wiki_get_evidence` | Expand one citation to the actual file content at HEAD |
@@ -121,6 +125,7 @@ discover modules -> read source -> put_page (with citations) -> [code evolves] -
         └─ content lost       -> draft; last-known pin kept; the agent rewrites
 ```
 
+- Agent findings that cannot be cited yet are captured with `loredex note` / `wiki_note` as `draft` — an explicit unverified flag, never a silently trusted page — then promoted by `plan` once evidence lands; `loredex organize` + the `overlapping-evidence` lint hint keep the accumulated notes/rules from fragmenting into duplicates
 - Pages and `.wiki/` are committed together, shared with the team, reviewable in PRs; `runs.json` lives in git too, so interrupted generation resumes automatically via `wiki_plan`
 - Plan tasks carry `suggested_type` and playbook `instructions` (which sections a page of that type needs, which questions it must answer), so any producer agent writes structurally consistent pages without hidden prompts; extend types via `.wiki/wiki.toml [page_types.<name>]`; unregistered types are flagged by `lint`
 - `loredex lint` belongs in CI; page ids support hierarchy (`architecture/overview`), `--type` labels the kind

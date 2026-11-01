@@ -94,6 +94,7 @@ fn put_rejects_secret_citation_and_lint_flags_it() {
         None,
         &PutOptions {
             allow_secret_citations: true,
+            ..Default::default()
         },
     )
     .expect("override puts");

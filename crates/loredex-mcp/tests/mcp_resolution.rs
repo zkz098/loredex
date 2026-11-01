@@ -482,6 +482,8 @@ async fn initialize_advertises_instructions_and_tools() {
         "wiki_list_modules",
         "wiki_attach_repo",
         "wiki_current_repo",
+        "wiki_note",
+        "wiki_organize",
     ] {
         assert!(names.contains(&expected), "missing tool {expected}");
     }
@@ -582,4 +584,80 @@ async fn wiki_auto_over_protocol() {
         .filter(|t| t["status"] == serde_json::json!("pending"))
         .count();
     assert!(pending >= 1, "{rep}");
+}
+
+#[tokio::test]
+async fn wiki_note_capture_promotes_and_organize_clusters() {
+    let _g = ENV_LOCK.lock().await;
+    let fx = Fixture::new();
+    std::env::remove_var("LOREDEX_REPO");
+    let (client, _s) = pair(WikiServer::new_open(), TestClient::no_roots()).await;
+    call(
+        &client,
+        "wiki_attach_repo",
+        serde_json::json!({ "path": fx.path().to_string_lossy() }),
+    )
+    .await;
+
+    // an uncited finding lands as an explicitly unverified draft
+    let note = structured(
+        &call(
+            &client,
+            "wiki_note",
+            serde_json::json!({
+                "id": "notes/backoff",
+                "title": "Backoff spins",
+                "body": "Suspected: the retry loop never yields.\n",
+                "type": "troubleshooting"
+            }),
+        )
+        .await,
+    );
+    assert_eq!(note["status"], serde_json::json!("draft"));
+    assert_eq!(note["citations"], serde_json::json!(0));
+
+    // plan queues it for evidence backfill, carrying the type's instructions
+    let plan = structured(&call(&client, "wiki_plan", serde_json::json!({})).await);
+    let task = plan["tasks"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|t| t["page_id"] == serde_json::json!("notes/backoff"))
+        .expect("draft must be planned for backfill");
+    assert_eq!(task["status"], serde_json::json!("pending"));
+    assert_eq!(task["suggested_type"], serde_json::json!("troubleshooting"));
+
+    // citing it promotes to verified and closes the task
+    let promoted = structured(
+        &call(
+            &client,
+            "wiki_put_page",
+            serde_json::json!({
+                "id": "notes/backoff",
+                "title": "Backoff spins",
+                "body": "The loop body is `f` [[cite:lib.rs:L1-L1]].",
+                "type": "troubleshooting"
+            }),
+        )
+        .await,
+    );
+    assert_eq!(promoted["status"], serde_json::json!("verified"));
+
+    // two verified pages over the same evidence become one consolidation cluster
+    call(
+        &client,
+        "wiki_put_page",
+        serde_json::json!({
+            "id": "core",
+            "title": "Core",
+            "body": "f is a stub [[cite:lib.rs:L1-L1]]",
+            "type": "system"
+        }),
+    )
+    .await;
+    let org = structured(&call(&client, "wiki_organize", serde_json::json!({})).await);
+    let clusters = org["clusters"].as_array().unwrap();
+    assert_eq!(clusters.len(), 1, "{org}");
+    assert_eq!(clusters[0]["pages"].as_array().unwrap().len(), 2);
+    assert_eq!(clusters[0]["shared_files"][0], serde_json::json!("lib.rs"));
 }

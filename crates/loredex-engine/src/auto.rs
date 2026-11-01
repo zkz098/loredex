@@ -118,7 +118,10 @@ pub fn auto_refresh_with(view: &GitView, wiki_dir: &Path) -> Result<AutoReport> 
         .iter()
         .filter(|t| t.status == TaskStatus::Pending)
         .count();
-    let all_clean = needs_rewrite.is_empty() && lint_issues.is_empty() && pending == 0;
+    // advisory findings (overlap hints) are curation suggestions, not defects:
+    // they must not make a hook/CI run report the wiki as unclean
+    let defects = lint_issues.iter().filter(|i| !i.advisory).count();
+    let all_clean = needs_rewrite.is_empty() && defects == 0 && pending == 0;
 
     Ok(AutoReport {
         head: view.head_short()?,

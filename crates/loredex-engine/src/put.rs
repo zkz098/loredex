@@ -12,12 +12,52 @@ pub struct PutOutcome {
     pub created: bool,
 }
 
-#[derive(Debug, Default, Clone, Copy)]
+#[derive(Debug, Clone, Copy)]
 pub struct PutOptions {
     /// Store citations even when the cited range matches a secret pattern.
     /// The scan never echoes snippet content, so opting out is the operator's
     /// explicit call (e.g. a repo that documents test fixtures).
     pub allow_secret_citations: bool,
+    /// Capture status. `Draft` relaxes the citation contract: an uncited body
+    /// is stored as an unverified draft that `plan` queues for backfill, and
+    /// any citations the body happens to carry are still pinned.
+    pub status: Status,
+}
+
+impl Default for PutOptions {
+    fn default() -> Self {
+        Self {
+            allow_secret_citations: false,
+            status: Status::Verified,
+        }
+    }
+}
+
+/// A citation-free capture for notes/rules/troubleshooting found mid-task:
+/// uncited bodies land as `draft` (never surfaced as verified claims);
+/// a body that does carry citations is stored `verified` like `put_page`.
+pub fn note_page(
+    repo: &GitRepo,
+    wiki_dir: &std::path::Path,
+    id: &str,
+    title: &str,
+    body: &str,
+    tags: Vec<String>,
+    page_type: Option<String>,
+) -> Result<PutOutcome> {
+    put_page_with(
+        &repo.view(),
+        wiki_dir,
+        id,
+        title,
+        body,
+        tags,
+        page_type,
+        &PutOptions {
+            allow_secret_citations: false,
+            status: Status::Draft,
+        },
+    )
 }
 
 /// Store wiki content authored by a coding agent: the body must carry
@@ -70,10 +110,11 @@ pub fn put_page_with(
     let cites = dedup_citations(parse_citations(body).map_err(|e| {
         WikiError::FrontmatterParse(id.into(), format!("citation parse error: {e}"))
     })?);
-    if cites.is_empty() {
+    if cites.is_empty() && opts.status != Status::Draft {
         return Err(WikiError::FrontmatterParse(
             id.into(),
-            "body contains no [[cite:path:Lx-Ly]] markers; every wiki page must cite its sources"
+            "body contains no [[cite:path:Lx-Ly]] markers; every wiki page must cite its sources \
+             (use `note` / status Draft for an uncited capture)"
                 .into(),
         ));
     }
@@ -122,11 +163,16 @@ pub fn put_page_with(
     let path = crate::pages_dir(wiki_dir).join(format!("{id}.md"));
     std::fs::create_dir_all(path.parent().expect("pages dir")).map_err(WikiError::Io)?;
     let created = !path.exists();
+    let status = if opts.status == Status::Draft && cites.is_empty() {
+        Status::Draft
+    } else {
+        Status::Verified
+    };
     let page = WikiPage {
         meta: PageMeta {
             id: id.to_string(),
             title: title.to_string(),
-            status: Status::Verified,
+            status,
             generated_at: now_iso(),
             commit: view.head_commit()?.to_string(),
             evidence,
@@ -137,8 +183,11 @@ pub fn put_page_with(
         source_path: Some(path.clone()),
     };
     page.save(&path)?;
-    // authoring a page resolves its plan task, if one is pending
-    let _ = crate::plan::mark_task(wiki_dir, id, crate::plan::TaskStatus::Done);
+    // authoring a page resolves its plan task; a draft capture is the opposite
+    // of resolution — the work (evidence + typing) is only starting
+    if status != Status::Draft {
+        let _ = crate::plan::mark_task(wiki_dir, id, crate::plan::TaskStatus::Done);
+    }
     Ok(PutOutcome {
         page,
         citations: cites.len(),
