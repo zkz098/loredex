@@ -1,0 +1,33 @@
+---
+import Layout from '../layouts/Layout.astro';
+import Header from '../components/Header.astro';
+import Hero from '../components/Hero.astro';
+import PainPoints from '../components/PainPoints.astro';
+import Features from '../components/Features.astro';
+import DualEntry from '../components/DualEntry.astro';
+import WorkflowSection from '../components/WorkflowSection.astro';
+import Playbooks from '../components/Playbooks.astro';
+import Architecture from '../components/Architecture.astro';
+import QuickStart from '../components/QuickStart.astro';
+import Faq from '../components/Faq.astro';
+import Footer from '../components/Footer.astro';
+---
+
+<Layout
+  title="Loredex - 给 AI Coding Agent 的可信代码库知识库 | 纯 Markdown · Git 新鲜度 · 证据钉定"
+  description="Loredex (repowiki) 是专为 AI Coding Agent 设计的可信代码库知识库。纯 Markdown 存储、Git 驱动的新鲜度追踪、每条声明钉住代码出处。提供高性能 Rust CLI 与标准 MCP Server 双入口。"
+>
+  <Header />
+  <main>
+    <Hero />
+    <PainPoints />
+    <Features />
+    <DualEntry />
+    <WorkflowSection />
+    <Playbooks />
+    <Architecture />
+    <QuickStart />
+    <Faq />
+  </main>
+  <Footer />
+</Layout>

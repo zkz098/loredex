@@ -1,0 +1,161 @@
+---
+// QuickStart.astro
+const mcpConfigCode = `{
+  "mcpServers": {
+    "loredex": {
+      "command": "loredex-mcp"
+    }
+  }
+}`;
+---
+
+<section id="quickstart" class="py-24 bg-[#090d18]/70 border-t border-slate-800/80 relative">
+  <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+    
+    <!-- Section Header -->
+    <div class="text-center max-w-3xl mx-auto mb-16">
+      <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-500/10 text-emerald-400 text-xs font-semibold uppercase tracking-wider mb-4 border border-emerald-500/20">
+        <i class="ri-rocket-line"></i>
+        <span>3 分钟快速起步</span>
+      </span>
+      <h2 class="text-3xl sm:text-4xl font-extrabold text-white tracking-tight mb-4">
+        为你的代码库即刻开启可信知识库
+      </h2>
+      <p class="text-slate-400 text-base sm:text-lg leading-relaxed">
+        只需几行指令，即可在本地和 CI 环境中建立起防幻觉、自愈化的证据代码库。
+      </p>
+    </div>
+
+    <!-- Quickstart Container -->
+    <div class="max-w-4xl mx-auto space-y-8">
+      
+      <!-- Step 1: Installation -->
+      <div class="card-glow p-6 sm:p-7">
+        <div class="flex items-center gap-3 mb-4">
+          <span class="w-8 h-8 rounded-lg bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-400 font-bold font-mono text-sm">
+            1
+          </span>
+          <h3 class="text-lg font-bold text-white">安装 Loredex 工具链</h3>
+        </div>
+
+        <div class="space-y-4">
+          <!-- Install Method A: Cargo -->
+          <div>
+            <div class="flex items-center justify-between text-xs font-mono text-slate-400 mb-2">
+              <span>方法 A: 从 crates.io 安装 (推荐，要求 Rust 1.85+)</span>
+              <button
+                type="button"
+                data-copy-text="cargo install loredex-cli loredex-mcp"
+                class="hover:text-white transition-colors flex items-center gap-1"
+              >
+                <i class="ri-file-copy-line text-emerald-400"></i>
+                <span>复制</span>
+              </button>
+            </div>
+            <div class="p-3.5 rounded-xl bg-slate-950 border border-slate-800 font-mono text-xs text-emerald-300 overflow-x-auto">
+              cargo install loredex-cli loredex-mcp
+            </div>
+          </div>
+
+          <!-- Install Method B: Binstall or Prebuilt -->
+          <div>
+            <div class="flex items-center justify-between text-xs font-mono text-slate-400 mb-2">
+              <span>方法 B: 使用 cargo-binstall 秒级安装预编译产物</span>
+              <button
+                type="button"
+                data-copy-text="cargo binstall loredex-cli loredex-mcp"
+                class="hover:text-white transition-colors flex items-center gap-1"
+              >
+                <i class="ri-file-copy-line text-emerald-400"></i>
+                <span>复制</span>
+              </button>
+            </div>
+            <div class="p-3.5 rounded-xl bg-slate-950 border border-slate-800 font-mono text-xs text-teal-300 overflow-x-auto">
+              cargo binstall loredex-cli loredex-mcp
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Step 2: Initialize Repo -->
+      <div class="card-glow p-6 sm:p-7">
+        <div class="flex items-center gap-3 mb-4">
+          <span class="w-8 h-8 rounded-lg bg-teal-500/10 border border-teal-500/20 flex items-center justify-center text-teal-400 font-bold font-mono text-sm">
+            2
+          </span>
+          <h3 class="text-lg font-bold text-white">在目标代码仓库中初始化</h3>
+        </div>
+
+        <div class="space-y-3">
+          <p class="text-xs text-slate-300">
+            进入任何带有 git commit 的代码仓库，一键生成 <code class="px-1.5 py-0.5 rounded bg-slate-800 text-teal-300 font-mono text-xs">.wiki/</code> 骨架与配置：
+          </p>
+          <div class="relative">
+            <div class="p-4 rounded-xl bg-slate-950 border border-slate-800 font-mono text-xs text-slate-200 overflow-x-auto space-y-1">
+              <div><span class="text-slate-500"># 进入你的项目根目录</span></div>
+              <div><span class="text-emerald-400">$</span> cd /path/to/your-repo</div>
+              <div><span class="text-emerald-400">$</span> loredex init</div>
+              <div><span class="text-slate-500"># 输出: Created .wiki/pages/, wiki.toml, ignored .wiki/.cache/</span></div>
+            </div>
+            <button
+              type="button"
+              data-copy-text="cd /path/to/your-repo && loredex init"
+              class="absolute top-3 right-3 px-2.5 py-1 rounded bg-slate-800/80 hover:bg-slate-700 text-slate-300 text-xs flex items-center gap-1 transition-colors border border-slate-700"
+            >
+              <i class="ri-file-copy-line text-emerald-400"></i>
+              <span>复制</span>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Step 3: Auto-heal & Maintenance -->
+      <div class="card-glow p-6 sm:p-7">
+        <div class="flex items-center gap-3 mb-4">
+          <span class="w-8 h-8 rounded-lg bg-cyan-500/10 border border-cyan-500/20 flex items-center justify-center text-cyan-400 font-bold font-mono text-sm">
+            3
+          </span>
+          <h3 class="text-lg font-bold text-white">运行自愈与日常维护</h3>
+        </div>
+
+        <div class="space-y-3">
+          <p class="text-xs text-slate-300">
+            仅需一条指令即可完成投影自愈、质量体检和撰写待办排期：
+          </p>
+          <div class="p-4 rounded-xl bg-slate-950 border border-slate-800 font-mono text-xs text-slate-200 overflow-x-auto space-y-1.5">
+            <div><span class="text-emerald-400">$</span> loredex auto</div>
+            <div><span class="text-emerald-400">$</span> loredex check --mark  <span class="text-slate-500"># CI 过期扫描</span></div>
+            <div><span class="text-emerald-400">$</span> loredex index         <span class="text-slate-500"># 自动生成按类型阅读顺序的导航页</span></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Step 4: Add to AI Agent (MCP) -->
+      <div class="card-glow p-6 sm:p-7">
+        <div class="flex items-center gap-3 mb-4">
+          <span class="w-8 h-8 rounded-lg bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center text-indigo-400 font-bold font-mono text-sm">
+            4
+          </span>
+          <h3 class="text-lg font-bold text-white">接入 Claude Desktop / Cursor / Antigravity</h3>
+        </div>
+
+        <p class="text-xs text-slate-300 mb-3">
+          在 MCP 配置文件中加入 loredex-mcp，Agent 将自动获得代码库知识图谱的读写与自愈能力：
+        </p>
+
+        <div class="relative">
+          <pre class="p-4 rounded-xl bg-slate-950 border border-slate-800 font-mono text-xs text-slate-300 overflow-x-auto" id="mcp-quick-json">{mcpConfigCode}</pre>
+          <button
+            type="button"
+            data-copy-target="#mcp-quick-json"
+            class="absolute top-3 right-3 px-2.5 py-1 rounded bg-slate-800/80 hover:bg-slate-700 text-slate-300 text-xs flex items-center gap-1 transition-colors border border-slate-700"
+          >
+            <i class="ri-file-copy-line text-emerald-400"></i>
+            <span>复制配置</span>
+          </button>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</section>

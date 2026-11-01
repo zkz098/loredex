@@ -1,0 +1,116 @@
+---
+import 'remixicon/fonts/remixicon.css';
+
+interface Props {
+  title?: string;
+  description?: string;
+}
+
+const {
+  title = 'Loredex - 给 AI Coding Agent 的可信代码库知识库',
+  description = 'Loredex 是基于 Rust 构建的证据钉定代码库 Wiki。纯 Markdown 存储、Git 驱动的新鲜度追踪、每条声明钉住代码出处。提供高性能 CLI 与标准 MCP Server 双入口。',
+} = Astro.props;
+---
+
+<!doctype html>
+<html lang="zh-CN" class="scroll-smooth dark">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <meta name="generator" content={Astro.generator} />
+    
+    <!-- Primary Meta Tags -->
+    <title>{title}</title>
+    <meta name="title" content={title} />
+    <meta name="description" content={description} />
+    <meta name="keywords" content="Loredex, repowiki, AI coding agent, MCP server, Rust, Git, knowledge base, documentation, code citation" />
+    <meta name="author" content="zkz098" />
+
+    <!-- Open Graph / Facebook -->
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content={title} />
+    <meta property="og:description" content={description} />
+    <meta property="og:image" content="/favicon.svg" />
+
+    <!-- Twitter -->
+    <meta property="twitter:card" content="summary_large_image" />
+    <meta property="twitter:title" content={title} />
+    <meta property="twitter:description" content={description} />
+    <meta property="twitter:image" content="/favicon.svg" />
+
+    <!-- Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500;600&family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet" />
+
+    <style is:global>
+      :root {
+        --font-sans: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+        --font-mono: 'Fira Code', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+      }
+      body {
+        font-family: var(--font-sans);
+      }
+      code, pre, .font-mono {
+        font-family: var(--font-mono);
+      }
+      
+      /* Subtle noise & grid background */
+      .bg-grid-pattern {
+        background-size: 40px 40px;
+        background-image: 
+          linear-gradient(to right, rgba(255, 255, 255, 0.03) 1px, transparent 1px),
+          linear-gradient(to bottom, rgba(255, 255, 255, 0.03) 1px, transparent 1px);
+      }
+      
+      /* Custom scrollbar */
+      ::-webkit-scrollbar {
+        width: 8px;
+        height: 8px;
+      }
+      ::-webkit-scrollbar-track {
+        background: #090d16;
+      }
+      ::-webkit-scrollbar-thumb {
+        background: #1e293b;
+        border-radius: 4px;
+      }
+      ::-webkit-scrollbar-thumb:hover {
+        background: #334155;
+      }
+    </style>
+  </head>
+  <body class="bg-[#07090e] text-slate-100 min-h-screen selection:bg-emerald-500/30 selection:text-emerald-200 antialiased overflow-x-hidden relative">
+    <!-- Top ambient light glow -->
+    <div class="fixed top-0 left-1/2 -translate-x-1/2 w-[1000px] h-[500px] bg-gradient-to-b from-emerald-500/10 via-teal-500/5 to-transparent blur-3xl pointer-events-none -z-10"></div>
+    <div class="fixed top-1/3 -right-60 w-[600px] h-[600px] bg-cyan-500/5 blur-3xl pointer-events-none -z-10"></div>
+    <div class="fixed bottom-10 -left-60 w-[600px] h-[600px] bg-indigo-500/5 blur-3xl pointer-events-none -z-10"></div>
+
+    <slot />
+
+    <!-- Script for copy buttons and interactions -->
+    <script>
+      // Global copy helper
+      document.addEventListener('click', (e) => {
+        const target = e.target as HTMLElement;
+        const copyBtn = target.closest('[data-copy-target]');
+        if (!copyBtn) return;
+        
+        const targetSelector = copyBtn.getAttribute('data-copy-target');
+        const textToCopy = copyBtn.getAttribute('data-copy-text') || 
+          (targetSelector ? document.querySelector(targetSelector)?.textContent?.trim() : '');
+
+        if (textToCopy) {
+          navigator.clipboard.writeText(textToCopy).then(() => {
+            const originalHTML = copyBtn.innerHTML;
+            copyBtn.innerHTML = '<i class="ri-check-line text-emerald-400"></i><span class="text-xs text-emerald-400">已复制</span>';
+            setTimeout(() => {
+              copyBtn.innerHTML = originalHTML;
+            }, 2000);
+          });
+        }
+      });
+    </script>
+  </body>
+</html>

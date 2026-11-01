@@ -1,0 +1,162 @@
+---
+// Playbooks.astro
+---
+
+<section class="py-20 bg-[#090d18]/50 border-t border-slate-800/80 relative">
+  <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+    
+    <!-- Section Header -->
+    <div class="text-center max-w-3xl mx-auto mb-16">
+      <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-indigo-500/10 text-indigo-400 text-xs font-semibold uppercase tracking-wider mb-4 border border-indigo-500/20">
+        <i class="ri-booklet-line"></i>
+        <span>工程规范沉淀</span>
+      </span>
+      <h2 class="text-3xl sm:text-4xl font-extrabold text-white tracking-tight mb-4">
+        内置 8 大工业级工程文档写作指南 (Playbooks)
+      </h2>
+      <p class="text-slate-400 text-base sm:text-lg leading-relaxed">
+        Agent 在调用 <code class="px-1.5 py-0.5 rounded bg-slate-800 text-indigo-300 font-mono text-xs">wiki_plan</code> 时会自动注入对应 Playbook 指南与章节要求，无需隐藏 Prompt，确保团队知识库始终具备一致的高质量结构。
+      </p>
+    </div>
+
+    <!-- Playbooks Grid -->
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
+      
+      <!-- 1. Architecture -->
+      <div class="card-glow p-5 flex flex-col justify-between">
+        <div>
+          <div class="flex items-center gap-2.5 mb-3 text-emerald-400">
+            <i class="ri-building-2-line text-xl"></i>
+            <h3 class="font-bold text-white text-base">architecture</h3>
+          </div>
+          <p class="text-xs text-slate-300 leading-relaxed mb-4">
+            架构总览与分层设计：阐述核心抽象、模块边界、依赖方向与全局数据流。
+          </p>
+        </div>
+        <div class="text-[11px] font-mono text-slate-400 border-t border-slate-800/80 pt-2.5">
+          <span>推荐章节:</span> 依赖图谱 · 模块职责
+        </div>
+      </div>
+
+      <!-- 2. Workflow -->
+      <div class="card-glow p-5 flex flex-col justify-between">
+        <div>
+          <div class="flex items-center gap-2.5 mb-3 text-teal-400">
+            <i class="ri-flow-chart text-xl"></i>
+            <h3 class="font-bold text-white text-base">workflow</h3>
+          </div>
+          <p class="text-xs text-slate-300 leading-relaxed mb-4">
+            核心业务链路：生命周期、状态机转换逻辑、主要输入输出与异常分支。
+          </p>
+        </div>
+        <div class="text-[11px] font-mono text-slate-400 border-t border-slate-800/80 pt-2.5">
+          <span>推荐章节:</span> 阶段推进 · 异常处理
+        </div>
+      </div>
+
+      <!-- 3. System -->
+      <div class="card-glow p-5 flex flex-col justify-between">
+        <div>
+          <div class="flex items-center gap-2.5 mb-3 text-cyan-400">
+            <i class="ri-settings-line text-xl"></i>
+            <h3 class="font-bold text-white text-base">system</h3>
+          </div>
+          <p class="text-xs text-slate-300 leading-relaxed mb-4">
+            子系统设计：关键内部组件、内部接口契约、资源管理与并发模型。
+          </p>
+        </div>
+        <div class="text-[11px] font-mono text-slate-400 border-t border-slate-800/80 pt-2.5">
+          <span>推荐章节:</span> 接口契约 · 并发隔离
+        </div>
+      </div>
+
+      <!-- 4. Integration -->
+      <div class="card-glow p-5 flex flex-col justify-between">
+        <div>
+          <div class="flex items-center gap-2.5 mb-3 text-blue-400">
+            <i class="ri-links-line text-xl"></i>
+            <h3 class="font-bold text-white text-base">integration</h3>
+          </div>
+          <p class="text-xs text-slate-300 leading-relaxed mb-4">
+            外部系统集成：第三方 API 对接、网关通信、重试限流与降级防护。
+          </p>
+        </div>
+        <div class="text-[11px] font-mono text-slate-400 border-t border-slate-800/80 pt-2.5">
+          <span>推荐章节:</span> 协议约定 · 容灾兜底
+        </div>
+      </div>
+
+      <!-- 5. Testing -->
+      <div class="card-glow p-5 flex flex-col justify-between">
+        <div>
+          <div class="flex items-center gap-2.5 mb-3 text-purple-400">
+            <i class="ri-test-tube-line text-xl"></i>
+            <h3 class="font-bold text-white text-base">testing</h3>
+          </div>
+          <p class="text-xs text-slate-300 leading-relaxed mb-4">
+            测试与质量规范：单测准则、Mock 边界、覆盖率基线与 CI 自动化流水线。
+          </p>
+        </div>
+        <div class="text-[11px] font-mono text-slate-400 border-t border-slate-800/80 pt-2.5">
+          <span>推荐章节:</span> 测试策略 · 覆盖门禁
+        </div>
+      </div>
+
+      <!-- 6. Rule -->
+      <div class="card-glow p-5 flex flex-col justify-between">
+        <div>
+          <div class="flex items-center gap-2.5 mb-3 text-rose-400">
+            <i class="ri-shield-cross-line text-xl"></i>
+            <h3 class="font-bold text-white text-base">rule</h3>
+          </div>
+          <p class="text-xs text-slate-300 leading-relaxed mb-4">
+            团队硬性准则：命名约定、不可突破的设计红线、CI 强制检查项。
+          </p>
+        </div>
+        <div class="text-[11px] font-mono text-slate-400 border-t border-slate-800/80 pt-2.5">
+          <span>推荐章节:</span> 不可变规则 · 违规后果
+        </div>
+      </div>
+
+      <!-- 7. Troubleshooting -->
+      <div class="card-glow p-5 flex flex-col justify-between">
+        <div>
+          <div class="flex items-center gap-2.5 mb-3 text-amber-400">
+            <i class="ri-stethoscope-line text-xl"></i>
+            <h3 class="font-bold text-white text-base">troubleshooting</h3>
+          </div>
+          <p class="text-xs text-slate-300 leading-relaxed mb-4">
+            排错手册：常见故障表现、关键日志线索、快速排查定位步骤与修复建议。
+          </p>
+        </div>
+        <div class="text-[11px] font-mono text-slate-400 border-t border-slate-800/80 pt-2.5">
+          <span>推荐章节:</span> 现象复现 · 处置步骤
+        </div>
+      </div>
+
+      <!-- 8. Decision -->
+      <div class="card-glow p-5 flex flex-col justify-between">
+        <div>
+          <div class="flex items-center gap-2.5 mb-3 text-indigo-400">
+            <i class="ri-scales-3-line text-xl"></i>
+            <h3 class="font-bold text-white text-base">decision</h3>
+          </div>
+          <p class="text-xs text-slate-300 leading-relaxed mb-4">
+            架构决策记录 (ADR)：为何选型、替代方案权衡分析、已知局限与未来演进。
+          </p>
+        </div>
+        <div class="text-[11px] font-mono text-slate-400 border-t border-slate-800/80 pt-2.5">
+          <span>推荐章节:</span> 备选比较 · 妥协考量
+        </div>
+      </div>
+
+    </div>
+
+    <!-- Playbook extension note -->
+    <div class="mt-8 text-center text-xs text-slate-400">
+      <i class="ri-information-line text-emerald-400 mr-1"></i>
+      还支持在 <code class="px-1.5 py-0.5 rounded bg-slate-800 text-slate-200 font-mono">.wiki/wiki.toml</code> 中根据团队需求扩展自定义 <code class="text-emerald-300 font-mono">[page_types.&lt;name&gt;]</code>
+    </div>
+
+  </div>
+</section>

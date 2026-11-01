@@ -1,0 +1,174 @@
+---
+// PainPoints.astro
+---
+
+<section id="why" class="py-20 bg-[#090d18]/60 border-y border-slate-800/80 relative">
+  <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+    <!-- Section Header -->
+    <div class="text-center max-w-3xl mx-auto mb-16">
+      <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-red-500/10 text-red-400 text-xs font-semibold uppercase tracking-wider mb-4 border border-red-500/20">
+        <i class="ri-alert-line"></i>
+        <span>AI Coding 时代的痛点反思</span>
+      </span>
+      <h2 class="text-3xl sm:text-4xl font-extrabold text-white tracking-tight mb-4">
+        为什么传统的 Wiki 与文档在 AI 时代必然失效？
+      </h2>
+      <p class="text-slate-400 text-base sm:text-lg leading-relaxed">
+        当开发主力从人类扩展到自主 Agent，文档不再只是“给人翻翻”，而是作为推理的基础事实。一旦文档失真，Agent 将制造毁灭性的幻觉。
+      </p>
+    </div>
+
+    <!-- Comparison Cards Grid -->
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+      
+      <!-- Card 1 -->
+      <div class="card-glow p-6 sm:p-8 flex flex-col justify-between">
+        <div>
+          <div class="flex items-center gap-3 mb-4">
+            <div class="w-10 h-10 rounded-xl bg-red-500/10 border border-red-500/30 flex items-center justify-center text-red-400">
+              <i class="ri-fire-line text-xl"></i>
+            </div>
+            <div>
+              <span class="text-xs font-mono text-red-400 block uppercase">Pain Point 01</span>
+              <h3 class="text-lg font-bold text-white">全库灌入：上下文爆炸与天价账单</h3>
+            </div>
+          </div>
+          
+          <div class="space-y-3 mb-6">
+            <div class="p-3 rounded-lg bg-red-950/20 border border-red-900/30 text-xs text-red-300">
+              <div class="font-semibold flex items-center gap-1 mb-1">
+                <i class="ri-close-circle-fill text-red-400"></i>
+                <span>传统现状：盲目 Dump 源码</span>
+              </div>
+              把数十万行源码全量塞入 Context，消耗昂贵 Token，更导致 Attention 稀释，检索命中率暴跌。
+            </div>
+
+            <div class="p-3 rounded-lg bg-emerald-950/20 border border-emerald-900/30 text-xs text-emerald-300">
+              <div class="font-semibold flex items-center gap-1 mb-1">
+                <i class="ri-checkbox-circle-fill text-emerald-400"></i>
+                <span>Loredex 解法：分词倒排索引 + 模块化按需供给</span>
+              </div>
+              分词器支持驼峰、下划线与 CJK 二元分词，零 IO 内存极速索引，Agent 仅摄入当前任务强相关的精准知识。
+            </div>
+          </div>
+        </div>
+        <div class="text-xs text-slate-400 border-t border-slate-800/80 pt-3 flex items-center justify-between">
+          <span>Token 优化效果</span>
+          <span class="text-emerald-400 font-mono font-medium">降低 ~85% 冗余输入</span>
+        </div>
+      </div>
+
+      <!-- Card 2 -->
+      <div class="card-glow p-6 sm:p-8 flex flex-col justify-between">
+        <div>
+          <div class="flex items-center gap-3 mb-4">
+            <div class="w-10 h-10 rounded-xl bg-amber-500/10 border border-amber-500/30 flex items-center justify-center text-amber-400">
+              <i class="ri-time-line text-xl"></i>
+            </div>
+            <div>
+              <span class="text-xs font-mono text-amber-400 block uppercase">Pain Point 02</span>
+              <h3 class="text-lg font-bold text-white">过期文档：生成陈旧代码与幻觉循环</h3>
+            </div>
+          </div>
+          
+          <div class="space-y-3 mb-6">
+            <div class="p-3 rounded-lg bg-red-950/20 border border-red-900/30 text-xs text-red-300">
+              <div class="font-semibold flex items-center gap-1 mb-1">
+                <i class="ri-close-circle-fill text-red-400"></i>
+                <span>传统现状：文档无人维护，早已过时</span>
+              </div>
+              半年前废弃的接口在 Wiki 里依然是“推荐方案”，Agent 依据老文档写出无效代码，反复试错死循环。
+            </div>
+
+            <div class="p-3 rounded-lg bg-emerald-950/20 border border-emerald-900/30 text-xs text-emerald-300">
+              <div class="font-semibold flex items-center gap-1 mb-1">
+                <i class="ri-checkbox-circle-fill text-emerald-400"></i>
+                <span>Loredex 解法：双重过期判定与证据钉定</span>
+              </div>
+              基于 HEAD blob 与 tree diff 交叉比对，每次校验重算行区间内容哈希；代码一旦变动即刻判为 stale，警示 Agent 不得轻信。
+            </div>
+          </div>
+        </div>
+        <div class="text-xs text-slate-400 border-t border-slate-800/80 pt-3 flex items-center justify-between">
+          <span>事实可信度</span>
+          <span class="text-emerald-400 font-mono font-medium">100% 代码级出处校验</span>
+        </div>
+      </div>
+
+      <!-- Card 3 -->
+      <div class="card-glow p-6 sm:p-8 flex flex-col justify-between">
+        <div>
+          <div class="flex items-center gap-3 mb-4">
+            <div class="w-10 h-10 rounded-xl bg-purple-500/10 border border-purple-500/30 flex items-center justify-center text-purple-400">
+              <i class="ri-git-pull-request-line text-xl"></i>
+            </div>
+            <div>
+              <span class="text-xs font-mono text-purple-400 block uppercase">Pain Point 03</span>
+              <h3 class="text-lg font-bold text-white">脆弱引用：增删单行导致整体失效</h3>
+            </div>
+          </div>
+          
+          <div class="space-y-3 mb-6">
+            <div class="p-3 rounded-lg bg-red-950/20 border border-red-900/30 text-xs text-red-300">
+              <div class="font-semibold flex items-center gap-1 mb-1">
+                <i class="ri-close-circle-fill text-red-400"></i>
+                <span>传统现状：行号写死，稍微改动就断裂</span>
+              </div>
+              在头部多加了一行 import，下方全部代码行数偏移，文档引用立即失效，重新校验工作量巨大。
+            </div>
+
+            <div class="p-3 rounded-lg bg-emerald-950/20 border border-emerald-900/30 text-xs text-emerald-300">
+              <div class="font-semibold flex items-center gap-1 mb-1">
+                <i class="ri-checkbox-circle-fill text-emerald-400"></i>
+                <span>Loredex 解法：行级漂移投影自愈 (Drift Projection)</span>
+              </div>
+              利用 `similar` 行级 diff 自动跟踪代码移动，相似度 ≥ 0.6 自动调整新行区间；`git mv` 依据 blob 反查新文件路径。
+            </div>
+          </div>
+        </div>
+        <div class="text-xs text-slate-400 border-t border-slate-800/80 pt-3 flex items-center justify-between">
+          <span>维护成本</span>
+          <span class="text-emerald-400 font-mono font-medium">90% 细微改动全自动自愈</span>
+        </div>
+      </div>
+
+      <!-- Card 4 -->
+      <div class="card-glow p-6 sm:p-8 flex flex-col justify-between">
+        <div>
+          <div class="flex items-center gap-3 mb-4">
+            <div class="w-10 h-10 rounded-xl bg-blue-500/10 border border-blue-500/30 flex items-center justify-center text-blue-400">
+              <i class="ri-database-2-line text-xl"></i>
+            </div>
+            <div>
+              <span class="text-xs font-mono text-blue-400 block uppercase">Pain Point 04</span>
+              <h3 class="text-lg font-bold text-white">黑盒系统：难以与 Git 及 PR 流程集成</h3>
+            </div>
+          </div>
+          
+          <div class="space-y-3 mb-6">
+            <div class="p-3 rounded-lg bg-red-950/20 border border-red-900/30 text-xs text-red-300">
+              <div class="font-semibold flex items-center gap-1 mb-1">
+                <i class="ri-close-circle-fill text-red-400"></i>
+                <span>传统现状：孤岛数据库，无法版本化</span>
+              </div>
+              数据散落在独立外部数据库或专有格式，代码 Review 看不到文档改动，分支切换时容易产生冲突与损坏。
+            </div>
+
+            <div class="p-3 rounded-lg bg-emerald-950/20 border border-emerald-900/30 text-xs text-emerald-300">
+              <div class="font-semibold flex items-center gap-1 mb-1">
+                <i class="ri-checkbox-circle-fill text-emerald-400"></i>
+                <span>Loredex 解法：零外部数据库，纯 Markdown 随 Git 提交</span>
+              </div>
+              全部保存在 `.wiki/pages/*.md`，Frontmatter 即元数据。随 Git 提交、PR 可直接 Review，CI 可运行 `loredex lint` 一键设卡。
+            </div>
+          </div>
+        </div>
+        <div class="text-xs text-slate-400 border-t border-slate-800/80 pt-3 flex items-center justify-between">
+          <span>数据形态</span>
+          <span class="text-emerald-400 font-mono font-medium">Git 原生 · 团队完全掌控</span>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</section>

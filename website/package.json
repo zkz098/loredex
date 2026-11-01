@@ -1,0 +1,24 @@
+{
+  "name": "loredex-website",
+  "version": "0.1.0",
+  "description": "Official website for Loredex (RepoWiki) - The Evidence-Backed Knowledge Base for AI Coding Agents",
+  "type": "module",
+  "packageManager": "pnpm@10.33.0",
+  "scripts": {
+    "dev": "astro dev",
+    "start": "astro dev",
+    "build": "astro build",
+    "preview": "astro preview",
+    "deploy:pages": "wrangler pages deploy dist",
+    "deploy:worker": "wrangler deploy"
+  },
+  "dependencies": {
+    "@unocss/astro": "^66.12.0",
+    "astro": "^7.4.4",
+    "remixicon": "^4.9.1",
+    "unocss": "^66.12.0"
+  },
+  "devDependencies": {
+    "wrangler": "^4.156.0"
+  }
+}
