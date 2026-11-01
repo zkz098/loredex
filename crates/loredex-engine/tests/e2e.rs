@@ -377,8 +377,58 @@ fn modules_cargo_targets_discovered() {
     assert_ne!(std::fs::read_to_string(&cache).unwrap(), first);
 }
 
-// ---------- insertions around the cited range ----------
+#[test]
+fn modules_test_and_bin_targets_own_only_their_file() {
+    let fx = Fixture::new(&[
+        (
+            "Cargo.toml",
+            "[package]\nname = \"gran\"\nversion = \"0.1.0\"\nedition = \"2021\"\n[workspace]\n",
+        ),
+        ("src/lib.rs", "pub fn g() {}\n"),
+        ("src/main.rs", "fn main() { gran::g(); }\n"),
+        ("tests/one.rs", "#[test] fn one() {}\n"),
+        ("tests/two.rs", "#[test] fn two() {}\n"),
+    ]);
+    init_wiki_layout(&fx.wiki_dir()).unwrap();
+    let mods = discover_modules(&fx.repo).unwrap();
 
+    // each test target owns exactly its file, not the whole tests/ directory
+    for (name, file) in [("one", "tests/one.rs"), ("two", "tests/two.rs")] {
+        let m = mods
+            .iter()
+            .find(|m| m.name == format!("gran/{name}"))
+            .unwrap_or_else(|| panic!("{name} target missing: {:?}", names(&mods)));
+        assert_eq!(m.files, vec![file.to_string()]);
+    }
+    let bin = mods
+        .iter()
+        .find(|m| m.kind == "rust-bin")
+        .expect("bin target");
+    assert_eq!(bin.files, vec!["src/main.rs".to_string()]);
+
+    // the lib keeps its module tree but does not swallow the bin's file
+    let lib = mods
+        .iter()
+        .find(|m| m.kind == "rust-lib")
+        .expect("lib target");
+    assert_eq!(lib.files, vec!["src/lib.rs".to_string()]);
+
+    // nothing is double-counted as a leftover directory group
+    let dir_files: Vec<String> = mods
+        .iter()
+        .filter(|m| m.kind == "dir")
+        .flat_map(|m| m.files.clone())
+        .collect();
+    for f in ["src/main.rs", "tests/one.rs", "tests/two.rs", "src/lib.rs"] {
+        assert!(!dir_files.contains(&f.to_string()), "{f} double-counted");
+    }
+}
+
+fn names(mods: &[loredex_engine::ModuleInfo]) -> Vec<String> {
+    mods.iter().map(|m| m.name.clone()).collect()
+}
+
+// ---------- insertions around the cited range ----------
 #[test]
 fn insertions_before_and_after_the_citation_keep_it_aligned() {
     let fx = Fixture::new(&[("src/one.rs", "pub fn f() {}\n")]);

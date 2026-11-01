@@ -1,4 +1,4 @@
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 use std::path::{Path, PathBuf};
 use std::process::Command;
 use std::time::UNIX_EPOCH;
@@ -27,6 +27,8 @@ pub fn discover_with(view: &GitView) -> Result<Vec<ModuleInfo>> {
     let mut covered: BTreeMap<String, ()> = BTreeMap::new();
 
     if let Some(meta) = cargo_metadata(view.workdir(), &view.wiki_dir()) {
+        // (package, target, kind, source dir, own source file)
+        let mut targets: Vec<(String, String, String, String, Option<String>)> = Vec::new();
         for pkg in meta
             .get("packages")
             .and_then(|p| p.as_array())
@@ -56,32 +58,58 @@ pub fn discover_with(view: &GitView) -> Result<Vec<ModuleInfo>> {
                     .get("name")
                     .and_then(|n| n.as_str())
                     .unwrap_or(pkg_name);
-                let src_dir = match Path::new(src)
-                    .parent()
-                    .and_then(|p| p.strip_prefix(view.workdir()).ok())
-                {
-                    Some(rel) => format!("{}{}", rel.display(), std::path::MAIN_SEPARATOR)
+                let rel = match Path::new(src).strip_prefix(view.workdir()) {
+                    Ok(p) => p.to_string_lossy().replace('\\', "/"),
+                    Err(_) => continue,
+                };
+                let src_dir = match Path::new(&rel).parent() {
+                    Some(p) => format!("{}{}", p.display(), std::path::MAIN_SEPARATOR)
                         .trim_end()
                         .to_string(),
                     None => continue,
                 };
-                let module_files: Vec<String> = files
-                    .iter()
-                    .filter(|f| f.starts_with(&src_dir))
-                    .cloned()
-                    .collect();
-                if module_files.is_empty() {
-                    continue;
-                }
-                for f in &module_files {
-                    covered.insert(f.clone(), ());
-                }
-                modules.push(ModuleInfo {
-                    name: format!("{pkg_name}/{name}"),
-                    kind: format!("rust-{kind}"),
-                    files: module_files,
-                });
+                targets.push((
+                    pkg_name.to_string(),
+                    name.to_string(),
+                    kind,
+                    src_dir,
+                    Some(rel).filter(|r| files.iter().any(|f| f == r)),
+                ));
             }
+        }
+
+        // A lib target *is* its source directory: cargo gives one entry point and
+        // the module tree hangs off it. A test, bench or bin target is one
+        // self-contained file whose siblings are separate targets — claiming the
+        // whole directory made every test file a duplicate module over the same
+        // files, and kept a group emitting plan tasks no page could satisfy.
+        let owned: BTreeSet<String> = targets
+            .iter()
+            .filter(|(_, _, kind, _, _)| matches!(kind.as_str(), "test" | "bench" | "bin"))
+            .filter_map(|(_, _, _, _, own)| own.clone())
+            .collect();
+
+        for (pkg_name, name, kind, src_dir, own) in targets {
+            let module_files: Vec<String> = match (kind.as_str(), own) {
+                ("test" | "bench" | "bin", Some(file)) => vec![file],
+                ("test" | "bench" | "bin", None) => continue,
+                _ => files
+                    .iter()
+                    .filter(|f| f.starts_with(&src_dir) && !owned.contains(*f))
+                    .cloned()
+                    .collect(),
+            };
+            if module_files.is_empty() {
+                continue;
+            }
+            for f in &module_files {
+                covered.insert(f.clone(), ());
+            }
+            modules.push(ModuleInfo {
+                name: format!("{pkg_name}/{name}"),
+                kind: format!("rust-{kind}"),
+                files: module_files,
+            });
         }
     }
 

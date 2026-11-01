@@ -26,6 +26,8 @@ jobs:
           tool: cargo-machete
       - name: unused dependencies
         run: cargo machete
+      - name: agents.md block is current
+        run: cargo run -q -p loredex-cli -- agents-md --check
 
   test:
     runs-on: ubuntu-latest
