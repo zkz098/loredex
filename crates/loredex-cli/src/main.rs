@@ -63,8 +63,8 @@ enum Command {
         #[arg(long = "type")]
         page_type: Option<String>,
     },
-    /// Consolidation report: pages whose evidence overlaps, grouped into
-    /// clusters to merge or cross-link (advisory; never fails)
+    /// Consolidation worklist: page pairs whose evidence substantially
+    /// overlaps, to merge or cross-link (advisory; never fails)
     Organize {
         #[arg(long)]
         json: bool,
@@ -309,20 +309,20 @@ fn main() -> anyhow::Result<()> {
             );
         }
         Command::Organize { json } => {
-            let report = engine::organize::consolidation_clusters(&wiki_dir)?;
+            let report = engine::organize::consolidation_candidates(&wiki_dir)?;
             if json {
                 println!(
                     "{}",
                     serde_json::to_string_pretty(&report).map_err(|e| anyhow::anyhow!(e))?
                 );
-            } else if report.clusters.is_empty() {
+            } else if report.candidates.is_empty() {
                 println!(
                     "no consolidation candidates ({} page(s) scanned)",
                     report.pages_scanned
                 );
             } else {
-                for c in &report.clusters {
-                    println!("{} page(s): {}", c.pages.len(), c.pages.join(", "));
+                for c in &report.candidates {
+                    println!("{} and {}", c.pages[0], c.pages[1]);
                     println!("   shared evidence: {}", c.shared_files.join(", "));
                     println!("   {}", c.suggestion);
                 }

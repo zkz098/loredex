@@ -44,7 +44,7 @@ pub use links::{LinkReport, LinkSuggestion};
 pub use lint::{lint, lint_with, LintIssue};
 pub use modules::{discover as discover_modules, discover_with, ModuleInfo};
 pub use organize::{
-    consolidation_clusters, overlap_pairs, ConsolidationCandidate, OrganizeReport, Overlap,
+    consolidation_candidates, overlap_pairs, ConsolidationCandidate, OrganizeReport, Overlap,
 };
 pub use plan::{
     close_run, compute_tasks, compute_tasks_with, load_ledger, mark_task, mark_tasks,

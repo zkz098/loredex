@@ -5,7 +5,7 @@
 use git2::{Repository, Signature};
 use loredex_core::Status;
 use loredex_engine::{
-    consolidation_clusters, find_page, lint_with, note_page, open_plan, playbook_registry,
+    consolidation_candidates, find_page, lint_with, note_page, open_plan, playbook_registry,
     put_page, TaskKind, TaskStatus,
 };
 use loredex_git::GitRepo;
@@ -301,9 +301,9 @@ fn overlapping_evidence_is_advisory_and_linking_silences_it() {
     // the same suppression applies to the consolidation report: a declared
     // division of labor is not an open work item
     assert!(
-        consolidation_clusters(&fx.wiki())
+        consolidation_candidates(&fx.wiki())
             .unwrap()
-            .clusters
+            .candidates
             .iter()
             .all(|c| !(c.pages.contains(&"note-a".to_string())
                 && c.pages.contains(&"note-b".to_string()))),
@@ -320,7 +320,7 @@ fn overlapping_evidence_is_advisory_and_linking_silences_it() {
 }
 
 #[test]
-fn organize_clusters_pages_sharing_evidence() {
+fn organize_names_the_pair_sharing_evidence() {
     let fx = Fx::new(&[("src.rs", SRC), ("other.rs", "fn c() {}\n")]);
     for (id, path) in [("core", "src.rs"), ("notes-on-core", "src.rs")] {
         put_page(
@@ -345,9 +345,9 @@ fn organize_clusters_pages_sharing_evidence() {
     )
     .unwrap();
 
-    let report = consolidation_clusters(&fx.wiki()).unwrap();
-    assert_eq!(report.clusters.len(), 1, "{:?}", report.clusters);
-    let c = &report.clusters[0];
+    let report = consolidation_candidates(&fx.wiki()).unwrap();
+    assert_eq!(report.candidates.len(), 1, "{:?}", report.candidates);
+    let c = &report.candidates[0];
     assert_eq!(c.pages, vec!["core", "notes-on-core"]);
     assert_eq!(c.shared_files, vec!["src.rs"]);
     assert!(c.suggestion.contains("core"));
@@ -370,11 +370,12 @@ fn organize_chains_pages_sharing_different_files() {
             .collect();
         put_page(&fx.repo, &fx.wiki(), id, id, &body, vec![], None).unwrap();
     }
-    let report = consolidation_clusters(&fx.wiki()).unwrap();
-    assert_eq!(report.clusters.len(), 1, "{:?}", report.clusters);
-    let c = &report.clusters[0];
-    assert_eq!(c.pages, vec!["a", "b", "c"]);
-    assert_eq!(c.shared_files, vec!["other.rs", "src.rs"]);
+    let report = consolidation_candidates(&fx.wiki()).unwrap();
+    // overlap is not transitive: a-b and b-c are two separate items, never a
+    // three-page "cluster" that merges things which do not coincide
+    assert_eq!(report.candidates.len(), 2, "{:?}", report.candidates);
+    assert_eq!(report.candidates[0].pages, vec!["a", "b"]);
+    assert_eq!(report.candidates[1].pages, vec!["b", "c"]);
 }
 
 #[test]
@@ -417,9 +418,9 @@ fn overlap_requires_most_of_the_smaller_page_to_coincide() {
         !issues.iter().any(|i| i.kind == "overlapping-evidence"),
         "{issues:?}"
     );
-    assert!(consolidation_clusters(&fx.wiki())
+    assert!(consolidation_candidates(&fx.wiki())
         .unwrap()
-        .clusters
+        .candidates
         .is_empty());
 
     // a page covering the same three files as `focused` is a real duplicate
@@ -433,11 +434,11 @@ fn overlap_requires_most_of_the_smaller_page_to_coincide() {
         Some("rule".into()),
     )
     .unwrap();
-    let report = consolidation_clusters(&fx.wiki()).unwrap();
-    assert_eq!(report.clusters.len(), 1, "{:?}", report.clusters);
-    assert_eq!(report.clusters[0].pages, vec!["focused", "twin"]);
+    let report = consolidation_candidates(&fx.wiki()).unwrap();
+    assert_eq!(report.candidates.len(), 1, "{:?}", report.candidates);
+    assert_eq!(report.candidates[0].pages, vec!["focused", "twin"]);
     assert_eq!(
-        report.clusters[0].shared_files,
+        report.candidates[0].shared_files,
         vec!["core.rs", "e.rs", "f.rs"]
     );
 }

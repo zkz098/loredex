@@ -1,14 +1,16 @@
 //! Consolidation analysis over recorded evidence: which pages describe the
 //! same thing twice. Computed from the frontmatter pins rather than prose
-//! heuristics, and consumed by two surfaces — `loredex organize` groups the
-//! pairs into clusters, `loredex lint` names them as advisory findings.
+//! heuristics, and consumed by two surfaces — `loredex organize` lists the
+//! pairs as work items, `loredex lint` names them as advisory findings.
 //!
-//! The interesting threshold is *how much* of two pages coincides. Two pages
-//! that both touch a hot core file are normally describing different aspects
-//! of it; only when the shared files make up most of the smaller page does
-//! duplication become the likelier reading.
+//! Two judgements keep this useful instead of noisy. The interesting threshold
+//! is *how much* of two pages coincides: two pages that both touch a hot core
+//! file are normally describing different aspects of it, so only an overlap
+//! covering most of the smaller page reads as duplication. And the unit is the
+//! *pair*, never a transitive cluster — overlap is not transitive, so chaining
+//! pairs collapses a whole wiki into one fake task.
 
-use std::collections::{BTreeMap, BTreeSet};
+use std::collections::BTreeSet;
 use std::path::Path;
 
 use loredex_core::{Status, WikiPage};
@@ -30,9 +32,9 @@ pub struct Overlap {
 
 #[derive(Debug, Clone, Serialize)]
 pub struct ConsolidationCandidate {
-    /// page ids in the cluster, sorted
+    /// the two page ids, sorted
     pub pages: Vec<String>,
-    /// evidence files binding at least one qualifying pair of the cluster
+    /// evidence files the pair pins in common
     pub shared_files: Vec<String>,
     pub suggestion: String,
 }
@@ -40,7 +42,7 @@ pub struct ConsolidationCandidate {
 #[derive(Debug, Clone, Serialize)]
 pub struct OrganizeReport {
     pub pages_scanned: usize,
-    pub clusters: Vec<ConsolidationCandidate>,
+    pub candidates: Vec<ConsolidationCandidate>,
     pub hint: String,
 }
 
@@ -88,81 +90,55 @@ pub fn overlap_pairs(pages: &[WikiPage]) -> Vec<Overlap> {
     out
 }
 
-/// Connected components of the overlap graph: a page pair is a duplicate
-/// signal, and pages chained by such pairs are one consolidation job.
-pub fn consolidation_clusters(wiki_dir: &Path) -> Result<OrganizeReport> {
+/// The same pairs as a worklist, strongest overlap first.
+pub fn consolidation_candidates(wiki_dir: &Path) -> Result<OrganizeReport> {
     let pages = load_pages(wiki_dir)?;
     let locale = crate::config::locale(wiki_dir);
-    let pairs = overlap_pairs(&pages);
     let scanned = pages
         .iter()
         .filter(|p| !crate::index::is_generated(&p.meta.id) && p.meta.status != Status::Draft)
         .count();
 
-    let mut adj: BTreeMap<&str, Vec<&str>> = BTreeMap::new();
-    for o in &pairs {
-        adj.entry(o.a.as_str()).or_default().push(o.b.as_str());
-        adj.entry(o.b.as_str()).or_default().push(o.a.as_str());
-    }
-
-    let mut seen: BTreeSet<&str> = BTreeSet::new();
-    let mut out = Vec::new();
-    for start in adj.keys() {
-        if !seen.insert(start) {
-            continue;
-        }
-        let mut stack = vec![*start];
-        let mut comp: BTreeSet<&str> = BTreeSet::new();
-        while let Some(x) = stack.pop() {
-            comp.insert(x);
-            for n in adj.get(x).map(Vec::as_slice).unwrap_or_default() {
-                if seen.insert(n) {
-                    stack.push(n);
-                }
+    let mut candidates: Vec<ConsolidationCandidate> = overlap_pairs(&pages)
+        .into_iter()
+        .map(|o| {
+            let mut ids = vec![o.a, o.b];
+            ids.sort();
+            let shared_files = o.shared;
+            let count = shared_files.len();
+            ConsolidationCandidate {
+                suggestion: suggestion(&ids, count, locale),
+                pages: ids,
+                shared_files,
             }
-        }
-        if comp.len() < 2 {
-            continue;
-        }
-        let mut shared_files: BTreeSet<&str> = BTreeSet::new();
-        for o in &pairs {
-            if comp.contains(o.a.as_str()) && comp.contains(o.b.as_str()) {
-                shared_files.extend(o.shared.iter().map(String::as_str));
-            }
-        }
-        let ids: Vec<String> = comp.iter().map(|s| s.to_string()).collect();
-        out.push(ConsolidationCandidate {
-            suggestion: suggestion(&ids, locale),
-            pages: ids,
-            shared_files: shared_files.iter().map(|s| s.to_string()).collect(),
-        });
-    }
-    out.sort_by(|a, b| {
-        b.pages
+        })
+        .collect();
+    candidates.sort_by(|a, b| {
+        b.shared_files
             .len()
-            .cmp(&a.pages.len())
-            .then(a.pages.join(",").cmp(&b.pages.join(",")))
+            .cmp(&a.shared_files.len())
+            .then_with(|| a.pages.cmp(&b.pages))
     });
 
     Ok(OrganizeReport {
         pages_scanned: scanned,
-        clusters: out,
+        candidates,
         hint: match locale {
-            Locale::En => "one owner per claim: merge the cluster into a single page and cross-link the survivors with [[wiki:id]]; `loredex links` ranks the links worth adding".into(),
-            Locale::Zh => "同一条论断只留一个出处:把簇合并成单页,幸存页面用 [[wiki:id]] 互链;该链哪些由 `loredex links` 排序给出".into(),
+            Locale::En => "one owner per claim: merge the pair into a single page, or split their responsibilities and cross-link them".into(),
+            Locale::Zh => "同一条论断只留一个出处:要么合并成一页,要么明确分工后互链".into(),
         },
     })
 }
 
-fn suggestion(pages: &[String], locale: Locale) -> String {
+fn suggestion(pages: &[String], shared: usize, locale: Locale) -> String {
     match locale {
         Locale::En => format!(
-            "{} describe the same evidence; consolidate into one page or link them",
-            pages.join(", ")
+            "{} pin the same {shared} file(s); merge them or link them to declare the split",
+            pages.join(" and ")
         ),
         Locale::Zh => format!(
-            "{} 覆盖了相同证据;合并为一页,或明确分工后互链",
-            pages.join("、")
+            "{} 覆盖了相同的 {shared} 个证据文件;合并为一页,或明确分工后互链",
+            pages.join(" 与 ")
         ),
     }
 }

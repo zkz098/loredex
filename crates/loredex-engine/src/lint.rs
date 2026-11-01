@@ -147,8 +147,8 @@ pub fn lint_with(view: &GitView, wiki_dir: &Path) -> Result<Vec<LintIssue>> {
 
     // 5. duplicated coverage: pages whose evidence sets substantially coincide
     //    without linking each other. Advisory — the maintainer decides whether
-    //    to merge or to split responsibilities; `loredex organize` shows the
-    //    same pairs grouped into clusters.
+    //    to merge or to split responsibilities; `loredex organize` lists the
+    //    same pairs as merge-or-link work items.
     for o in crate::organize::overlap_pairs(&pages) {
         let (a, b) = (o.a, o.b);
         issues.push(LintIssue {

@@ -34,7 +34,7 @@ snippets are line-projected onto the new revision and stay verified; lost ones \
 must be rewritten via wiki_put_page. To scope damage to a branch or commit \
 range before merging, call wiki_diff_since with that ref. \
 wiki_link_suggestions proposes [[wiki:id]] cross-links worth adding, and \
-wiki_organize clusters pages that pin the same evidence so duplicated notes and \
+wiki_organize names the page pairs that pin the same evidence so duplicated notes and \
 rules get consolidated instead of accreting.
 4. wiki_get_evidence resolves one citation to the file content at current git \
 HEAD, so you can audit claims without opening the repo yourself.
@@ -1072,7 +1072,7 @@ impl WikiServer {
 
     #[tool(
         name = "wiki_organize",
-        description = "Consolidation report over recorded evidence: clusters pages that pin the same source files (the drift-duplication candidates that accumulate as notes/rules grow). Advisory — each cluster says whether to merge into one page or split responsibilities and cross-link with [[wiki:id]]. Draft pages are excluded until wiki_plan backfills their citations."
+        description = "Consolidation worklist over recorded evidence: page PAIRS that pin substantially the same source files — the drift-duplication candidates that accumulate as notes/rules grow. Overlap is reported per pair, never chained into clusters, because a pair already cross-linking is a declared division of labor. Advisory; draft pages are excluded until wiki_plan backfills their citations."
     )]
     async fn wiki_organize(
         &self,
@@ -1081,7 +1081,7 @@ impl WikiServer {
         let _gate = self.gate.read().await;
         let out = self
             .with_repo(&peer, move |repo| {
-                let report = engine::organize::consolidation_clusters(&repo.wiki_dir())
+                let report = engine::organize::consolidation_candidates(&repo.wiki_dir())
                     .map_err(Self::err)?;
                 serde_json::to_value(report).map_err(|e| Self::err(e.to_string()))
             })

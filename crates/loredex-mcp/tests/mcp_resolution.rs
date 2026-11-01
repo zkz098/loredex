@@ -587,7 +587,7 @@ async fn wiki_auto_over_protocol() {
 }
 
 #[tokio::test]
-async fn wiki_note_capture_promotes_and_organize_clusters() {
+async fn wiki_note_capture_promotes_and_organize_reports() {
     let _g = ENV_LOCK.lock().await;
     let fx = Fixture::new();
     std::env::remove_var("LOREDEX_REPO");
@@ -643,7 +643,7 @@ async fn wiki_note_capture_promotes_and_organize_clusters() {
     );
     assert_eq!(promoted["status"], serde_json::json!("verified"));
 
-    // two verified pages over the same evidence become one consolidation cluster
+    // two verified pages over the same evidence become a consolidation item
     call(
         &client,
         "wiki_put_page",
@@ -656,8 +656,11 @@ async fn wiki_note_capture_promotes_and_organize_clusters() {
     )
     .await;
     let org = structured(&call(&client, "wiki_organize", serde_json::json!({})).await);
-    let clusters = org["clusters"].as_array().unwrap();
-    assert_eq!(clusters.len(), 1, "{org}");
-    assert_eq!(clusters[0]["pages"].as_array().unwrap().len(), 2);
-    assert_eq!(clusters[0]["shared_files"][0], serde_json::json!("lib.rs"));
+    let candidates = org["candidates"].as_array().unwrap();
+    assert_eq!(candidates.len(), 1, "{org}");
+    assert_eq!(candidates[0]["pages"].as_array().unwrap().len(), 2);
+    assert_eq!(
+        candidates[0]["shared_files"][0],
+        serde_json::json!("lib.rs")
+    );
 }
