@@ -2,8 +2,8 @@
 id: quickstart
 title: Wiki quickstart
 status: verified
-generated_at: 2026-11-01T03:15:36Z
-commit: d0155cf4e48bdf51a9efb9b1cfbaf21320314f23
+generated_at: 2026-11-01T03:20:27Z
+commit: 28096161c173a87ea8e68061fb3994b1937f1847
 evidence: []
 tags:
 - generated
@@ -26,6 +26,10 @@ Generated navigation, not evidence-backed. Full catalog: [[wiki:index]].
 1. [[wiki:engine-freshness]] — loredex-engine: staleness, verification, drift projection
 1. [[wiki:entry-mcp-cli]] — Entry layer: MCP server and CLI
 1. [[wiki:git-layer]] — loredex-git: read-only git wrapper
+
+### testing
+
+1. [[wiki:testing-gates]] — Test and CI layers
 
 ### rule
 
