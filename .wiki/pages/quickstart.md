@@ -2,8 +2,8 @@
 id: quickstart
 title: Wiki quickstart
 status: verified
-generated_at: 2026-11-01T03:20:27Z
-commit: 28096161c173a87ea8e68061fb3994b1937f1847
+generated_at: 2026-11-01T03:31:30Z
+commit: d43a1b59b393a2bf4ccd67984e1bbf430d256db0
 evidence: []
 tags:
 - generated
@@ -18,6 +18,7 @@ Generated navigation, not evidence-backed. Full catalog: [[wiki:index]].
 ### architecture
 
 1. [[wiki:architecture]] — Architecture
+1. [[wiki:crates-packaging]] — Crate packaging: one release train, five units
 1. [[wiki:repo-root]] — Repository root and engineering
 
 ### system
