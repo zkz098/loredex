@@ -539,3 +539,37 @@ fn auto_resolves_recovered_refresh_tasks() {
         "auto must resolve the recovered page's task in its batch mark"
     );
 }
+
+#[test]
+fn carried_new_task_retires_when_another_page_covers_its_seeds() {
+    // A New task claims "this module is undocumented", not "a page with the
+    // suggested id must exist": authoring under any id closes it, otherwise the
+    // worklist resurrects on every run and `auto` can never report clean.
+    let fx = Fx::new(&[("src.rs", SRC)]);
+    let run1 = open_plan(&fx.repo, &fx.wiki()).unwrap();
+    let new = run1
+        .tasks
+        .iter()
+        .find(|t| t.kind == TaskKind::New)
+        .expect("uncovered src.rs");
+    let suggested = new.page_id.clone();
+    assert!(new.seeds.contains(&"src.rs".to_string()));
+
+    put_page(
+        &fx.repo,
+        &fx.wiki(),
+        "notes-on-src",
+        "Notes on src",
+        "src.rs holds two functions [[cite:src.rs:L1-L5]]",
+        vec![],
+        Some("system".into()),
+    )
+    .unwrap();
+
+    let run2 = open_plan(&fx.repo, &fx.wiki()).unwrap();
+    assert!(
+        !run2.tasks.iter().any(|t| t.page_id == suggested),
+        "covered module must not carry over: {:?}",
+        run2.tasks.iter().map(|t| &t.page_id).collect::<Vec<_>>()
+    );
+}

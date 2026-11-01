@@ -117,6 +117,15 @@ pub fn compute_tasks(repo: &GitRepo, wiki_dir: &Path) -> Result<Vec<PlanTask>> {
 }
 
 pub fn compute_tasks_with(view: &GitView, wiki_dir: &Path) -> Result<Vec<PlanTask>> {
+    compute_tasks_detail(view, wiki_dir).map(|(tasks, _)| tasks)
+}
+
+/// Tasks plus the set of files the wiki already cites: the caller that merges
+/// carried work needs coverage to decide what is still open.
+fn compute_tasks_detail(
+    view: &GitView,
+    wiki_dir: &Path,
+) -> Result<(Vec<PlanTask>, BTreeSet<String>)> {
     let mut tasks = Vec::new();
     let reg = playbook::registry(wiki_dir);
     let locale = crate::config::locale(wiki_dir);
@@ -225,7 +234,7 @@ pub fn compute_tasks_with(view: &GitView, wiki_dir: &Path) -> Result<Vec<PlanTas
             });
         }
     }
-    Ok(tasks)
+    Ok((tasks, cited))
 }
 
 /// Derive a valid page id suggestion from a module/group name.
@@ -264,7 +273,7 @@ pub fn plan_with(repo: &GitRepo, wiki_dir: &Path, reset: bool) -> Result<RunReco
 
 pub fn plan_with_view(view: &GitView, wiki_dir: &Path, reset: bool) -> Result<RunRecord> {
     let mut ledger = load_ledger(wiki_dir);
-    let fresh = compute_tasks_with(view, wiki_dir)?;
+    let (fresh, cited) = compute_tasks_detail(view, wiki_dir)?;
 
     let prev = ledger.runs.last();
     // resolutions are remembered across the whole ledger, not just the last run
@@ -279,11 +288,21 @@ pub fn plan_with_view(view: &GitView, wiki_dir: &Path, reset: bool) -> Result<Ru
             .map(|t| t.page_id.clone())
             .collect()
     };
+    // A pending New task is *interrupted work*, so it survives a run boundary —
+    // but it is a claim about coverage, not about a page id. Once any page cites
+    // its seed files the module is documented, and carrying it on would make the
+    // worklist resurrect forever (the suggested id and the id actually authored
+    // rarely agree).
     let carried: Vec<PlanTask> = prev
         .map(|r| {
             r.tasks
                 .iter()
                 .filter(|t| t.status == TaskStatus::Pending)
+                .filter(|t| {
+                    !(t.kind == TaskKind::New
+                        && !t.seeds.is_empty()
+                        && t.seeds.iter().all(|s| cited.contains(s)))
+                })
                 .cloned()
                 .collect()
         })
