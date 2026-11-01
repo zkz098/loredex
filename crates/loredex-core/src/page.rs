@@ -114,10 +114,18 @@ impl WikiPage {
 
     pub fn save(&self, path: &Path) -> Result<()> {
         let md = self.to_markdown()?;
-        // atomic write: temp file + rename
+        // Atomic write: temp file + rename. The temp name must be unique per
+        // process (and per call) or two concurrent writers would share one
+        // staging file and interleave their bytes.
+        let nonce = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map(|d| d.as_nanos())
+            .unwrap_or(0);
         let tmp = path.with_file_name(format!(
-            ".{}.tmp",
-            path.file_name().unwrap().to_string_lossy().into_owned()
+            ".{}.{}.{}.tmp",
+            path.file_name().unwrap().to_string_lossy(),
+            std::process::id(),
+            nonce
         ));
         std::fs::write(&tmp, md)?;
         std::fs::rename(&tmp, path)?;

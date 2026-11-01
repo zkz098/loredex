@@ -21,7 +21,9 @@ Tools (all return structured `structuredContent`, e.g. `stale_now`, `matches_hea
 | `wiki_search` | Tokenized search (camelCase, snake_case, CJK bigrams, prefix) |
 | `wiki_get_evidence` | Expand one citation to the actual file content at HEAD |
 | `wiki_list_modules` | Discover authoring targets with citation coverage |
-| `wiki_put_page` | Store agent-authored content (zero citations = rejected) |
+| `wiki_put_page` | Store agent-authored content (zero citations = rejected); `if_match`/`if_absent` guard concurrent writes |
+| `wiki_context_pack` | Token-budgeted module context: verified pages + deduplicated HEAD snippets, stale/draft skipped |
+| `wiki_claim_tasks` | Lease pending plan tasks to one agent with an expiring deadline |
 | `wiki_refresh_page` | Drift-projection refresh with per-citation outcomes |
 | `wiki_attach_repo` / `wiki_current_repo` | Attach/switch repository, introspect resolution |
 | `wiki_plan` / `wiki_mark_task` | Open/resume the generation run, resolve tasks |

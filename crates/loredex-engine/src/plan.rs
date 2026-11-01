@@ -9,7 +9,7 @@
 //! keep their resolution state; their authoring payload is compacted once the
 //! run is superseded so the committed ledger stays small.
 
-use std::collections::BTreeSet;
+use std::collections::{BTreeMap, BTreeSet};
 use std::path::Path;
 
 use loredex_core::WikiError;
@@ -17,7 +17,8 @@ use loredex_git::{GitRepo, GitView};
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    check_page_with, discover_with, index::is_generated, load_pages, now_iso, playbook, Result,
+    check_page_with, discover_with, index::is_generated, iso_at, load_pages, now_epoch, now_iso,
+    playbook, Result,
 };
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -56,6 +57,16 @@ pub struct PlanTask {
     /// playbook-derived authoring instructions for producer agents
     #[serde(default, skip_serializing_if = "String::is_empty")]
     pub instructions: String,
+    /// agent that leased this task (multi-agent coordination). A claim is
+    /// advisory: it only prevents `claim_tasks` from handing the same work to
+    /// a second agent; authoring the page still resolves the task.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub claimed_by: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub claimed_at: Option<String>,
+    /// ISO-8601 deadline after which another agent may reclaim the task.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub lease_until: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -73,6 +84,9 @@ pub struct RunLedger {
     pub schema: u32,
     pub runs: Vec<RunRecord>,
 }
+
+/// (claimed_by, claimed_at, lease_until) carried across plan runs.
+type ClaimState = (Option<String>, Option<String>, Option<String>);
 
 pub fn runs_path(wiki_dir: &Path) -> std::path::PathBuf {
     wiki_dir.join("runs.json")
@@ -93,7 +107,16 @@ fn save_ledger(wiki_dir: &Path, ledger: &RunLedger) -> Result<()> {
     // Compact JSON: the ledger is committed to git and rewritten on every
     // put/refresh/plan, so pretty-printing only adds I/O and review noise.
     let text = serde_json::to_string(ledger).map_err(|e| WikiError::Git(e.to_string()))?;
-    std::fs::write(runs_path(wiki_dir), text).map_err(WikiError::Io)
+    let path = runs_path(wiki_dir);
+    // Unique temp per process/call: writers are serialized by the ledger lock,
+    // but a crash-interrupted write must never become a half-written runs.json.
+    let nonce = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|d| d.as_nanos())
+        .unwrap_or(0);
+    let tmp = path.with_file_name(format!("runs.json.{}.{}.tmp", std::process::id(), nonce));
+    std::fs::write(&tmp, text).map_err(WikiError::Io)?;
+    std::fs::rename(&tmp, &path).map_err(WikiError::Io)
 }
 
 /// Resolved tasks only contribute resolution state to future plans; their
@@ -106,6 +129,9 @@ fn compact_resolved_tasks(run: &mut RunRecord) {
             t.seeds.clear();
             t.suggested_type.clear();
             t.instructions.clear();
+            t.claimed_by = None;
+            t.claimed_at = None;
+            t.lease_until = None;
         }
     }
 }
@@ -162,6 +188,9 @@ fn compute_tasks_detail(
                 purpose: format!("page status is `{}`", p.meta.status.as_str()),
                 seeds: p.meta.evidence.iter().map(|e| e.path.clone()).collect(),
                 status: TaskStatus::Pending,
+                claimed_by: None,
+                claimed_at: None,
+                lease_until: None,
             });
             continue;
         }
@@ -183,6 +212,9 @@ fn compute_tasks_detail(
                 purpose: format!("evidence stale — {why}"),
                 seeds: p.meta.evidence.iter().map(|e| e.path.clone()).collect(),
                 status: TaskStatus::Pending,
+                claimed_by: None,
+                claimed_at: None,
+                lease_until: None,
             });
         }
     }
@@ -231,6 +263,9 @@ fn compute_tasks_detail(
                 ),
                 seeds,
                 status: TaskStatus::Pending,
+                claimed_by: None,
+                claimed_at: None,
+                lease_until: None,
             });
         }
     }
@@ -272,8 +307,11 @@ pub fn plan_with(repo: &GitRepo, wiki_dir: &Path, reset: bool) -> Result<RunReco
 }
 
 pub fn plan_with_view(view: &GitView, wiki_dir: &Path, reset: bool) -> Result<RunRecord> {
-    let mut ledger = load_ledger(wiki_dir);
     let (fresh, cited) = compute_tasks_detail(view, wiki_dir)?;
+    // Planning is a read-modify-write over the shared ledger. The scan above is
+    // the slow part, so take the lock only for the load/merge/save section.
+    let _lock = crate::lock::FileLock::ledger(wiki_dir)?;
+    let mut ledger = load_ledger(wiki_dir);
 
     let prev = ledger.runs.last();
     // resolutions are remembered across the whole ledger, not just the last run
@@ -317,6 +355,29 @@ pub fn plan_with_view(view: &GitView, wiki_dir: &Path, reset: bool) -> Result<Ru
         }
         if seen.insert(t.page_id.clone()) {
             tasks.push(t.clone());
+        }
+    }
+    // Fresh tasks shadow carried ones, so a claim made between two `plan`
+    // invocations would be lost without this transfer.
+    let claims: BTreeMap<String, ClaimState> = carried
+        .iter()
+        .filter(|t| t.claimed_by.is_some())
+        .map(|t| {
+            (
+                t.page_id.clone(),
+                (
+                    t.claimed_by.clone(),
+                    t.claimed_at.clone(),
+                    t.lease_until.clone(),
+                ),
+            )
+        })
+        .collect();
+    for t in &mut tasks {
+        if let Some((by, at, until)) = claims.get(&t.page_id) {
+            t.claimed_by = by.clone();
+            t.claimed_at = at.clone();
+            t.lease_until = until.clone();
         }
     }
 
@@ -372,12 +433,16 @@ where
     if ids.is_empty() {
         return Ok(());
     }
+    let _lock = crate::lock::FileLock::ledger(wiki_dir)?;
     let mut ledger = load_ledger(wiki_dir);
     let mut changed = false;
     if let Some(run) = ledger.runs.iter_mut().rev().find(|r| r.status == "active") {
         for t in &mut run.tasks {
             if t.status == TaskStatus::Pending && ids.contains(t.page_id.as_str()) {
                 t.status = status;
+                t.claimed_by = None;
+                t.claimed_at = None;
+                t.lease_until = None;
                 changed = true;
             }
         }
@@ -388,8 +453,61 @@ where
     Ok(())
 }
 
+/// Lease pending tasks to one agent. A task is claimable when it is pending
+/// and either unclaimed, already claimed by the same agent, or its lease has
+/// expired. Claims are stored in the ledger so separate MCP servers and CLI
+/// invocations see them; an expired lease frees the task for another agent.
+pub fn claim_tasks(
+    wiki_dir: &Path,
+    agent: &str,
+    limit: usize,
+    ttl_secs: u64,
+) -> Result<Vec<PlanTask>> {
+    let agent = agent.trim();
+    if agent.is_empty() {
+        return Err(WikiError::Conflict("agent id must not be empty".into()));
+    }
+    let ttl_secs = ttl_secs.min(86_400);
+    let _lock = crate::lock::FileLock::ledger(wiki_dir)?;
+    let mut ledger = load_ledger(wiki_dir);
+    let now = now_iso();
+    let lease_until = iso_at(now_epoch() + ttl_secs);
+    let Some(run) = ledger.runs.iter_mut().rev().find(|r| r.status == "active") else {
+        return Err(WikiError::Conflict(
+            "no active plan run; run `plan` before claiming tasks".into(),
+        ));
+    };
+    let mut claimed = Vec::new();
+    for t in &mut run.tasks {
+        if claimed.len() >= limit {
+            break;
+        }
+        if t.status != TaskStatus::Pending {
+            continue;
+        }
+        let free = match (t.claimed_by.as_deref(), t.lease_until.as_deref()) {
+            (None, _) => true,
+            (Some(owner), _) if owner == agent => true,
+            (Some(_), Some(until)) => until <= now.as_str(),
+            (Some(_), None) => true,
+        };
+        if !free {
+            continue;
+        }
+        t.claimed_by = Some(agent.to_string());
+        t.claimed_at = Some(now.clone());
+        t.lease_until = Some(lease_until.clone());
+        claimed.push(t.clone());
+    }
+    if !claimed.is_empty() {
+        save_ledger(wiki_dir, &ledger)?;
+    }
+    Ok(claimed)
+}
+
 /// Close the active run (nothing more will be carried).
 pub fn close_run(wiki_dir: &Path) -> Result<Option<String>> {
+    let _lock = crate::lock::FileLock::ledger(wiki_dir)?;
     let mut ledger = load_ledger(wiki_dir);
     if let Some(run) = ledger.runs.iter_mut().rev().find(|r| r.status == "active") {
         run.status = "closed".into();

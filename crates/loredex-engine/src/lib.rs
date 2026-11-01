@@ -16,8 +16,10 @@ pub mod import;
 pub mod index;
 pub mod links;
 pub mod lint;
+pub mod lock;
 pub mod modules;
 pub mod organize;
+pub mod pack;
 pub mod plan;
 pub mod playbook;
 pub mod put;
@@ -46,13 +48,16 @@ pub use modules::{discover as discover_modules, discover_with, ModuleInfo};
 pub use organize::{
     consolidation_candidates, overlap_pairs, ConsolidationCandidate, OrganizeReport, Overlap,
 };
+pub use pack::{context_pack, estimate_tokens, ContextPack, PackEvidence, PackOptions, PackPage};
 pub use plan::{
-    close_run, compute_tasks, compute_tasks_with, load_ledger, mark_task, mark_tasks,
+    claim_tasks, close_run, compute_tasks, compute_tasks_with, load_ledger, mark_task, mark_tasks,
     plan as open_plan, plan_with, plan_with_view, PlanTask, RunLedger, RunRecord, TaskKind,
     TaskStatus,
 };
 pub use playbook::{registry as playbook_registry, TypePlaybook};
-pub use put::{note_page, put_page, put_page_with, PutOptions, PutOutcome};
+pub use put::{
+    note_page, note_page_with, put_page, put_page_with, PageExpectation, PutOptions, PutOutcome,
+};
 pub use redact::{mask_line, scan_lines, Finding as SecretFinding};
 
 pub type Result<T> = std::result::Result<T, WikiError>;
@@ -64,11 +69,19 @@ pub fn sha1_hex(data: &[u8]) -> String {
 }
 
 pub fn now_iso() -> String {
-    let secs = std::time::SystemTime::now()
+    iso_at(now_epoch())
+}
+
+pub fn now_epoch() -> u64 {
+    std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
         .map(|d| d.as_secs())
-        .unwrap_or(0);
-    // ISO-8601 UTC without pulling in a datetime crate: days -> y/m/d via civil algorithm.
+        .unwrap_or(0)
+}
+
+/// Render an epoch-second timestamp in the same lexical ISO-8601 UTC format
+/// as `now_iso`, so lease deadlines compare correctly as strings.
+pub fn iso_at(secs: u64) -> String {
     let (y, mo, d, h, mi, s) = civil_from_days(secs as i64 / 86400, secs % 86400);
     format!("{y:04}-{mo:02}-{d:02}T{h:02}:{mi:02}:{s:02}Z")
 }
@@ -135,6 +148,16 @@ pub fn find_page(wiki_dir: &Path, id: &str) -> Result<WikiPage> {
         WikiPage::load(&path)
     } else {
         Err(WikiError::PageNotFound(id.to_string()))
+    }
+}
+
+/// Content digest of a page file, used as the optimistic-concurrency token
+/// (`if_match`) for reads and writes. `None` means the page does not exist.
+pub fn page_sha1(path: &Path) -> Result<Option<String>> {
+    match std::fs::read(path) {
+        Ok(bytes) => Ok(Some(sha1_hex(&bytes))),
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(None),
+        Err(e) => Err(WikiError::Io(e)),
     }
 }
 

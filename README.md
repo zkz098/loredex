@@ -42,11 +42,14 @@ loredex init                   # creates .wiki/pages/ + wiki.toml (language sett
 loredex modules                # module discovery (cargo targets / directory groups)
 loredex evidence crates/foo --kw serve --kw auth   # citation drafts: pasteable [[cite:...]] windows, secret-masked previews
 loredex put core --title "Core layer" --body notes.md --type system   # citations hitting secret-shaped lines are rejected (--no-redact to override)
+loredex put core --title "Core layer" --body notes.md --if-match <page_sha1>   # reject a lost update: only write if the page is unchanged (`show core --sha1` returns the token)
 loredex list / show core / search "keyword"
 loredex check --mark           # staleness scan; non-zero exit = stale found (CI-friendly)
 loredex diff --since v0.1.4    # which pages' evidence a ref->HEAD change set touches (--json for PR bots, --fail-on-affected for gates)
 loredex links                  # suggest [[wiki:id]] cross-links from shared citations/module adjacency/text similarity (advisory)
 loredex plan [--json]          # generation worklist: uncovered modules (New) + stale pages (Refresh), persisted to .wiki/runs.json
+loredex claim --agent codex-1 --limit 1   # lease plan tasks across agents (expired leases are reclaimable)
+loredex pack crates/foo --budget-tokens 8000   # Context Pack: verified pages + their cited HEAD snippets, deduplicated and budget-trimmed
 loredex index                  # regenerate pages/index.md + pages/quickstart.md (typed reading path + agent protocol)
 loredex note retry-loop --title "Retry spins" --body notes.md --type troubleshooting   # uncited capture: lands as draft, plan queues the backfill
 loredex organize               # names page pairs pinning substantially the same evidence, to merge or cross-link (advisory)
@@ -104,10 +107,12 @@ The server advertises a behavioral contract at `initialize` (check freshness bef
 | `wiki_organize` | Page pairs pinning substantially the same evidence — the duplicated-note/rule worklist |
 | `wiki_list` / `wiki_read` | Page inventory / read a page (stale pages carry a warning) |
 | `wiki_search` | Tokenized search (camelCase, snake_case, CJK bigrams, prefix) |
+| `wiki_context_pack` | Token-budgeted context for one module: verified fresh pages + deduplicated HEAD snippets, stale/draft listed as skipped |
+| `wiki_claim_tasks` | Lease pending plan tasks to one agent so concurrent agents do not author the same page (expiring leases) |
 | `wiki_get_evidence` | Expand one citation to the actual file content at HEAD |
 | `wiki_list_modules` | Discover authoring targets with citation coverage |
 | `wiki_evidence_candidates` | Citation drafts: keyword-ranked `[[cite:...]]` windows with masked previews |
-| `wiki_put_page` | Store agent-authored content (zero citations = rejected; secret-cited ranges = rejected unless `allow_secret_citations`) |
+| `wiki_put_page` | Store agent-authored content (zero citations = rejected; secret-cited ranges = rejected unless `allow_secret_citations`); pass `if_match` from `wiki_read.page_sha1` to reject a concurrent overwrite, or `if_absent` to guard creation |
 | `wiki_refresh_page` | Drift projection refresh with per-citation outcomes |
 | `wiki_attach_repo` / `wiki_current_repo` | Attach/switch repository, introspect resolution |
 | `wiki_plan` / `wiki_mark_task` | Open/resume the generation run, resolve tasks (auto-completed by put/refresh) |
@@ -131,6 +136,7 @@ discover modules -> read source -> put_page (with citations) -> [code evolves] -
 - `loredex lint` belongs in CI; page ids support hierarchy (`architecture/overview`), `--type` labels the kind
 - `loredex agents-md` keeps a marked block (`<!-- BEGIN loredex -->`) in AGENTS.md/CLAUDE.md so agents entering the repo discover the wiki and its freshness protocol — only the marked region is ever rewritten; `loredex config --language zh` switches the locale of all generated skeleton text
 - `loredex import` migrates an existing openwiki / Google OKF bundle; the trust model survives the move — pages without resolvable citations land as `draft` and get backfilled via `plan`
+- Parallel agents coordinate without a server: `wiki_read`/`loredex show` return a page content sha1, and `if_match` turns a concurrent overwrite into a conflict instead of a lost update; `wiki_claim_tasks` / `loredex claim` lease plan tasks in `runs.json` (an expired lease is reclaimable, so a crashed agent does not wedge the worklist)
 
 ## Architecture
 
@@ -165,6 +171,7 @@ Key implementation details:
 - Content quality depends on the authoring agent — the tooling guarantees "cited and uncorrupted citations", not that an explanation is correct
 - CLI check/verify still load every page per command; the MCP server reuses its in-memory page/index cache, but a persistent on-disk index is not built — tens of thousands of pages would want one
 - Inline body markers are not rewritten by refresh projection (frontmatter is authoritative; `lint` detects the drift)
+- Context Pack token counts are a heuristic (≈4 ASCII chars or 1 non-ASCII char per token), not a model tokenizer; task claims are advisory leases, not a hard lock
 - For non-ASCII paths, set `core.quotePath=false`
 
 ## Roadmap
@@ -180,7 +187,7 @@ GNU GPL v3.0 or later (see [LICENSE](LICENSE)). Wiki data under `.wiki/` is unaf
 ## Development
 
 ```bash
-cargo nextest run --workspace          # 80 tests (unit + git-fixture integration + in-process MCP protocol)
+cargo nextest run --workspace          # 120 tests (unit + git-fixture integration + in-process MCP protocol)
 cargo llvm-cov nextest --workspace --summary-only   # coverage baseline (CI gates at 70% lines)
 cargo bench -p loredex-engine --bench scan -- --budget   # scan/index regression floor (CI gate)
 ```

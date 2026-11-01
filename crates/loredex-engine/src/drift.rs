@@ -341,6 +341,13 @@ fn refresh_page_with_drift_view_inner(
     wiki_dir: &std::path::Path,
     mark_done: bool,
 ) -> Result<Vec<(String, DriftOutcome)>> {
+    // Remember what the file looked like when the caller loaded it: refresh is
+    // a read-modify-write too, and another agent may have put a new body while
+    // projection was running.
+    let before = match page.source_path.as_deref() {
+        Some(path) => crate::page_sha1(path)?,
+        None => None,
+    };
     let mut outcomes = Vec::new();
     let mut evidence = Vec::new();
     let renames: Rc<BTreeMap<String, String>> = if view.commit_exists(&page.meta.commit) {
@@ -408,7 +415,19 @@ fn refresh_page_with_drift_view_inner(
     } else {
         loredex_core::Status::Verified
     };
-    page.save_in_place()?;
+    {
+        let _lock = crate::lock::FileLock::page(wiki_dir, &page.meta.id)?;
+        if let Some(path) = page.source_path.as_deref() {
+            let current = crate::page_sha1(path)?;
+            if current != before {
+                return Err(WikiError::Conflict(format!(
+                    "page `{}` changed while it was being refreshed; re-read and retry",
+                    page.meta.id
+                )));
+            }
+        }
+        page.save_in_place()?;
+    }
     // a successful refresh resolves a pending Refresh task
     if mark_done && !any_lost {
         let _ = crate::plan::mark_task(wiki_dir, &page.meta.id, crate::plan::TaskStatus::Done);

@@ -136,7 +136,7 @@ pub fn candidates(
     })
 }
 
-fn in_module(path: &str, module: &str) -> bool {
+pub(crate) fn in_module(path: &str, module: &str) -> bool {
     if module == "." {
         return true;
     }

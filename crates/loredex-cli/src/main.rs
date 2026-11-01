@@ -46,6 +46,12 @@ enum Command {
         /// Store citations even when the cited range matches a secret pattern
         #[arg(long)]
         no_redact: bool,
+        /// Only write if the page still has this content sha1 (from `show`/MCP read)
+        #[arg(long, conflicts_with = "if_absent")]
+        if_match: Option<String>,
+        /// Create only: fail when the page already exists
+        #[arg(long)]
+        if_absent: bool,
     },
     /// Capture an agent finding without citations: stored as an unverified
     /// draft page (with its markers pinned if it happens to carry them),
@@ -62,6 +68,12 @@ enum Command {
         /// Page kind, e.g. rule | troubleshooting | decision | note
         #[arg(long = "type")]
         page_type: Option<String>,
+        /// Only write if the page still has this content sha1 (from `show`/MCP read)
+        #[arg(long, conflicts_with = "if_absent")]
+        if_match: Option<String>,
+        /// Create only: fail when the page already exists
+        #[arg(long)]
+        if_absent: bool,
     },
     /// Consolidation worklist: page pairs whose evidence substantially
     /// overlaps, to merge or cross-link (advisory; never fails)
@@ -71,8 +83,13 @@ enum Command {
     },
     /// List pages with status
     List,
-    /// Print a page
-    Show { id: String },
+    /// Print a page (or just its content sha1 for `--if-match`)
+    Show {
+        id: String,
+        /// Print only the page file sha1, the token for `put --if-match`
+        #[arg(long)]
+        sha1: bool,
+    },
     /// Detect stale pages by comparing evidence blobs against git history
     Check {
         /// Write `status: stale` into affected page files
@@ -134,6 +151,36 @@ enum Command {
         /// Re-expose New tasks previously skipped/failed
         #[arg(long)]
         reset: bool,
+    },
+    /// Lease pending plan tasks to one agent (multi-agent coordination)
+    Claim {
+        /// Stable agent identifier, e.g. codex-1
+        #[arg(long)]
+        agent: String,
+        #[arg(long, default_value_t = 1)]
+        limit: usize,
+        /// Lease duration in seconds; expired leases are reclaimable
+        #[arg(long, default_value_t = 1800)]
+        ttl_seconds: u64,
+        #[arg(long)]
+        json: bool,
+    },
+    /// Build a token-budgeted context pack: verified pages for a module plus
+    /// the source snippets they cite
+    Pack {
+        /// Module name (see `loredex modules`) or '.', or a directory prefix
+        #[arg(default_value = ".")]
+        module: String,
+        #[arg(long, default_value_t = 8000)]
+        budget_tokens: usize,
+        /// Include stale pages (marked as unverified)
+        #[arg(long)]
+        include_stale: bool,
+        /// Include draft pages (marked as unverified)
+        #[arg(long)]
+        include_drafts: bool,
+        #[arg(long)]
+        json: bool,
     },
     /// Regenerate the navigation index page (.wiki/pages/index.md)
     Index,
@@ -206,6 +253,14 @@ fn open_repo(cli: &Cli) -> anyhow::Result<GitRepo> {
     Ok(GitRepo::discover(&root)?)
 }
 
+fn expected_page(if_match: Option<String>, if_absent: bool) -> Option<engine::PageExpectation> {
+    match (if_match, if_absent) {
+        (Some(sha), _) => Some(engine::PageExpectation::Sha1(sha)),
+        (None, true) => Some(engine::PageExpectation::Absent),
+        (None, false) => None,
+    }
+}
+
 fn main() -> anyhow::Result<()> {
     let cli = Cli::parse();
     let repo = open_repo(&cli)?;
@@ -241,6 +296,8 @@ fn main() -> anyhow::Result<()> {
             tag,
             page_type,
             no_redact,
+            if_match,
+            if_absent,
         } => {
             let body_text = if body == "-" {
                 let mut buf = String::new();
@@ -251,6 +308,7 @@ fn main() -> anyhow::Result<()> {
             };
             let opts = engine::PutOptions {
                 allow_secret_citations: no_redact,
+                expected: expected_page(if_match, if_absent),
                 ..Default::default()
             };
             let outcome = engine::put_page_with(
@@ -264,7 +322,7 @@ fn main() -> anyhow::Result<()> {
                 &opts,
             )?;
             println!(
-                "{} {}: {} evidence citation(s), pinned to HEAD {}",
+                "{} {}: {} evidence citation(s), pinned to HEAD {} (page sha1 {})",
                 if outcome.created {
                     "created"
                 } else {
@@ -272,7 +330,8 @@ fn main() -> anyhow::Result<()> {
                 },
                 outcome.page.meta.id,
                 outcome.citations,
-                repo.head_short()?
+                repo.head_short()?,
+                outcome.page_sha1
             );
         }
         Command::Note {
@@ -281,6 +340,8 @@ fn main() -> anyhow::Result<()> {
             body,
             tag,
             page_type,
+            if_match,
+            if_absent,
         } => {
             let body_text = if body == "-" {
                 let mut buf = String::new();
@@ -289,10 +350,18 @@ fn main() -> anyhow::Result<()> {
             } else {
                 std::fs::read_to_string(&body)?
             };
-            let outcome =
-                engine::note_page(&repo, &wiki_dir, &id, &title, &body_text, tag, page_type)?;
+            let outcome = engine::note_page_with(
+                &repo,
+                &wiki_dir,
+                &id,
+                &title,
+                &body_text,
+                tag,
+                page_type,
+                expected_page(if_match, if_absent),
+            )?;
             println!(
-                "{} {} as '{}' with {} citation(s){}",
+                "{} {} as '{}' with {} citation(s) (page sha1 {}){}",
                 if outcome.created {
                     "captured"
                 } else {
@@ -301,6 +370,7 @@ fn main() -> anyhow::Result<()> {
                 outcome.page.meta.id,
                 outcome.page.meta.status.as_str(),
                 outcome.citations,
+                outcome.page_sha1,
                 if outcome.page.meta.status == Status::Draft {
                     " — `loredex plan` queues it for citation backfill"
                 } else {
@@ -346,9 +416,20 @@ fn main() -> anyhow::Result<()> {
                 );
             }
         }
-        Command::Show { id } => {
+        Command::Show { id, sha1 } => {
             let page = engine::find_page(&wiki_dir, &id)?;
-            print!("{}", page.to_markdown()?);
+            if sha1 {
+                let digest = match &page.source_path {
+                    Some(path) => engine::page_sha1(path)?,
+                    None => None,
+                };
+                match digest {
+                    Some(d) => println!("{d}"),
+                    None => anyhow::bail!("page `{id}` has no source file"),
+                }
+            } else {
+                print!("{}", page.to_markdown()?);
+            }
         }
         Command::Check { mark } => {
             let pages = engine::load_pages(&wiki_dir)?;
@@ -601,8 +682,18 @@ fn main() -> anyhow::Result<()> {
                     run.tasks.len()
                 );
                 for t in &run.tasks {
+                    let claim = t
+                        .claimed_by
+                        .as_deref()
+                        .map(|a| {
+                            format!(
+                                " [claimed by {a} until {}]",
+                                t.lease_until.as_deref().unwrap_or("?")
+                            )
+                        })
+                        .unwrap_or_default();
                     println!(
-                        "  [{:?}] {:<24} {:?} — {}",
+                        "  [{:?}] {:<24} {:?}{claim} — {}",
                         t.status, t.page_id, t.kind, t.purpose
                     );
                     for seed in t.seeds.iter().take(4) {
@@ -611,6 +702,68 @@ fn main() -> anyhow::Result<()> {
                 }
                 if run.tasks.is_empty() {
                     println!("  wiki fully covered and fresh");
+                }
+            }
+        }
+        Command::Claim {
+            agent,
+            limit,
+            ttl_seconds,
+            json,
+        } => {
+            let claimed = engine::claim_tasks(&wiki_dir, &agent, limit, ttl_seconds)?;
+            if json {
+                println!(
+                    "{}",
+                    serde_json::to_string_pretty(&claimed).map_err(|e| anyhow::anyhow!(e))?
+                );
+            } else if claimed.is_empty() {
+                println!("no claimable task for agent `{agent}`");
+            } else {
+                for t in &claimed {
+                    println!("claimed [{:?}] {} — {}", t.kind, t.page_id, t.purpose);
+                }
+                println!(
+                    "lease until {}; authoring the page with `loredex put` resolves it automatically",
+                    claimed
+                        .first()
+                        .and_then(|t| t.lease_until.as_deref())
+                        .unwrap_or("?")
+                );
+            }
+        }
+        Command::Pack {
+            module,
+            budget_tokens,
+            include_stale,
+            include_drafts,
+            json,
+        } => {
+            let pack = engine::context_pack(
+                &repo.view(),
+                &wiki_dir,
+                &module,
+                &engine::PackOptions {
+                    budget_tokens,
+                    include_stale,
+                    include_drafts,
+                },
+            )?;
+            if json {
+                println!(
+                    "{}",
+                    serde_json::to_string_pretty(&pack).map_err(|e| anyhow::anyhow!(e))?
+                );
+            } else {
+                print!("{}", pack.markdown);
+                if pack.truncated {
+                    eprintln!(
+                        "note: context pack truncated to ~{} tokens ({} page(s), {} snippet(s) included, {} skipped)",
+                        pack.budget_tokens,
+                        pack.pages.len(),
+                        pack.evidence.len(),
+                        pack.skipped.len()
+                    );
                 }
             }
         }

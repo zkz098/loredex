@@ -484,6 +484,8 @@ async fn initialize_advertises_instructions_and_tools() {
         "wiki_current_repo",
         "wiki_note",
         "wiki_organize",
+        "wiki_claim_tasks",
+        "wiki_context_pack",
     ] {
         assert!(names.contains(&expected), "missing tool {expected}");
     }
@@ -663,4 +665,84 @@ async fn wiki_note_capture_promotes_and_organize_reports() {
         candidates[0]["shared_files"][0],
         serde_json::json!("lib.rs")
     );
+}
+
+#[tokio::test]
+async fn put_if_match_and_context_pack_over_protocol() {
+    let fx = Fixture::new();
+    let repo = loredex_git::GitRepo::discover(fx.path()).unwrap();
+    let (client, _s) = pair(WikiServer::pinned(repo), TestClient::no_roots()).await;
+
+    let first = structured(
+        &call(
+            &client,
+            "wiki_put_page",
+            serde_json::json!({
+                "id": "lib", "title": "Fixture lib",
+                "body": "# lib\n\nf is a stub [[cite:lib.rs:L1-L1]]\n"
+            }),
+        )
+        .await,
+    );
+    let first_sha = first["page_sha1"].as_str().unwrap().to_string();
+    assert_eq!(first_sha.len(), 40);
+
+    // The token from the read is accepted...
+    let second = structured(
+        &call(
+            &client,
+            "wiki_put_page",
+            serde_json::json!({
+                "id": "lib", "title": "Fixture lib v2",
+                "body": "# lib v2\n\nf is a stub [[cite:lib.rs:L1-L1]]\n",
+                "if_match": first_sha
+            }),
+        )
+        .await,
+    );
+    let second_sha = second["page_sha1"].as_str().unwrap().to_string();
+    assert_ne!(second_sha, first_sha);
+
+    // ...but a stale one is a conflict, not a silent overwrite.
+    let err = call_try(
+        &client,
+        "wiki_put_page",
+        serde_json::json!({
+            "id": "lib", "title": "Fixture lib v3",
+            "body": "# lib v3\n\nf is a stub [[cite:lib.rs:L1-L1]]\n",
+            "if_match": first_sha
+        }),
+    )
+    .await
+    .expect_err("stale if_match must fail");
+    assert!(
+        format!("{err}").contains("changed since you read it"),
+        "{err}"
+    );
+
+    let read = structured(&call(&client, "wiki_read", serde_json::json!({"id": "lib"})).await);
+    assert_eq!(read["page_sha1"], serde_json::json!(second_sha));
+
+    // A module pack carries the page and its deduplicated snippet.
+    let pack = structured(
+        &call(
+            &client,
+            "wiki_context_pack",
+            serde_json::json!({"module": "."}),
+        )
+        .await,
+    );
+    assert_eq!(pack["pages"].as_array().unwrap().len(), 1, "{pack}");
+    assert_eq!(pack["evidence"].as_array().unwrap().len(), 1, "{pack}");
+    assert!(pack["markdown"].as_str().unwrap().contains("lib.rs"));
+
+    // Leasing is protocol-visible; with no active run it is a guided error.
+    let err = call_try(
+        &client,
+        "wiki_claim_tasks",
+        serde_json::json!({"agent": "test-agent"}),
+    )
+    .await
+    .expect_err("claim without a plan run must fail");
+    assert!(format!("{err}").contains("no active plan run"), "{err}");
 }

@@ -14,6 +14,10 @@ pub enum WikiError {
     Git(String),
     #[error("page not found: {0}")]
     PageNotFound(String),
+    /// A concurrent writer changed the target since it was read, or a lease
+    /// is held by another agent. Callers should re-read and retry.
+    #[error("conflict: {0}")]
+    Conflict(String),
 }
 
 pub type Result<T> = std::result::Result<T, WikiError>;

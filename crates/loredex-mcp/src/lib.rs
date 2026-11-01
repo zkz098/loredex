@@ -24,7 +24,9 @@ windows instead of hunting line numbers, read the cited source, then call \
 wiki_put_page with a markdown body where \
 every claim carries an inline [[cite:path:Lx-Ly]] marker. Pages without citations \
 are rejected; citations whose range matches a secret pattern are rejected too \
-(override only when the user asks: allow_secret_citations).
+(override only when the user asks: allow_secret_citations). wiki_read returns the \
+page's content sha1: pass it back as if_match (or set if_absent for a create) so \
+two agents cannot silently overwrite each other; on a conflict, re-read and retry.
 2b. When you learn something you cannot cite yet (a rule, a failure diagnosis, a \
 decision), call wiki_note instead: it stores an uncited body as status=draft, which \
 is an explicit 'unverified' flag, and wiki_plan queues it for evidence backfill. \
@@ -37,9 +39,14 @@ wiki_link_suggestions proposes [[wiki:id]] cross-links worth adding, and \
 wiki_organize names the page pairs that pin the same evidence so duplicated notes and \
 rules get consolidated instead of accreting.
 4. wiki_get_evidence resolves one citation to the file content at current git \
-HEAD, so you can audit claims without opening the repo yourself.
+HEAD, so you can audit claims without opening the repo yourself. \
+wiki_context_pack builds a token-budgeted bundle of the verified pages for one \
+module plus the HEAD snippets they cite; use it instead of reading the whole wiki.
 5. Maintenance is one call: wiki_auto projects recoverable drift (zero tokens), lints, \
-and opens a plan run; its pending tasks carry suggested_type + playbook instructions.
+and opens a plan run; its pending tasks carry suggested_type + playbook instructions. \
+When several agents share a run, call wiki_claim_tasks with a stable agent id before \
+authoring: a leased task is not handed to another agent until its lease expires \
+(wiki_plan shows claimed_by and lease_until).
 Wiki pages live in .wiki/pages/*.md (frontmatter = machine-readable evidence) \
 and are committed to git.
 REPOSITORY RESOLUTION: the server resolves its target repo lazily in this order \
@@ -92,6 +99,8 @@ struct PageOut {
     tags: Vec<String>,
     evidence: Vec<EvidenceOut>,
     body: String,
+    /// sha1 of the page file; pass as `if_match` on the next write
+    page_sha1: String,
     warning: Option<String>,
 }
 
@@ -153,6 +162,8 @@ struct PutOut {
     status: String,
     citations: usize,
     evidence: Vec<EvidenceOut>,
+    /// sha1 of the page as written; pass as `if_match` next time
+    page_sha1: String,
 }
 
 #[derive(Serialize, schemars::JsonSchema)]
@@ -206,6 +217,13 @@ struct PutPageParam {
     /// Store citations even when the cited range matches a secret pattern
     #[serde(default)]
     allow_secret_citations: Option<bool>,
+    /// Optimistic concurrency: the page_sha1 returned by wiki_read. The write
+    /// fails if another agent changed the page since that read.
+    #[serde(default)]
+    if_match: Option<String>,
+    /// Create only: fail when the page already exists (mutually exclusive with if_match)
+    #[serde(default)]
+    if_absent: Option<bool>,
 }
 
 #[derive(Debug, Deserialize, schemars::JsonSchema)]
@@ -220,6 +238,12 @@ struct NoteParam {
     /// Page kind: rule | troubleshooting | decision | note | system | ...
     #[serde(default, rename = "type")]
     page_type: Option<String>,
+    /// Optimistic concurrency: the page_sha1 returned by wiki_read
+    #[serde(default)]
+    if_match: Option<String>,
+    /// Create only: fail when the page already exists
+    #[serde(default)]
+    if_absent: Option<bool>,
 }
 
 #[derive(Debug, Deserialize, schemars::JsonSchema)]
@@ -258,6 +282,34 @@ struct MarkTaskParam {
     page_id: String,
     /// done | skipped | failed
     status: String,
+}
+
+#[derive(Debug, Deserialize, schemars::JsonSchema)]
+struct ClaimTasksParam {
+    /// Stable agent identifier; leases are keyed by it
+    agent: String,
+    /// Maximum number of tasks to lease (default 1)
+    #[serde(default)]
+    limit: Option<usize>,
+    /// Lease duration in seconds (default 1800)
+    #[serde(default)]
+    ttl_seconds: Option<u64>,
+}
+
+#[derive(Debug, Deserialize, schemars::JsonSchema)]
+struct ContextPackParam {
+    /// Module name (see wiki_list_modules), '.', or a directory prefix
+    #[serde(default = "default_module")]
+    module: String,
+    /// Approximate token ceiling for the markdown artifact (default 8000)
+    #[serde(default)]
+    budget_tokens: Option<usize>,
+    /// Include stale pages, marked as unverified (default false)
+    #[serde(default)]
+    include_stale: Option<bool>,
+    /// Include draft pages, marked as unverified (default false)
+    #[serde(default)]
+    include_drafts: Option<bool>,
 }
 
 #[derive(Debug, Deserialize, schemars::JsonSchema)]
@@ -457,6 +509,21 @@ impl WikiServer {
     fn err(msg: impl std::fmt::Display) -> ErrorData {
         ErrorData::internal_error(msg.to_string(), None)
     }
+
+    fn expected_from(
+        if_match: Option<String>,
+        if_absent: Option<bool>,
+    ) -> Result<Option<engine::PageExpectation>, ErrorData> {
+        match (if_match, if_absent.unwrap_or(false)) {
+            (Some(_), true) => Err(ErrorData::invalid_request(
+                "if_match and if_absent are mutually exclusive",
+                None,
+            )),
+            (Some(sha), false) => Ok(Some(engine::PageExpectation::Sha1(sha))),
+            (None, true) => Ok(Some(engine::PageExpectation::Absent)),
+            (None, false) => Ok(None),
+        }
+    }
 }
 
 /// Page-file metadata: cheap compared with YAML parsing/tokenization and
@@ -558,6 +625,64 @@ impl WikiServer {
                 let run =
                     engine::plan_with_view(&view, &repo.wiki_dir(), false).map_err(Self::err)?;
                 serde_json::to_value(run).map_err(|e| Self::err(format!("plan serialization: {e}")))
+            })
+            .await?;
+        Ok(Json(out))
+    }
+
+    #[tool(
+        name = "wiki_claim_tasks",
+        description = "Lease pending plan tasks to this agent so concurrent agents do not author the same page. Pass a stable agent id and an optional ttl_seconds (default 1800); expired leases become claimable again. wiki_plan shows claimed_by/lease_until. Leasing is advisory: authoring the page with wiki_put_page still resolves the task automatically."
+    )]
+    async fn wiki_claim_tasks(
+        &self,
+        Parameters(p): Parameters<ClaimTasksParam>,
+        peer: Peer<RoleServer>,
+    ) -> Result<Json<serde_json::Value>, ErrorData> {
+        let _gate = self.gate.write().await;
+        let resolved = self.ensure_repo(&peer).await?;
+        let wiki_dir = resolved.path.join(".wiki");
+        let agent = p.agent;
+        let limit = p.limit.unwrap_or(1);
+        let ttl = p.ttl_seconds.unwrap_or(1800);
+        let out = tokio::task::spawn_blocking(move || {
+            let claimed = engine::claim_tasks(&wiki_dir, &agent, limit, ttl).map_err(Self::err)?;
+            serde_json::to_value(serde_json::json!({
+                "agent": agent,
+                "claimed_count": claimed.len(),
+                "claimed": claimed,
+            }))
+            .map_err(|e| Self::err(e.to_string()))
+        })
+        .await
+        .map_err(|e| Self::err(format!("blocking task failed: {e}")))??;
+        Ok(Json(out))
+    }
+
+    #[tool(
+        name = "wiki_context_pack",
+        description = "Build a token-budgeted context pack for one module: verified, git-fresh pages selected by cited-path relevance, plus the HEAD source snippets they cite (deduplicated, secret-shaped lines masked). Stale pages and drafts are skipped by default and listed in `skipped`; pass include_stale/include_drafts to include them with an UNVERIFIED warning. Returns structured metadata and a ready-to-paste `markdown` artifact."
+    )]
+    async fn wiki_context_pack(
+        &self,
+        Parameters(p): Parameters<ContextPackParam>,
+        peer: Peer<RoleServer>,
+    ) -> Result<Json<serde_json::Value>, ErrorData> {
+        let _gate = self.gate.read().await;
+        let out = self
+            .with_repo(&peer, move |repo| {
+                let pack = engine::context_pack(
+                    &repo.view(),
+                    &repo.wiki_dir(),
+                    &p.module,
+                    &engine::PackOptions {
+                        budget_tokens: p.budget_tokens.unwrap_or(8_000),
+                        include_stale: p.include_stale.unwrap_or(false),
+                        include_drafts: p.include_drafts.unwrap_or(false),
+                    },
+                )
+                .map_err(Self::err)?;
+                serde_json::to_value(pack).map_err(|e| Self::err(e.to_string()))
             })
             .await?;
         Ok(Json(out))
@@ -760,6 +885,12 @@ impl WikiServer {
                 } else {
                     None
                 };
+                let page_sha1 = match &page.source_path {
+                    Some(path) => engine::page_sha1(path)
+                        .map_err(Self::err)?
+                        .unwrap_or_default(),
+                    None => String::new(),
+                };
                 Ok(PageOut {
                     id: page.meta.id.clone(),
                     title: page.meta.title.clone(),
@@ -777,6 +908,7 @@ impl WikiServer {
                         .map(|e| WikiServer::evidence_out(&view, e))
                         .collect(),
                     body: page.body.to_string(),
+                    page_sha1,
                     warning,
                 })
             })
@@ -1091,7 +1223,7 @@ impl WikiServer {
 
     #[tool(
         name = "wiki_put_page",
-        description = "Store agent-authored wiki content. Body must contain [[cite:path:Lx-Ly]] markers; each is pinned to the git blob at HEAD as evidence. A body with no citations is rejected."
+        description = "Store agent-authored wiki content. Body must contain [[cite:path:Lx-Ly]] markers; each is pinned to the git blob at HEAD as evidence. A body with no citations is rejected. Pass if_match with the page_sha1 from wiki_read to reject the write when another agent changed the page concurrently; if_absent guards creation."
     )]
     async fn wiki_put_page(
         &self,
@@ -1105,8 +1237,10 @@ impl WikiServer {
         let body = p.body;
         let tags = p.tags.unwrap_or_default();
         let page_type = p.page_type;
+        let expected = Self::expected_from(p.if_match, p.if_absent)?;
         let opts = engine::PutOptions {
             allow_secret_citations: p.allow_secret_citations.unwrap_or(false),
+            expected,
             ..Default::default()
         };
         let out = self
@@ -1138,6 +1272,7 @@ impl WikiServer {
                         .iter()
                         .map(|e| WikiServer::evidence_out(&view, e))
                         .collect(),
+                    page_sha1: outcome.page_sha1,
                 })
             })
             .await?;
@@ -1146,7 +1281,7 @@ impl WikiServer {
 
     #[tool(
         name = "wiki_note",
-        description = "Low-friction capture of a finding (rule, troubleshooting step, decision, observation) with NO citation requirement: an uncited body is stored as status=draft, so its claims are explicitly unverified and wiki_plan queues it for evidence backfill and typing. If the body does carry [[cite:...]] markers they are pinned like wiki_put_page and the page lands verified. Use this instead of wiki_put_page when you learned something and cannot cite it yet; never store a guess as a verified page."
+        description = "Low-friction capture of a finding (rule, troubleshooting step, decision, observation) with NO citation requirement: an uncited body is stored as status=draft, so its claims are explicitly unverified and wiki_plan queues it for evidence backfill and typing. If the body does carry [[cite:...]] markers they are pinned like wiki_put_page and the page lands verified. Use this instead of wiki_put_page when you learned something and cannot cite it yet; never store a guess as a verified page. if_match/if_absent protect concurrent captures."
     )]
     async fn wiki_note(
         &self,
@@ -1160,10 +1295,19 @@ impl WikiServer {
         let body = p.body;
         let tags = p.tags.unwrap_or_default();
         let page_type = p.page_type;
+        let expected = Self::expected_from(p.if_match, p.if_absent)?;
         let out = self
             .with_repo(&peer, move |repo| {
-                let result =
-                    engine::note_page(repo, &repo.wiki_dir(), &id, &title, &body, tags, page_type);
+                let result = engine::note_page_with(
+                    repo,
+                    &repo.wiki_dir(),
+                    &id,
+                    &title,
+                    &body,
+                    tags,
+                    page_type,
+                    expected,
+                );
                 // a failed note may still have written a page
                 *cache.lock().unwrap() = PageCache::default();
                 let outcome =
@@ -1180,6 +1324,7 @@ impl WikiServer {
                         .iter()
                         .map(|e| WikiServer::evidence_out(&repo.view(), e))
                         .collect(),
+                    page_sha1: outcome.page_sha1,
                 })
             })
             .await?;

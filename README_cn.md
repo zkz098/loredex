@@ -42,11 +42,14 @@ loredex init                  # 创建 .wiki/pages/ + wiki.toml（语言设置�
 loredex modules               # 模块发现（cargo targets / 目录分组）
 loredex evidence crates/foo --kw serve --kw auth  # 引用草稿：可直接粘贴的 [[cite:...]] 窗口，预览已脱敏
 loredex put core --title "核心层" --body notes.md   # 引用命中密钥形态行会被拒绝（--no-redact 放行）
+loredex put core --title "核心层" --body notes.md --if-match <page_sha1>   # 乐观并发：页面被他人改过则拒绝写入（`show core --sha1` 可取令牌）
 loredex list / show core / search "关键词"
 loredex check --mark          # 过期扫描，exit code 非 0 = 有 stale（可挂 CI）
 loredex diff --since v0.1.4   # ref→HEAD 变更集触及哪些页面的证据（--json 供 PR 机器人，--fail-on-affected 做门禁）
 loredex links                 # 基于共引/模块邻接/文本相似度的 [[wiki:id]] 互链推荐（仅供参考，不算 lint 错误）
 loredex plan [--json]         # 生成计划：未覆盖模块(New) + stale页(Refresh)，写入 .wiki/runs.json 账本
+loredex claim --agent codex-1 --limit 1   # 多 agent：租约认领 plan 任务（租期过期后可被回收）
+loredex pack crates/foo --budget-tokens 8000   # Context Pack：已验证页面 + 引用处 HEAD 源码片段，去重并按 token 预算裁剪
 loredex index                 # 重新生成 pages/index.md + pages/quickstart.md（按类型读序 + agent 协议）
 loredex note retry-loop --title "重试卡死" --body notes.md --type troubleshooting   # 无引用的随手记录：存为 draft，由 plan 排队补引用
 loredex organize              # 列出证据高度重合的页面对，提示合并或互链（参考性，不是错误）
@@ -104,10 +107,12 @@ Server 在 `initialize` 时下发协议契约（先查新鲜度、stale 视为�
 | `wiki_organize` | 列出证据高度重合的页面对，给出笔记/规则重复项的整理清单 |
 | `wiki_list` / `wiki_read` | 页面清单 / 读页面（stale 带醒目 warning） |
 | `wiki_search` | 分词搜索（驼峰、下划线、CJK 二元组、前缀） |
+| `wiki_context_pack` | 面向单个模块的 token 预算上下文包：已验证且新鲜页面 + 去重后的 HEAD 片段；stale/draft 默认跳过并列出 |
+| `wiki_claim_tasks` | 把待办 plan 任务租给某个 agent，避免多个 agent 重复撰写；租期到期可被其他 agent 回收 |
 | `wiki_get_evidence` | 把单条引用展开为 HEAD 当前源码内容 |
 | `wiki_list_modules` | 发现待编写模块，含已有引用覆盖统计 |
 | `wiki_evidence_candidates` | 引用草稿：按关键字排序的 `[[cite:...]]` 窗口，预览已脱敏 |
-| `wiki_put_page` | 提交 agent 撰写的内容（零引用拒绝；命中密钥形态引用拒绝，除非 `allow_secret_citations`） |
+| `wiki_put_page` | 提交 agent 撰写的内容（零引用拒绝；命中密钥形态引用拒绝，除非 `allow_secret_citations`）；传入 `wiki_read.page_sha1` 得到的 `if_match` 可拒绝并发覆盖，`if_absent` 用于只允许创建 |
 | `wiki_refresh_page` | 漂移投影刷新，逐条返回投影结果 |
 | `wiki_attach_repo` / `wiki_current_repo` | 挂载/切换仓库、自省解析状态 |
 | `wiki_plan` / `wiki_mark_task` | 打开/续传生成计划 run、销账（put/refresh 自动销账） |
@@ -126,6 +131,7 @@ Server 在 `initialize` 时下发协议契约（先查新鲜度、stale 视为�
 ```
 
 - agent 随手发现但暂时配不上引用的知识，用 `loredex note` / `wiki_note` 落为 `draft`（显式「未验证」标记，不会被当成事实）；等 `plan` 排队补上证据后才晋升 verified。`loredex organize` 与 `overlapping-evidence` lint 提示负责把长期积累的 notes/rules 重复项列成待办，避免不成体系地散落
+- 多 agent 并行无需额外服务：`wiki_read` / `loredex show` 返回页面内容 sha1，写入时传 `if_match` 会把并发覆盖变成显式冲突而不是丢失更新；`wiki_claim_tasks` / `loredex claim` 在 `runs.json` 中租约认领 plan 任务（租期过期即可回收，崩溃的 agent 不会永久占坑）
 - 页面与 `.wiki/` 一起提交进 git，团队共享、PR 可 review；`runs.json` 账本同样入库，agent 中断后 `wiki_plan` 自动续传 pending 任务
 - plan 任务自带 `suggested_type` 与 playbook `instructions`（该类型页面应有哪些章节、回答哪些问题），生产 agent 无需隐藏 prompt 也能写出结构一致的页面；类型可在 `.wiki/wiki.toml [page_types.<name>]` 扩展，未注册的 type 会被 `lint` 标出
 - `loredex lint`（断链/stale/漂移）适合挂 CI；页面 id 支持 `architecture/overview` 式分层，`--type` 标注页面种类
@@ -163,6 +169,7 @@ crates/
 - 内容质量取决于撰写者（工具保证"有出处且出处未腐化"，不保证解释正确）
 - CLI 的 check/verify 仍按命令全量加载页面；MCP server 复用内存页面/索引缓存，但尚未落盘持久索引——万级页面需要它
 - 正文内联引用标记在 refresh 投影后不同步行号（frontmatter 为权威）
+- Context Pack 的 token 数是启发式估算（ASCII 约 4 字符 / 非 ASCII 每字符 1 token），不是模型分词器；任务租约是协作提示，不是硬锁
 - 非 ASCII 路径建议仓库开启 `core.quotePath=false`
 
 ## Roadmap
@@ -178,7 +185,7 @@ GNU GPL v3.0 或更新版本（见 [LICENSE](LICENSE)）。`.wiki/` 中的 wiki 
 ## 开发
 
 ```bash
-cargo nextest run --workspace          # 80 个测试（单测 + git-fixture 集成 + MCP 协议内测试）
+cargo nextest run --workspace          # 120 个测试（单测 + git-fixture 集成 + MCP 协议内测试）
 cargo llvm-cov nextest --workspace --summary-only   # 覆盖率基线
 cargo bench -p loredex-engine --bench scan -- --budget   # 扫描/索引回归下限（CI 门禁）
 ```

@@ -19,12 +19,14 @@ Subcommands:
 | Command | Purpose |
 |---|---|
 | `init` | Create the `.wiki/` layout and `wiki.toml` |
-| `put <id> --title --body <file\|->` | Store a page; bodies without resolvable citations are rejected |
-| `list` / `show <id>` / `search <query>` | Inventory, read, tokenized search (camel/snake/CJK) |
+| `put <id> --title --body <file\|-> [--if-match <sha1>\|--if-absent]` | Store a page; bodies without resolvable citations are rejected; concurrency preconditions prevent lost updates |
+| `list` / `show <id> [--sha1]` / `search <query>` | Inventory, read (or print the page content sha1 for `put --if-match`), tokenized search (camel/snake/CJK) |
 | `check [--mark]` | Git-driven staleness scan (exit 1 on stale) |
 | `verify <id>` / `refresh <id>` | Content-hash verification / drift-projection refresh |
 | `modules` | Discover authoring targets with citation coverage |
 | `plan [--json --reset --close]` / `task <id> <status>` | Generation worklist (New + Refresh) persisted to `.wiki/runs.json` |
+| `claim --agent <id> [--limit --ttl-seconds]` | Lease pending plan tasks across concurrent agents |
+| `pack [module] [--budget-tokens --include-stale --include-drafts --json]` | Verified pages + cited HEAD snippets as one budgeted context artifact |
 | `index` | Regenerate `index.md` + `quickstart.md` reading paths |
 | `auto [--json]` | One-call maintenance: self-heal → lint → plan for the rest |
 | `lint [--json]` | Broken links / stale-but-verified / evidence drift / unknown type (exit 1 on findings) |
