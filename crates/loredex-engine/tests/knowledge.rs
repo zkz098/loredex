@@ -355,9 +355,9 @@ fn organize_names_the_pair_sharing_evidence() {
 }
 
 #[test]
-fn organize_chains_pages_sharing_different_files() {
-    // a(src) - b(src,other) - c(other): no file is cited by all three, but the
-    // bridge makes them one maintenance cluster
+fn organize_reports_chained_overlap_as_pairs_not_a_cluster() {
+    // a(src) - b(src,other) - c(other): each adjacent pair coincides strongly,
+    // but a and c share nothing — so they are two items, never one cluster
     let fx = Fx::new(&[("src.rs", SRC), ("other.rs", "fn c() {}\n")]);
     for (id, cites) in [
         ("a", ["src.rs:L1-L2"].to_vec()),
