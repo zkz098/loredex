@@ -6,13 +6,20 @@ settings:
 
 importers:
 
-  .: {}
+  .:
+    devDependencies:
+      '@unocss/reset':
+        specifier: ^66.12.0
+        version: 66.12.0
 
   website:
     dependencies:
       '@unocss/astro':
         specifier: ^66.12.0
         version: 66.12.0(cac@7.1.0)(srvx@1.0.8)(vite@8.3.5(esbuild@0.28.2)(jiti@2.7.0)(yaml@2.9.1))
+      '@unocss/reset':
+        specifier: ^66.12.0
+        version: 66.12.0
       astro:
         specifier: ^7.4.4
         version: 7.4.4(esbuild@0.28.2)(jiti@2.7.0)(yaml@2.9.1)

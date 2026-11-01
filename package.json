@@ -8,5 +8,8 @@
     "site:build": "pnpm --filter loredex-website build",
     "site:preview": "pnpm --filter loredex-website preview",
     "site:deploy": "pnpm --filter loredex-website deploy:pages"
+  },
+  "devDependencies": {
+    "@unocss/reset": "^66.12.0"
   }
 }
