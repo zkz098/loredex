@@ -2,27 +2,30 @@
 id: architecture
 title: Architecture
 status: verified
-generated_at: 2026-10-31T12:43:23Z
-commit: 1d2863aaea11c84a442cdbf282fb7da8211225cd
+generated_at: 2026-11-01T03:14:48Z
+commit: d0155cf4e48bdf51a9efb9b1cfbaf21320314f23
 evidence:
 - path: Cargo.toml
   lines:
   - 2
   - 9
-  blob: c548aeb1cd615b0910f518e0a0fcd1b5d747b566
+  blob: abf859da79ebc5ef0865f2c4b0342bc9cee29cca
   snippet_sha1: cdb93553223a82b1c268fcf7d31a0b5c0dd928c0
+  note: drift-projected L2-L9@c548aeb1 -> L2-L9 (similarity 1.00)
 - path: crates/loredex-engine/src/lib.rs
   lines:
-  - 274
-  - 286
-  blob: f716c3c7fc54d6c9bfa7dea6970eaddf0b4eadf7
+  - 356
+  - 368
+  blob: bc899494cd898a0e2bbe24cf06a4fe1da946508d
   snippet_sha1: 02ad668b7bdf2cb5db082b398c984b1233f151ee
+  note: drift-projected L356-L368@babdf319 -> L356-L368 (similarity 1.00)
 - path: crates/loredex-core/src/page.rs
   lines:
-  - 29
-  - 40
-  blob: e814a40a848673def3eb54918a306230323ab57e
+  - 30
+  - 41
+  blob: 0a5365724b11730690a2a857196929b865e7eb43
   snippet_sha1: c29606ed08aec635918031cfd27810613803de0c
+  note: drift-projected L29-L40@e814a40a -> L30-L41 (similarity 1.00)
 type: architecture
 ---
 # Architecture

@@ -2,62 +2,76 @@
 id: engine-freshness
 title: 'loredex-engine: staleness, verification, drift projection'
 status: verified
-generated_at: 2026-10-31T12:48:00Z
-commit: 36830a4b7c71fb5e8d12b7287d7db0358971805f
+generated_at: 2026-11-01T03:14:48Z
+commit: d0155cf4e48bdf51a9efb9b1cfbaf21320314f23
 evidence:
 - path: crates/loredex-engine/src/lib.rs
   lines:
-  - 90
-  - 108
-  blob: f716c3c7fc54d6c9bfa7dea6970eaddf0b4eadf7
-  snippet_sha1: 611eb1281befdd587e8e67de5f8673de82b3e9c7
+  - 146
+  - 168
+  blob: bc899494cd898a0e2bbe24cf06a4fe1da946508d
+  snippet_sha1: 283e3285b868e8f97890cce8658fa81d64361966
+  note: drift-projected L146-L168@babdf319 -> L146-L168 (similarity 1.00)
 - path: crates/loredex-engine/src/lib.rs
   lines:
-  - 129
-  - 185
-  blob: f716c3c7fc54d6c9bfa7dea6970eaddf0b4eadf7
-  snippet_sha1: 776d2500376bf85400f3fd2357513f7222fb07b7
+  - 256
+  - 262
+  blob: bc899494cd898a0e2bbe24cf06a4fe1da946508d
+  snippet_sha1: 8d7aa3de63ced0667e657ecb3b92ab4ff66ca116
+  note: drift-projected L256-L262@babdf319 -> L256-L262 (similarity 1.00)
 - path: crates/loredex-engine/src/lib.rs
   lines:
-  - 234
-  - 252
-  blob: f716c3c7fc54d6c9bfa7dea6970eaddf0b4eadf7
-  snippet_sha1: 570e40c2c3b468f39090df5953e52c26670831d1
+  - 316
+  - 330
+  blob: bc899494cd898a0e2bbe24cf06a4fe1da946508d
+  snippet_sha1: 58819359d859568299c50d43a98675ffd8e53d9c
+  note: drift-projected L316-L330@babdf319 -> L316-L330 (similarity 1.00)
 - path: crates/loredex-engine/src/drift.rs
   lines:
-  - 34
-  - 74
-  blob: 84ca622439429999d5bfdc99cae091f508fdd7cd
-  snippet_sha1: 77a85a350863b8b01c39ec3a7af91f2e8d358783
-  note: drift-projected L34-L74@75afc4ab -> L34-L74 (similarity 1.00)
+  - 32
+  - 52
+  blob: 81c113ab88942e4388af5b2d1c8710bbf435e1f3
+  snippet_sha1: ead352d9b8107af3806ed4482344fa7275ec9548
 - path: crates/loredex-engine/src/drift.rs
   lines:
-  - 25
+  - 28
   - 30
-  blob: 84ca622439429999d5bfdc99cae091f508fdd7cd
-  snippet_sha1: a06223e23808aa9b99a600f1bde0da2d4c045389
-  note: drift-projected L25-L30@75afc4ab -> L25-L30 (similarity 1.00)
+  blob: 81c113ab88942e4388af5b2d1c8710bbf435e1f3
+  snippet_sha1: 4ca069b9ca1c9df03f402f88117ac2bebaa11fd7
 - path: crates/loredex-engine/src/drift.rs
   lines:
-  - 233
-  - 274
-  blob: 84ca622439429999d5bfdc99cae091f508fdd7cd
-  snippet_sha1: eb3acd65ccd4efbabafaa6da7bbd0611c6f0d9d6
-  note: drift-projected L233-L274@75afc4ab -> L233-L274 (similarity 1.00)
+  - 85
+  - 96
+  blob: 81c113ab88942e4388af5b2d1c8710bbf435e1f3
+  snippet_sha1: a01e6c0297db68a7399add05bf04847673acf2d8
+- path: crates/loredex-engine/src/drift.rs
+  lines:
+  - 399
+  - 411
+  blob: 81c113ab88942e4388af5b2d1c8710bbf435e1f3
+  snippet_sha1: 53e11eae038acb7e67caafa24e6eec54add05bb8
 - path: crates/loredex-engine/src/put.rs
   lines:
-  - 20
-  - 67
-  blob: af719f7b8477da77230d4ce23c8d91b7c7b3b3a7
-  snippet_sha1: 0bb2dd68705ede6062736d48fb709dc80ff3c84d
+  - 90
+  - 120
+  blob: a9842770ec28a68164352211a73f07e39bcbf2d0
+  snippet_sha1: ea7190bfa177bcdb5afdc9d6fe6bb1aa8764805a
+- path: crates/loredex-engine/src/put.rs
+  lines:
+  - 36
+  - 62
+  blob: a9842770ec28a68164352211a73f07e39bcbf2d0
+  snippet_sha1: 95d89fc33e29c18426c9c8bcb04301eb8a9b027a
 type: system
 ---
 # loredex-engine: staleness, verification, drift projection
 
-`record_evidence` pins a citation to HEAD: it stores the blob oid and the sha1 of the cited line range [[cite:crates/loredex-engine/src/lib.rs:L90-L108]].
+`record_evidence` pins a citation to HEAD: it stores the blob oid plus the sha1 of the cited line range, so trust does not rest on the commit id alone [[cite:crates/loredex-engine/src/lib.rs:L146-L168]].
 
-`check_page` applies a dual verdict: a page is stale when a recorded blob differs from HEAD *or* the pathspec diff from the generation commit touches an evidence path; an unresolvable base commit is stale on its own [[cite:crates/loredex-engine/src/lib.rs:L129-L185]]. `verify_page` goes further and recomputes each snippet's sha1 against HEAD content — content-level trust independent of commit ids [[cite:crates/loredex-engine/src/lib.rs:L234-L252]].
+`check_page` applies a dual verdict: a page is stale when a recorded blob differs from HEAD *or* the pathspec diff from the generation commit touches an evidence path [[cite:crates/loredex-engine/src/lib.rs:L256-L262]]; an unresolvable base commit is stale on its own. `verify_page` goes further and recomputes each snippet's sha1 against HEAD content — content-level trust independent of commit ids [[cite:crates/loredex-engine/src/lib.rs:L316-L330]].
 
-Line drift projection: `project_range` builds an old-line to new-line map from a line-level diff (deleted lines anchor to the nearest surviving line, collapsed ranges keep width) [[cite:crates/loredex-engine/src/drift.rs:L34-L74]]; the projected snippet is adopted only at similarity above the 0.6 threshold [[cite:crates/loredex-engine/src/drift.rs:L25-L30]]. `refresh_page_with_drift` also recovers renamed paths — first by identical blob oid, then by git similarity rename — and downgrades genuinely lost citations to `draft` for rewrite [[cite:crates/loredex-engine/src/drift.rs:L233-L274]].
+Line drift projection: `project_range` builds an old-line to new-line map from a line-level diff, then scores how well the projected snippet matches the recorded one [[cite:crates/loredex-engine/src/drift.rs:L32-L52]]; the projection is adopted only above the 0.6 similarity threshold, so one edited line inside a multi-line citation still survives [[cite:crates/loredex-engine/src/drift.rs:L28-L30]]. Renamed paths are recovered first by identical blob oid (a plain `git mv` keeps the oid), then by git similarity rename [[cite:crates/loredex-engine/src/drift.rs:L85-L96]]; genuinely lost citations downgrade the page to `draft` for rewrite rather than silently re-pinning [[cite:crates/loredex-engine/src/drift.rs:L399-L411]].
 
-The write path `put_page` requires every submitted body to carry citation markers, each converted into pinned evidence; uncited bodies are rejected [[cite:crates/loredex-engine/src/put.rs:L20-L67]] — the entry guarantee that no claim enters the wiki without a resolvable source pointer.
+The write path `put_page` requires every submitted body to carry citation markers, each converted into pinned evidence; uncited bodies are rejected [[cite:crates/loredex-engine/src/put.rs:L90-L120]] — the entry guarantee that no claim enters the wiki without a resolvable source pointer. The one legal exception is the capture path `note_page`, which stores an uncited body as `draft` (never `verified`) while still pinning any markers it happens to carry [[cite:crates/loredex-engine/src/put.rs:L36-L62]].
+
+Related: [[wiki:git-layer]] for the primitives, [[wiki:rule-evidence-contract]] for the write-path rule.

@@ -1,0 +1,58 @@
+---
+id: rule-evidence-contract
+title: Every verified claim cites resolvable evidence
+status: verified
+generated_at: 2026-11-01T03:14:48Z
+commit: d0155cf4e48bdf51a9efb9b1cfbaf21320314f23
+evidence:
+- path: crates/loredex-engine/src/put.rs
+  lines:
+  - 90
+  - 120
+  blob: a9842770ec28a68164352211a73f07e39bcbf2d0
+  snippet_sha1: ea7190bfa177bcdb5afdc9d6fe6bb1aa8764805a
+- path: crates/loredex-engine/src/put.rs
+  lines:
+  - 36
+  - 62
+  blob: a9842770ec28a68164352211a73f07e39bcbf2d0
+  snippet_sha1: 95d89fc33e29c18426c9c8bcb04301eb8a9b027a
+- path: crates/loredex-engine/src/auto.rs
+  lines:
+  - 113
+  - 124
+  blob: b4a94af752dbaae368c1b4a90f764601191baf18
+  snippet_sha1: a5fe4fe2aff3959e61bc519870fbe1b6c9fd0e12
+- path: crates/loredex-engine/src/lint.rs
+  lines:
+  - 93
+  - 110
+  blob: f71fc8f0e2194d45773d70bb6d4cbfd07d3dff54
+  snippet_sha1: d50881deb99637930250c8faad294ab772f17e9d
+  note: drift-projected L93-L110@c78d2f6d -> L93-L110 (similarity 1.00)
+- path: crates/loredex-engine/tests/knowledge.rs
+  lines:
+  - 215
+  - 232
+  blob: b7b556bfd3ebdb1a1b8b90e361dcc8cca2dd9314
+  snippet_sha1: 26a4b6f62d729ad57f49715531d5bdb6cbaa9cf4
+  note: drift-projected L215-L232@dfb54699 -> L215-L232 (similarity 1.00)
+tags:
+- policy
+type: rule
+---
+# Rule: every verified claim cites resolvable source evidence
+
+**Never store an uncited claim as `verified`.** A body with no inline citation marker is rejected at write time; the only legal way in without citations is the capture path, which must land as `draft`.
+
+Why it exists: the wiki's value is that a reader (usually an agent that cannot afford to re-read the repo) can trust a sentence without re-verifying it. A paraphrase with no pointer is exactly the stale, misleading doc that makes agents read the source anyway — and worse, it *looks* verified in `loredex list`.
+
+The rule is enforced on the write path, not by convention: `put_page_with` parses markers, refuses an empty set, and pins every accepted marker to the HEAD blob plus a snippet content hash [[cite:crates/loredex-engine/src/put.rs:L90-L120]]. The capture path is allowed to relax the *citation* requirement but never the *status* one: an uncited note is written as `draft`, and only becomes `verified` if it happens to carry pinnable markers [[cite:crates/loredex-engine/src/put.rs:L36-L62]].
+
+Violation and its shape:
+- **Bad** — calling `wiki_put_page` with a guess ("the retry loop probably never yields") to make it disappear from the worklist. `loredex check` will later report the page verified-but-uncited by nothing, and no evidence can be audited.
+- **Good** — `wiki_note` the same sentence: it lands `draft`, `loredex plan` carries it as pending authoring work with the type's playbook instructions, and `loredex auto` refuses to call the wiki clean while it stays pending [[cite:crates/loredex-engine/src/auto.rs:L113-L124]].
+
+Enforcement points: the rejection above, `loredex lint`'s `evidence-drift` check for hand-edited bodies that no longer match their frontmatter pins [[cite:crates/loredex-engine/src/lint.rs:L93-L110]], and the tests that pin this matrix [[cite:crates/loredex-engine/tests/knowledge.rs:L215-L232]].
+
+Related: [[wiki:engine-freshness]], [[wiki:rule-advisory-never-fails-ci]].
