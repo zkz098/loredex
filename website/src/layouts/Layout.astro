@@ -1,20 +1,26 @@
 ---
 import '@unocss/reset/tailwind.css';
 import 'remixicon/fonts/remixicon.css';
+import { type Lang, useTranslations } from '../i18n/translations';
 
 interface Props {
+  lang?: Lang;
   title?: string;
   description?: string;
 }
 
 const {
-  title = 'Loredex - 给 AI Coding Agent 的可信代码库知识库',
-  description = 'Loredex 是基于 Rust 构建的证据钉定代码库 Wiki。纯 Markdown 存储、Git 驱动的新鲜度追踪、每条声明钉住代码出处。提供高性能 CLI 与标准 MCP Server 双入口。',
+  lang = 'zh',
 } = Astro.props;
+
+const t = useTranslations(lang);
+const title = Astro.props.title || t.meta.title;
+const description = Astro.props.description || t.meta.description;
+const htmlLang = lang === 'zh' ? 'zh-CN' : 'en';
 ---
 
 <!doctype html>
-<html lang="zh-CN" class="scroll-smooth dark">
+<html lang={htmlLang} class="scroll-smooth dark">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -25,8 +31,13 @@ const {
     <title>{title}</title>
     <meta name="title" content={title} />
     <meta name="description" content={description} />
-    <meta name="keywords" content="Loredex, repowiki, AI coding agent, MCP server, Rust, Git, knowledge base, documentation, code citation" />
+    <meta name="keywords" content="Loredex, repowiki, AI coding agent, MCP server, Rust, Git, knowledge base, documentation, code citation, i18n" />
     <meta name="author" content="zkz098" />
+
+    <!-- Alternate hreflang tags for SEO -->
+    <link rel="alternate" hreflang="zh-CN" href="/" />
+    <link rel="alternate" hreflang="en" href="/en" />
+    <link rel="alternate" hreflang="x-default" href="/" />
 
     <!-- Open Graph / Facebook -->
     <meta property="og:type" content="website" />
@@ -105,7 +116,7 @@ const {
         if (textToCopy) {
           navigator.clipboard.writeText(textToCopy).then(() => {
             const originalHTML = copyBtn.innerHTML;
-            copyBtn.innerHTML = '<i class="ri-check-line text-emerald-400"></i><span class="text-xs text-emerald-400">已复制</span>';
+            copyBtn.innerHTML = '<i class="ri-check-line text-emerald-400"></i><span class="text-xs text-emerald-400">Copied!</span>';
             setTimeout(() => {
               copyBtn.innerHTML = originalHTML;
             }, 2000);

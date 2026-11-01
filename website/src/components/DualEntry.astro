@@ -1,5 +1,14 @@
 ---
 // DualEntry.astro
+import { type Lang, useTranslations } from '../i18n/translations';
+
+interface Props {
+  lang?: Lang;
+}
+
+const { lang = 'zh' } = Astro.props;
+const t = useTranslations(lang);
+
 const diffJson = `{
   "base": "main",
   "head": "feat/async-worker",
@@ -8,7 +17,7 @@ const diffJson = `{
   "projectable_citations": 1
 }`;
 
-const mcpConfigExamples = `// 1. 零配置全局支持任意工作区 (自动4层解析)
+const mcpConfigExamples = `// 1. Zero-config global setup (4-layer resolution)
 {
   "mcpServers": {
     "loredex": {
@@ -17,7 +26,7 @@ const mcpConfigExamples = `// 1. 零配置全局支持任意工作区 (自动4�
   }
 }
 
-// 2. 或固定指定单一仓库路径
+// 2. Or pin to a single repository path
 {
   "mcpServers": {
     "loredex": {
@@ -35,13 +44,13 @@ const mcpConfigExamples = `// 1. 零配置全局支持任意工作区 (自动4�
     <div class="text-center max-w-3xl mx-auto mb-14">
       <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-cyan-500/10 text-cyan-400 text-xs font-semibold uppercase tracking-wider mb-4 border border-cyan-500/20">
         <i class="ri-terminal-box-line"></i>
-        <span>双通道入口架构</span>
+        <span>{t.dualEntry.badge}</span>
       </span>
       <h2 class="text-3xl sm:text-4xl font-extrabold text-white tracking-tight mb-4">
-        开发者 CLI 与 Agent MCP 协议的一体化融合
+        {t.dualEntry.title}
       </h2>
       <p class="text-slate-400 text-base sm:text-lg leading-relaxed">
-        人类工程师通过命令行掌控 CI 门禁与全局巡检，AI Coding Agent 通过标准 Model Context Protocol 无缝读写与自省。
+        {t.dualEntry.description}
       </p>
     </div>
 
@@ -54,7 +63,7 @@ const mcpConfigExamples = `// 1. 零配置全局支持任意工作区 (自动4�
           class="tab-btn flex-1 py-2 px-4 rounded-lg text-sm font-medium transition-all duration-200 flex items-center justify-center gap-2 bg-emerald-500 text-white shadow-md shadow-emerald-500/20"
         >
           <i class="ri-terminal-line"></i>
-          <span>CLI 命令行 (loredex)</span>
+          <span>{t.dualEntry.cliTab}</span>
         </button>
         <button
           type="button"
@@ -62,7 +71,7 @@ const mcpConfigExamples = `// 1. 零配置全局支持任意工作区 (自动4�
           class="tab-btn flex-1 py-2 px-4 rounded-lg text-sm font-medium transition-all duration-200 flex items-center justify-center gap-2 text-slate-400 hover:text-white"
         >
           <i class="ri-robot-2-line"></i>
-          <span>MCP Server (loredex-mcp)</span>
+          <span>{t.dualEntry.mcpTab}</span>
         </button>
       </div>
 
@@ -73,48 +82,18 @@ const mcpConfigExamples = `// 1. 零配置全局支持任意工作区 (自动4�
           <div class="lg:col-span-5 space-y-3">
             <h3 class="text-sm font-semibold text-slate-300 uppercase tracking-wider mb-2 flex items-center gap-2">
               <i class="ri-command-line text-emerald-400"></i>
-              <span>常用工程指令</span>
+              <span>{t.dualEntry.cliHeading}</span>
             </h3>
 
-            <div class="p-3.5 rounded-xl bg-slate-900/80 border border-slate-800/80 hover:border-emerald-500/30 transition-all cursor-pointer group" data-cli-cmd="loredex auto">
-              <div class="flex items-center justify-between text-xs font-mono mb-1">
-                <span class="text-emerald-400 font-bold group-hover:underline">loredex auto</span>
-                <span class="text-slate-500">一键自愈</span>
+            {t.dualEntry.cmds.map((cmd) => (
+              <div class="p-3.5 rounded-xl bg-slate-900/80 border border-slate-800/80 hover:border-emerald-500/30 transition-all cursor-pointer group">
+                <div class="flex items-center justify-between text-xs font-mono mb-1">
+                  <span class="text-emerald-400 font-bold group-hover:underline">{cmd.name}</span>
+                  <span class="text-slate-500">{cmd.badge}</span>
+                </div>
+                <p class="text-xs text-slate-400">{cmd.desc}</p>
               </div>
-              <p class="text-xs text-slate-400">投影自愈 -> lint 语法检查 -> 剩余待办开 plan 账本</p>
-            </div>
-
-            <div class="p-3.5 rounded-xl bg-slate-900/80 border border-slate-800/80 hover:border-emerald-500/30 transition-all cursor-pointer group" data-cli-cmd="loredex check --mark">
-              <div class="flex items-center justify-between text-xs font-mono mb-1">
-                <span class="text-emerald-400 font-bold group-hover:underline">loredex check --mark</span>
-                <span class="text-slate-500">CI 过期门禁</span>
-              </div>
-              <p class="text-xs text-slate-400">全量扫描过期引用，有 stale 页面返回非 0 退出码</p>
-            </div>
-
-            <div class="p-3.5 rounded-xl bg-slate-900/80 border border-slate-800/80 hover:border-emerald-500/30 transition-all cursor-pointer group" data-cli-cmd="loredex diff --since main --fail-on-affected">
-              <div class="flex items-center justify-between text-xs font-mono mb-1">
-                <span class="text-emerald-400 font-bold group-hover:underline">loredex diff --since &lt;ref&gt;</span>
-                <span class="text-slate-500">PR 范围感知</span>
-              </div>
-              <p class="text-xs text-slate-400">分析变更集影响了哪些页面证据，可挂钩 GitHub Actions</p>
-            </div>
-
-            <div class="p-3.5 rounded-xl bg-slate-900/80 border border-slate-800/80 hover:border-emerald-500/30 transition-all cursor-pointer group" data-cli-cmd="loredex lint">
-              <div class="flex items-center justify-between text-xs font-mono mb-1">
-                <span class="text-emerald-400 font-bold group-hover:underline">loredex lint</span>
-                <span class="text-slate-500">质量与安全回扫</span>
-              </div>
-              <p class="text-xs text-slate-400">检测断链、正文-frontmatter 漂移、密钥引用与未注册类型</p>
-            </div>
-
-            <div class="p-3.5 rounded-xl bg-slate-900/80 border border-slate-800/80 hover:border-emerald-500/30 transition-all cursor-pointer group" data-cli-cmd="loredex evidence crates/core --kw serve">
-              <div class="flex items-center justify-between text-xs font-mono mb-1">
-                <span class="text-emerald-400 font-bold group-hover:underline">loredex evidence &lt;dir&gt;</span>
-                <span class="text-slate-500">证据抓取草稿</span>
-              </div>
-              <p class="text-xs text-slate-400">按关键字搜索可引用的代码窗口，预览严格脱敏</p>
-            </div>
+            ))}
           </div>
 
           <!-- Terminal Emulator Preview -->
@@ -130,14 +109,14 @@ const mcpConfigExamples = `// 1. 零配置全局支持任意工作区 (自动4�
                 type="button"
                 data-copy-target="#cli-terminal-code"
                 class="hover:text-white transition-colors flex items-center gap-1"
-                title="复制代码"
+                title={t.dualEntry.executeCopy}
               >
                 <i class="ri-file-copy-line"></i>
-                <span>复制执行</span>
+                <span>{t.dualEntry.executeCopy}</span>
               </button>
             </div>
             <div class="p-5 font-mono text-xs text-slate-300 leading-relaxed overflow-x-auto flex-1 bg-[#05070e]" id="cli-terminal-code">
-              <div class="text-slate-500 mb-2"># 1. 运行一键自愈与检查维护</div>
+              <div class="text-slate-500 mb-2"># 1. Run algorithmic maintenance and checks</div>
               <div class="text-emerald-400">$ loredex auto</div>
               <div class="text-slate-400 pl-4 py-1">
                 ✓ Scanning repository HEAD at commit 9b82f0c<br />
@@ -146,7 +125,7 @@ const mcpConfigExamples = `// 1. 零配置全局支持任意工作区 (自动4�
                 ✓ Security audit: 0 sensitive secrets detected<br />
                 ✓ Lint passed cleanly. Wiki state: 100% verified.
               </div>
-              <div class="text-slate-500 my-2"># 2. 检查 PR 分支变更对引用的影响</div>
+              <div class="text-slate-500 my-2"># 2. Inspect pull request change impact on citations</div>
               <div class="text-emerald-400">$ loredex diff --since main --json</div>
               <pre class="text-slate-400 pl-4 py-1 font-mono text-xs overflow-x-auto">{diffJson}</pre>
             </div>
@@ -161,52 +140,26 @@ const mcpConfigExamples = `// 1. 零配置全局支持任意工作区 (自动4�
           <div class="lg:col-span-6 space-y-3">
             <h3 class="text-sm font-semibold text-slate-300 uppercase tracking-wider mb-2 flex items-center gap-2">
               <i class="ri-tools-line text-cyan-400"></i>
-              <span>15+ 原生 MCP 结构化工具</span>
+              <span>{t.dualEntry.mcpHeading}</span>
             </h3>
 
             <div class="grid grid-cols-1 sm:grid-cols-2 gap-2.5 text-xs font-mono">
-              <div class="p-3 rounded-xl bg-slate-900/80 border border-slate-800">
-                <span class="text-cyan-400 font-bold block mb-1">wiki_search</span>
-                <span class="text-slate-400 font-sans text-[11px]">倒排索引极速分词检索</span>
-              </div>
-              <div class="p-3 rounded-xl bg-slate-900/80 border border-slate-800">
-                <span class="text-cyan-400 font-bold block mb-1">wiki_check_freshness</span>
-                <span class="text-slate-400 font-sans text-[11px]">全量扫描 git 真实过期</span>
-              </div>
-              <div class="p-3 rounded-xl bg-slate-900/80 border border-slate-800">
-                <span class="text-cyan-400 font-bold block mb-1">wiki_put_page</span>
-                <span class="text-slate-400 font-sans text-[11px]">安全提交页面（防无据凭空）</span>
-              </div>
-              <div class="p-3 rounded-xl bg-slate-900/80 border border-slate-800">
-                <span class="text-cyan-400 font-bold block mb-1">wiki_get_evidence</span>
-                <span class="text-slate-400 font-sans text-[11px]">按引用展开当前 HEAD 源码</span>
-              </div>
-              <div class="p-3 rounded-xl bg-slate-900/80 border border-slate-800">
-                <span class="text-cyan-400 font-bold block mb-1">wiki_refresh_page</span>
-                <span class="text-slate-400 font-sans text-[11px]">逐条执行行号漂移刷新</span>
-              </div>
-              <div class="p-3 rounded-xl bg-slate-900/80 border border-slate-800">
-                <span class="text-cyan-400 font-bold block mb-1">wiki_auto</span>
-                <span class="text-slate-400 font-sans text-[11px]">0 Token 零开销自愈维护</span>
-              </div>
-              <div class="p-3 rounded-xl bg-slate-900/80 border border-slate-800">
-                <span class="text-cyan-400 font-bold block mb-1">wiki_link_suggestions</span>
-                <span class="text-slate-400 font-sans text-[11px]">跨页 [[wiki:id]] 智能推荐</span>
-              </div>
-              <div class="p-3 rounded-xl bg-slate-900/80 border border-slate-800">
-                <span class="text-cyan-400 font-bold block mb-1">wiki_organize</span>
-                <span class="text-slate-400 font-sans text-[11px]">引用重复排查与归并整理</span>
-              </div>
+              {t.dualEntry.tools.map((tool) => (
+                <div class="p-3 rounded-xl bg-slate-900/80 border border-slate-800">
+                  <span class="text-cyan-400 font-bold block mb-1">{tool.name}</span>
+                  <span class="text-slate-400 font-sans text-[11px]">{tool.desc}</span>
+                </div>
+              ))}
             </div>
 
             <!-- Resolution Chain Banner -->
             <div class="p-3.5 rounded-xl bg-cyan-950/20 border border-cyan-800/40 text-xs text-cyan-300">
               <span class="font-bold flex items-center gap-1 mb-1">
                 <i class="ri-links-line"></i>
-                <span>四层智能仓库自动解析链</span>
+                <span>{t.dualEntry.chainTitle}</span>
               </span>
               <span class="text-slate-400">
-                CLI <code class="text-cyan-300">--repo</code> &rarr; 环境变量 <code class="text-cyan-300">LOREDEX_REPO</code> &rarr; 客户端 roots &rarr; 进程 CWD。支持带 3 秒超时与读写并发保护。
+                {t.dualEntry.chainDesc}
               </span>
             </div>
           </div>
@@ -222,10 +175,10 @@ const mcpConfigExamples = `// 1. 零配置全局支持任意工作区 (自动4�
                 type="button"
                 data-copy-target="#mcp-config-code"
                 class="hover:text-white transition-colors flex items-center gap-1"
-                title="复制 MCP 配置"
+                title={t.dualEntry.copyConfig}
               >
                 <i class="ri-file-copy-line"></i>
-                <span>复制配置</span>
+                <span>{t.dualEntry.copyConfig}</span>
               </button>
             </div>
             <pre class="p-5 font-mono text-xs text-slate-300 leading-relaxed overflow-x-auto flex-1 bg-[#05070e]" id="mcp-config-code">{mcpConfigExamples}</pre>

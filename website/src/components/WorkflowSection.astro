@@ -1,5 +1,13 @@
 ---
 // WorkflowSection.astro
+import { type Lang, useTranslations } from '../i18n/translations';
+
+interface Props {
+  lang?: Lang;
+}
+
+const { lang = 'zh' } = Astro.props;
+const t = useTranslations(lang);
 ---
 
 <section id="workflow" class="py-24 relative overflow-hidden bg-grid-pattern">
@@ -9,13 +17,13 @@
     <div class="text-center max-w-3xl mx-auto mb-16">
       <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-teal-500/10 text-teal-400 text-xs font-semibold uppercase tracking-wider mb-4 border border-teal-500/20">
         <i class="ri-refresh-line"></i>
-        <span>全生命周期闭环</span>
+        <span>{t.workflow.badge}</span>
       </span>
       <h2 class="text-3xl sm:text-4xl font-extrabold text-white tracking-tight mb-4">
-        代码演进与知识自愈的完整闭环
+        {t.workflow.title}
       </h2>
       <p class="text-slate-400 text-base sm:text-lg leading-relaxed">
-        从发现待编写模块、撰写证据化文档，到代码日常重构、行号漂移自愈与 CI 门禁，Loredex 提供零断裂的工业级知识流转。
+        {t.workflow.description}
       </p>
     </div>
 
@@ -32,9 +40,9 @@
             <span class="inline-block px-2.5 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 text-xs font-mono font-semibold">
               STEP 01
             </span>
-            <h3 class="text-2xl font-bold text-white">模块发现与候选证据捕获</h3>
+            <h3 class="text-2xl font-bold text-white">{t.workflow.step1Title}</h3>
             <p class="text-slate-300 text-sm leading-relaxed">
-              通过目标扫描自动识别仓库分层与覆盖盲区。利用 <code class="px-1.5 py-0.5 rounded bg-slate-800 text-emerald-300 font-mono text-xs">loredex evidence</code> 按关键词智能圈定可直接引用的代码区间，候选预览实时脱敏，安全无死角。
+              {t.workflow.step1Desc}
             </p>
           </div>
           <div class="p-5 rounded-2xl bg-slate-900/80 border border-slate-800 shadow-xl font-mono text-xs text-slate-300">
@@ -42,7 +50,7 @@
               <span>loredex evidence crates/loredex-core --kw parse</span>
               <i class="ri-search-eye-line text-emerald-400"></i>
             </div>
-            <div class="text-emerald-400">// 提取到的证据候选窗口</div>
+            <div class="text-emerald-400">// Extracted evidence preview</div>
             <div class="text-slate-400 mt-1">
               [[cite:crates/loredex-core/src/parser.rs:L88-L104]]<br />
               <span class="text-slate-500 pl-2">&rarr; pub fn parse_page_frontmatter(...) -&gt; Result&lt;...&gt;</span>
@@ -56,9 +64,9 @@
             <span class="inline-block px-2.5 py-0.5 rounded-full bg-teal-500/10 text-teal-400 text-xs font-mono font-semibold">
               STEP 02
             </span>
-            <h3 class="text-2xl font-bold text-white">Agent 落地撰写与证据强约束</h3>
+            <h3 class="text-2xl font-bold text-white">{t.workflow.step2Title}</h3>
             <p class="text-slate-300 text-sm leading-relaxed">
-              Agent 或开发者撰写 Markdown 正文。每个关键事实绑定 <code class="px-1.5 py-0.5 rounded bg-slate-800 text-teal-300 font-mono text-xs">[[cite:...]]</code>。严格拦截无引用内容或敏感 Token。无法考证的直觉随手用 <code class="px-1.5 py-0.5 rounded bg-slate-800 text-slate-200 font-mono text-xs">note</code> 落为明确的 draft，排入账本。
+              {t.workflow.step2Desc}
             </p>
           </div>
           <div class="lg:order-1 p-5 rounded-2xl bg-slate-900/80 border border-slate-800 shadow-xl font-mono text-xs text-slate-300">
@@ -80,9 +88,9 @@
             <span class="inline-block px-2.5 py-0.5 rounded-full bg-cyan-500/10 text-cyan-400 text-xs font-mono font-semibold">
               STEP 03
             </span>
-            <h3 class="text-2xl font-bold text-white">日常代码演化与算法自愈</h3>
+            <h3 class="text-2xl font-bold text-white">{t.workflow.step3Title}</h3>
             <p class="text-slate-300 text-sm leading-relaxed">
-              业务代码更新后，运行 <code class="px-1.5 py-0.5 rounded bg-slate-800 text-cyan-300 font-mono text-xs">loredex auto</code>。若内容未变仅行号漂移，算法自动将旧行映射至新行；若发生 <code class="text-cyan-300 font-mono">git mv</code> 重命名，通过 blob oid 在 HEAD 毫秒级寻址恢复，保持 verified！
+              {t.workflow.step3Desc}
             </p>
           </div>
           <div class="p-5 rounded-2xl bg-slate-900/80 border border-slate-800 shadow-xl font-mono text-xs text-slate-300">
@@ -104,9 +112,9 @@
             <span class="inline-block px-2.5 py-0.5 rounded-full bg-indigo-500/10 text-indigo-400 text-xs font-mono font-semibold">
               STEP 04
             </span>
-            <h3 class="text-2xl font-bold text-white">CI/CD 自动化门禁与 PR 守护</h3>
+            <h3 class="text-2xl font-bold text-white">{t.workflow.step4Title}</h3>
             <p class="text-slate-300 text-sm leading-relaxed">
-              在 GitHub Actions 中挂载 <code class="px-1.5 py-0.5 rounded bg-slate-800 text-indigo-300 font-mono text-xs">loredex diff --since main</code> 与 <code class="px-1.5 py-0.5 rounded bg-slate-800 text-indigo-300 font-mono text-xs">loredex lint</code>。PR 触及的核心引用若失效立时报警阻断合并；同时自动生成 AGENTS.md 引导块，让团队无感协作。
+              {t.workflow.step4Desc}
             </p>
           </div>
           <div class="lg:order-1 p-5 rounded-2xl bg-slate-900/80 border border-slate-800 shadow-xl font-mono text-xs text-slate-300">

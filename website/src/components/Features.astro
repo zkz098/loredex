@@ -1,5 +1,31 @@
 ---
 // Features.astro
+import { type Lang, useTranslations } from '../i18n/translations';
+
+interface Props {
+  lang?: Lang;
+}
+
+const { lang = 'zh' } = Astro.props;
+const t = useTranslations(lang);
+
+const icons = [
+  'ri-pushpin-line',
+  'ri-git-commit-line',
+  'ri-route-line',
+  'ri-cursor-line',
+  'ri-shield-keyhole-line',
+  'ri-markdown-line',
+];
+
+const colors = [
+  { text: 'text-emerald-400', bg: 'bg-emerald-500/10', border: 'border-emerald-500/20', hoverBorder: 'group-hover:border-emerald-400/50', hoverText: 'group-hover:text-emerald-400' },
+  { text: 'text-teal-400', bg: 'bg-teal-500/10', border: 'border-teal-500/20', hoverBorder: 'group-hover:border-teal-400/50', hoverText: 'group-hover:text-teal-400' },
+  { text: 'text-cyan-400', bg: 'bg-cyan-500/10', border: 'border-cyan-500/20', hoverBorder: 'group-hover:border-cyan-400/50', hoverText: 'group-hover:text-cyan-400' },
+  { text: 'text-indigo-400', bg: 'bg-indigo-500/10', border: 'border-indigo-500/20', hoverBorder: 'group-hover:border-indigo-400/50', hoverText: 'group-hover:text-indigo-400' },
+  { text: 'text-rose-400', bg: 'bg-rose-500/10', border: 'border-rose-500/20', hoverBorder: 'group-hover:border-rose-400/50', hoverText: 'group-hover:text-rose-400' },
+  { text: 'text-amber-400', bg: 'bg-amber-500/10', border: 'border-amber-500/20', hoverBorder: 'group-hover:border-amber-400/50', hoverText: 'group-hover:text-amber-400' },
+];
 ---
 
 <section id="features" class="py-24 relative overflow-hidden">
@@ -9,133 +35,41 @@
     <div class="text-center max-w-3xl mx-auto mb-16">
       <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-500/10 text-emerald-400 text-xs font-semibold uppercase tracking-wider mb-4 border border-emerald-500/20">
         <i class="ri-flashlight-line"></i>
-        <span>核心工程创新</span>
+        <span>{t.features.badge}</span>
       </span>
       <h2 class="text-3xl sm:text-4xl font-extrabold text-white tracking-tight mb-4">
-        专为 AI Coding Agent 打造的六大硬核特性
+        {t.features.title}
       </h2>
       <p class="text-slate-400 text-base sm:text-lg leading-relaxed">
-        从证据解析、新鲜度追踪到自动化自愈，Loredex 在底层工程架构上彻底重塑了代码库知识的生命周期。
+        {t.features.description}
       </p>
     </div>
 
     <!-- Features Grid -->
     <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 sm:gap-8">
-      
-      <!-- Feature 1: Evidence Pinned -->
-      <div class="card-glow p-6 sm:p-7 flex flex-col justify-between group">
-        <div>
-          <div class="w-12 h-12 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-400 mb-5 group-hover:scale-110 group-hover:border-emerald-400/50 transition-all duration-300">
-            <i class="ri-pushpin-line text-2xl"></i>
+      {t.features.items.map((item, idx) => {
+        const icon = icons[idx % icons.length];
+        const color = colors[idx % colors.length];
+        return (
+          <div class="card-glow p-6 sm:p-7 flex flex-col justify-between group">
+            <div>
+              <div class={`w-12 h-12 rounded-xl ${color.bg} border ${color.border} flex items-center justify-center ${color.text} mb-5 group-hover:scale-110 ${color.hoverBorder} transition-all duration-300`}>
+                <i class={`${icon} text-2xl`}></i>
+              </div>
+              <h3 class={`text-xl font-bold text-white mb-2 ${color.hoverText} transition-colors`}>
+                {item.title}
+              </h3>
+              <p class="text-slate-300 text-sm leading-relaxed mb-4">
+                {item.desc}
+              </p>
+            </div>
+            <div class="pt-4 border-t border-slate-800/80 flex items-center justify-between text-xs text-slate-400 font-mono">
+              <span>{item.tag}</span>
+              <span class={color.text}>{item.value}</span>
+            </div>
           </div>
-          <h3 class="text-xl font-bold text-white mb-2 group-hover:text-emerald-400 transition-colors">
-            Evidence 证据强钉定
-          </h3>
-          <p class="text-slate-300 text-sm leading-relaxed mb-4">
-            每个事实声明都携带内联引用 <code class="px-1.5 py-0.5 rounded bg-slate-800 text-emerald-300 font-mono text-xs">[[cite:path:Lx-Ly]]</code>。落库时解析为 <span class="text-white font-mono text-xs">(路径, 行区间, blob sha, 内容 sha1)</span> 四元组。没有引用的内容直接拒绝入库。
-          </p>
-        </div>
-        <div class="pt-4 border-t border-slate-800/80 flex items-center justify-between text-xs text-slate-400 font-mono">
-          <span>防凭空捏造</span>
-          <span class="text-emerald-400">Zero-Hallucination</span>
-        </div>
-      </div>
-
-      <!-- Feature 2: Git Native Freshness -->
-      <div class="card-glow p-6 sm:p-7 flex flex-col justify-between group">
-        <div>
-          <div class="w-12 h-12 rounded-xl bg-teal-500/10 border border-teal-500/20 flex items-center justify-center text-teal-400 mb-5 group-hover:scale-110 group-hover:border-teal-400/50 transition-all duration-300">
-            <i class="ri-git-commit-line text-2xl"></i>
-          </div>
-          <h3 class="text-xl font-bold text-white mb-2 group-hover:text-teal-400 transition-colors">
-            Git 驱动的双重过期判定
-          </h3>
-          <p class="text-slate-300 text-sm leading-relaxed mb-4">
-            不迷信 commit 标号。对比 HEAD blob 并通过 tree diff 交叉验证，校验时直接重算代码行区间 SHA1 哈希。代码只要一发生变更，相关引用页面即刻标记为 stale。
-          </p>
-        </div>
-        <div class="pt-4 border-t border-slate-800/80 flex items-center justify-between text-xs text-slate-400 font-mono">
-          <span>双重校验</span>
-          <span class="text-teal-400">Blob + Tree Diff</span>
-        </div>
-      </div>
-
-      <!-- Feature 3: Drift Auto-Healing -->
-      <div class="card-glow p-6 sm:p-7 flex flex-col justify-between group">
-        <div>
-          <div class="w-12 h-12 rounded-xl bg-cyan-500/10 border border-cyan-500/20 flex items-center justify-center text-cyan-400 mb-5 group-hover:scale-110 group-hover:border-cyan-400/50 transition-all duration-300">
-            <i class="ri-route-line text-2xl"></i>
-          </div>
-          <h3 class="text-xl font-bold text-white mb-2 group-hover:text-cyan-400 transition-colors">
-            行号漂移投影自愈
-          </h3>
-          <p class="text-slate-300 text-sm leading-relaxed mb-4">
-            源码增删非相关行，旧引用无需手动改。基于 <span class="text-white font-mono text-xs">similar</span> 行级 diff 自动映射新位置，相似度 ≥ 0.6 自动采纳并留痕，页面无损恢复 verified。
-          </p>
-        </div>
-        <div class="pt-4 border-t border-slate-800/80 flex items-center justify-between text-xs text-slate-400 font-mono">
-          <span>算法自愈</span>
-          <span class="text-cyan-400">Similarity &ge; 0.6</span>
-        </div>
-      </div>
-
-      <!-- Feature 4: Content Addressing Rename -->
-      <div class="card-glow p-6 sm:p-7 flex flex-col justify-between group">
-        <div>
-          <div class="w-12 h-12 rounded-xl bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center text-indigo-400 mb-5 group-hover:scale-110 group-hover:border-indigo-400/50 transition-all duration-300">
-            <i class="ri-cursor-line text-2xl"></i>
-          </div>
-          <h3 class="text-xl font-bold text-white mb-2 group-hover:text-indigo-400 transition-colors">
-            重命名内容寻址反查
-          </h3>
-          <p class="text-slate-300 text-sm leading-relaxed mb-4">
-            当项目发生 <code class="px-1 rounded bg-slate-800 text-indigo-300 font-mono text-xs">git mv</code> 重构时，按 blob oid 在 HEAD 直接反查新路径。比常规启发式重命名更精准，重命名文件引用不迷路。
-          </p>
-        </div>
-        <div class="pt-4 border-t border-slate-800/80 flex items-center justify-between text-xs text-slate-400 font-mono">
-          <span>内容寻址</span>
-          <span class="text-indigo-400">Blob OID Reverse</span>
-        </div>
-      </div>
-
-      <!-- Feature 5: Secret Guard -->
-      <div class="card-glow p-6 sm:p-7 flex flex-col justify-between group">
-        <div>
-          <div class="w-12 h-12 rounded-xl bg-rose-500/10 border border-rose-500/20 flex items-center justify-center text-rose-400 mb-5 group-hover:scale-110 group-hover:border-rose-400/50 transition-all duration-300">
-            <i class="ri-shield-keyhole-line text-2xl"></i>
-          </div>
-          <h3 class="text-xl font-bold text-white mb-2 group-hover:text-rose-400 transition-colors">
-            密钥门禁与预览脱敏
-          </h3>
-          <p class="text-slate-300 text-sm leading-relaxed mb-4">
-            引用行区间命中 API Key、Token 或私钥块形态时，写入立即拦截并拒绝。<code class="px-1 rounded bg-slate-800 text-rose-300 font-mono text-xs">lint</code> 持续回扫存量页面，敏感明文绝不落盘、绝不回显。
-          </p>
-        </div>
-        <div class="pt-4 border-t border-slate-800/80 flex items-center justify-between text-xs text-slate-400 font-mono">
-          <span>安全守卫</span>
-          <span class="text-rose-400">Zero Secret Leaks</span>
-        </div>
-      </div>
-
-      <!-- Feature 6: Zero DB & Pure Markdown -->
-      <div class="card-glow p-6 sm:p-7 flex flex-col justify-between group">
-        <div>
-          <div class="w-12 h-12 rounded-xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center text-amber-400 mb-5 group-hover:scale-110 group-hover:border-amber-400/50 transition-all duration-300">
-            <i class="ri-markdown-line text-2xl"></i>
-          </div>
-          <h3 class="text-xl font-bold text-white mb-2 group-hover:text-amber-400 transition-colors">
-            零数据库与纯文本哲学
-          </h3>
-          <p class="text-slate-300 text-sm leading-relaxed mb-4">
-            Frontmatter 就是权威数据库。所有知识以纯 Markdown 随 Git 仓库提交与 PR 审核。内存分词倒排索引毫秒级构建，无损坏、无锁死、免复杂运维。
-          </p>
-        </div>
-        <div class="pt-4 border-t border-slate-800/80 flex items-center justify-between text-xs text-slate-400 font-mono">
-          <span>Git 原生</span>
-          <span class="text-amber-400">Pure Markdown</span>
-        </div>
-      </div>
-
+        );
+      })}
     </div>
   </div>
 </section>

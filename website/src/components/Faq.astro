@@ -1,5 +1,13 @@
 ---
 // Faq.astro
+import { type Lang, useTranslations } from '../i18n/translations';
+
+interface Props {
+  lang?: Lang;
+}
+
+const { lang = 'zh' } = Astro.props;
+const t = useTranslations(lang);
 ---
 
 <section id="faq" class="py-24 relative overflow-hidden">
@@ -9,99 +17,34 @@
     <div class="text-center max-w-3xl mx-auto mb-16">
       <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-slate-800 text-slate-300 text-xs font-semibold uppercase tracking-wider mb-4 border border-slate-700">
         <i class="ri-questionnaire-line text-emerald-400"></i>
-        <span>常见问题解答</span>
+        <span>{t.faq.badge}</span>
       </span>
       <h2 class="text-3xl sm:text-4xl font-extrabold text-white tracking-tight mb-4">
-        解答你对 Loredex 的核心疑问
+        {t.faq.title}
       </h2>
       <p class="text-slate-400 text-base sm:text-lg leading-relaxed">
-        深入探讨设计哲学、安全机制与日常实践中的关键问题。
+        {t.faq.description}
       </p>
     </div>
 
     <!-- FAQ Accordion -->
     <div class="space-y-4">
-      
-      <!-- FAQ 1 -->
-      <div class="faq-item card-glow overflow-hidden">
-        <button
-          type="button"
-          class="faq-toggle w-full p-6 text-left flex items-center justify-between gap-4 cursor-pointer"
-        >
-          <span class="font-bold text-white text-base sm:text-lg">
-            Loredex 与传统的向量数据库 (RAG) 检索有何根本不同？
-          </span>
-          <i class="ri-arrow-down-s-line text-xl text-slate-400 transition-transform duration-300 faq-icon shrink-0"></i>
-        </button>
-        <div class="faq-content px-6 pb-6 text-slate-300 text-sm leading-relaxed hidden">
-          传统 RAG 基于文本嵌入 (Embeddings) 计算余弦相似度，属于“启发式模糊匹配”，既无法保证匹配到的代码在当前分支真实有效，也无法在代码重构后感知失效。Loredex 是确定性工程系统：通过 Git 四元组 <code class="px-1.5 py-0.5 rounded bg-slate-800 text-emerald-300 font-mono text-xs">(path, line_range, blob_sha, content_sha)</code> 把每一个知识声明死死钉在源码上，每次校验重算内容哈希，彻底杜绝凭空臆造。
+      {t.faq.items.map((item) => (
+        <div class="faq-item card-glow overflow-hidden">
+          <button
+            type="button"
+            class="faq-toggle w-full p-6 text-left flex items-center justify-between gap-4 cursor-pointer"
+          >
+            <span class="font-bold text-white text-base sm:text-lg">
+              {item.q}
+            </span>
+            <i class="ri-arrow-down-s-line text-xl text-slate-400 transition-transform duration-300 faq-icon shrink-0"></i>
+          </button>
+          <div class="faq-content px-6 pb-6 text-slate-300 text-sm leading-relaxed hidden">
+            {item.a}
+          </div>
         </div>
-      </div>
-
-      <!-- FAQ 2 -->
-      <div class="faq-item card-glow overflow-hidden">
-        <button
-          type="button"
-          class="faq-toggle w-full p-6 text-left flex items-center justify-between gap-4 cursor-pointer"
-        >
-          <span class="font-bold text-white text-base sm:text-lg">
-            日常频繁提交代码，会不会导致 Wiki 频繁 stale 而带来巨大维护负担？
-          </span>
-          <i class="ri-arrow-down-s-line text-xl text-slate-400 transition-transform duration-300 faq-icon shrink-0"></i>
-        </button>
-        <div class="faq-content px-6 pb-6 text-slate-300 text-sm leading-relaxed hidden">
-          不会。首先，过期判定精确到关联页面的具体 Evidence，不相关的代码变更完全不影响。其次，Loredex 拥有强大的<strong>行号漂移投影自愈 (Drift Projection)</strong>：当源文件仅仅是因为前置增删行导致行号下移时，`similar` 行级 diff 会在毫秒级内自动将其投影到新坐标并采纳留痕；执行 `git mv` 时更可通过 blob oid 在 HEAD 自动寻址反查。绝大部分日常微调零人工干预。
-        </div>
-      </div>
-
-      <!-- FAQ 3 -->
-      <div class="faq-item card-glow overflow-hidden">
-        <button
-          type="button"
-          class="faq-toggle w-full p-6 text-left flex items-center justify-between gap-4 cursor-pointer"
-        >
-          <span class="font-bold text-white text-base sm:text-lg">
-            如果代码段中恰好存在敏感凭据（如私钥、Token），会被意外记录吗？
-          </span>
-          <i class="ri-arrow-down-s-line text-xl text-slate-400 transition-transform duration-300 faq-icon shrink-0"></i>
-        </button>
-        <div class="faq-content px-6 pb-6 text-slate-300 text-sm leading-relaxed hidden">
-          绝无可能。Loredex 拥有严格的<strong>密钥防护门禁</strong>：在写入阶段，只要引用的行区间命中任何 API Key、Token、私钥形态的规则模式，写入操作将被直接阻断拒绝；同时 <code class="px-1 rounded bg-slate-800 text-rose-300 font-mono text-xs">loredex lint</code> 会持续回扫存量页面。此外，候选抓取工具在终端和 MCP 返回给 Agent 的代码预览文本均经过严密脱敏，敏感明文绝不落盘、绝不回显。
-        </div>
-      </div>
-
-      <!-- FAQ 4 -->
-      <div class="faq-item card-glow overflow-hidden">
-        <button
-          type="button"
-          class="faq-toggle w-full p-6 text-left flex items-center justify-between gap-4 cursor-pointer"
-        >
-          <span class="font-bold text-white text-base sm:text-lg">
-            多位工程师或多个 Agent 在分支间协作时，会产生数据库冲突吗？
-          </span>
-          <i class="ri-arrow-down-s-line text-xl text-slate-400 transition-transform duration-300 faq-icon shrink-0"></i>
-        </button>
-        <div class="faq-content px-6 pb-6 text-slate-300 text-sm leading-relaxed hidden">
-          Loredex 秉持<strong>“零数据库”</strong>设计哲学，没有 SQLite 文件、没有专有索引二进制，Frontmatter 就是全部元数据。每一个页面是独立的 <code class="px-1.5 py-0.5 rounded bg-slate-800 text-slate-200 font-mono text-xs">.wiki/pages/*.md</code> 文件。在 Git 分支中合并时就像合并普通 Markdown 一样自然直观，团队在 GitHub / GitLab PR 中能够清晰审阅所有知识变更。
-        </div>
-      </div>
-
-      <!-- FAQ 5 -->
-      <div class="faq-item card-glow overflow-hidden">
-        <button
-          type="button"
-          class="faq-toggle w-full p-6 text-left flex items-center justify-between gap-4 cursor-pointer"
-        >
-          <span class="font-bold text-white text-base sm:text-lg">
-            现有存量项目的旧 Markdown 文档，如何平滑迁移到 Loredex？
-          </span>
-          <i class="ri-arrow-down-s-line text-xl text-slate-400 transition-transform duration-300 faq-icon shrink-0"></i>
-        </button>
-        <div class="faq-content px-6 pb-6 text-slate-300 text-sm leading-relaxed hidden">
-          直接使用内置的 <code class="px-1.5 py-0.5 rounded bg-slate-800 text-emerald-300 font-mono text-xs">loredex import &lt;dir&gt;</code> 指令。为了捍卫系统的信任模型，存量文档中无可解析引用的页面将安全降级存为 <code class="text-amber-300 font-mono">draft</code>（显式标注未验证），并由 <code class="text-emerald-400 font-mono">loredex plan</code> 自动登记到待办账本中，由 Agent 或人工在后续开发中循序渐进地补齐证据出处。
-        </div>
-      </div>
-
+      ))}
     </div>
 
   </div>

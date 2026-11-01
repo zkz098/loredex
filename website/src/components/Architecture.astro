@@ -1,5 +1,13 @@
 ---
 // Architecture.astro
+import { type Lang, useTranslations } from '../i18n/translations';
+
+interface Props {
+  lang?: Lang;
+}
+
+const { lang = 'zh' } = Astro.props;
+const t = useTranslations(lang);
 ---
 
 <section id="architecture" class="py-24 relative overflow-hidden">
@@ -9,13 +17,13 @@
     <div class="text-center max-w-3xl mx-auto mb-16">
       <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-cyan-500/10 text-cyan-400 text-xs font-semibold uppercase tracking-wider mb-4 border border-cyan-500/20">
         <i class="ri-cpu-line"></i>
-        <span>底层架构与性能</span>
+        <span>{t.architecture.badge}</span>
       </span>
       <h2 class="text-3xl sm:text-4xl font-extrabold text-white tracking-tight mb-4">
-        Rust 纯粹性能与精细化并发模型
+        {t.architecture.title}
       </h2>
       <p class="text-slate-400 text-base sm:text-lg leading-relaxed">
-        摒弃沉重的外部运行时，采用 Rust 1.85+ 构建五层解耦 Crate 体系，在万级页面与大型 Monorepo 场景下依然保持毫秒级响应。
+        {t.architecture.description}
       </p>
     </div>
 
@@ -24,7 +32,7 @@
       <h3 class="text-base font-bold text-white mb-6 flex items-center justify-between">
         <span class="flex items-center gap-2">
           <i class="ri-folder-shield-2-line text-emerald-400"></i>
-          <span>工作区 Crate 分层拓扑</span>
+          <span>{t.architecture.crateTreeTitle}</span>
         </span>
         <span class="text-xs font-mono text-slate-500">Rust 2021 · 5 Crates</span>
       </h3>
@@ -35,21 +43,21 @@
         <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div class="p-4 rounded-xl bg-slate-900/90 border border-emerald-500/30">
             <div class="flex items-center justify-between text-emerald-400 font-bold mb-1">
-              <span>crates/loredex-cli</span>
+              <span>{t.architecture.crates.cli}</span>
               <span class="text-[10px] bg-emerald-500/10 px-2 py-0.5 rounded">Binary</span>
             </div>
             <div class="text-slate-400 text-xs font-sans">
-              clap 4.x 构建的极速 CLI，提供 CI 门禁、一键自愈与本地维护指令。
+              {t.architecture.crates.cliDesc}
             </div>
           </div>
 
           <div class="p-4 rounded-xl bg-slate-900/90 border border-cyan-500/30">
             <div class="flex items-center justify-between text-cyan-400 font-bold mb-1">
-              <span>crates/loredex-mcp</span>
+              <span>{t.architecture.crates.mcp}</span>
               <span class="text-[10px] bg-cyan-500/10 px-2 py-0.5 rounded">Binary / Lib</span>
             </div>
             <div class="text-slate-400 text-xs font-sans">
-              rmcp 3.x 标准 stdio server，读写并发门控，四层仓库智能解析链。
+              {t.architecture.crates.mcpDesc}
             </div>
           </div>
         </div>
@@ -57,11 +65,11 @@
         <!-- Engine Layer -->
         <div class="p-4 rounded-xl bg-slate-900/90 border border-slate-700/80">
           <div class="flex items-center justify-between text-teal-300 font-bold mb-1">
-            <span>crates/loredex-engine</span>
+            <span>{t.architecture.crates.engine}</span>
             <span class="text-[10px] bg-teal-500/10 px-2 py-0.5 rounded">Business Core</span>
           </div>
           <div class="text-slate-400 text-xs font-sans">
-            核心业务调度：双重过期判定 (check_page)、行号漂移投影 (similar)、密钥检测拦截、runs.json 调度账本与 AGENTS.md 标记块管理。
+            {t.architecture.crates.engineDesc}
           </div>
         </div>
 
@@ -69,21 +77,21 @@
         <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div class="p-4 rounded-xl bg-slate-900/90 border border-slate-700/80">
             <div class="flex items-center justify-between text-indigo-300 font-bold mb-1">
-              <span>crates/loredex-git</span>
+              <span>{t.architecture.crates.git}</span>
               <span class="text-[10px] bg-indigo-500/10 px-2 py-0.5 rounded">Git Engine</span>
             </div>
             <div class="text-slate-400 text-xs font-sans">
-              基于 git2 的只读高性能封装，对象库直读、按 commit 缓存 tree diff 与共享 GitView。
+              {t.architecture.crates.gitDesc}
             </div>
           </div>
 
           <div class="p-4 rounded-xl bg-slate-900/90 border border-slate-700/80">
             <div class="flex items-center justify-between text-purple-300 font-bold mb-1">
-              <span>crates/loredex-core</span>
+              <span>{t.architecture.crates.core}</span>
               <span class="text-[10px] bg-purple-500/10 px-2 py-0.5 rounded">Zero-IO Model</span>
             </div>
             <div class="text-slate-400 text-xs font-sans">
-              纯数据模型 (Status / Evidence / PageMeta)、中英文 CJK 二元分词与倒排索引。
+              {t.architecture.crates.coreDesc}
             </div>
           </div>
         </div>
@@ -93,14 +101,13 @@
 
     <!-- Engineering Highlights Grid -->
     <div class="grid grid-cols-1 md:grid-cols-3 gap-6 max-w-5xl mx-auto">
-      
       <div class="p-5 rounded-2xl bg-slate-900/60 border border-slate-800 text-left">
         <div class="w-9 h-9 rounded-lg bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-400 mb-3">
           <i class="ri-speed-up-line text-lg"></i>
         </div>
-        <h4 class="text-base font-bold text-white mb-1.5">2,000 页硬核基准</h4>
+        <h4 class="text-base font-bold text-white mb-1.5">{t.architecture.benches[0].title}</h4>
         <p class="text-xs text-slate-300 leading-relaxed">
-          采用 criterion 建立性能基准，CI 中通过 <code class="text-emerald-400 font-mono">--budget</code> 硬门禁限制回归下限，杜绝无节制变慢。
+          {t.architecture.benches[0].desc}
         </p>
       </div>
 
@@ -108,9 +115,9 @@
         <div class="w-9 h-9 rounded-lg bg-teal-500/10 border border-teal-500/20 flex items-center justify-center text-teal-400 mb-3">
           <i class="ri-git-repository-commits-line text-lg"></i>
         </div>
-        <h4 class="text-base font-bold text-white mb-1.5">单次预计算 GitView</h4>
+        <h4 class="text-base font-bold text-white mb-1.5">{t.architecture.benches[1].title}</h4>
         <p class="text-xs text-slate-300 leading-relaxed">
-          批量处理共享一个 GitView：HEAD 路径索引与改动树单次预计算，避免为每条引用重复扫大仓库。
+          {t.architecture.benches[1].desc}
         </p>
       </div>
 
@@ -118,12 +125,11 @@
         <div class="w-9 h-9 rounded-lg bg-cyan-500/10 border border-cyan-500/20 flex items-center justify-center text-cyan-400 mb-3">
           <i class="ri-shield-check-line text-lg"></i>
         </div>
-        <h4 class="text-base font-bold text-white mb-1.5">80+ 测试 & MCP 进程内验证</h4>
+        <h4 class="text-base font-bold text-white mb-1.5">{t.architecture.benches[2].title}</h4>
         <p class="text-xs text-slate-300 leading-relaxed">
-          集成测试直接构造双工 Client &harr; Server 走真实协议栈，测试覆盖率达 80-98%，稳固可靠。
+          {t.architecture.benches[2].desc}
         </p>
       </div>
-
     </div>
 
   </div>

@@ -1,5 +1,14 @@
 ---
 // Footer.astro
+import { type Lang, useTranslations } from '../i18n/translations';
+
+interface Props {
+  lang?: Lang;
+}
+
+const { lang = 'zh' } = Astro.props;
+const t = useTranslations(lang);
+const homeUrl = lang === 'zh' ? '/' : '/en';
 ---
 
 <footer class="border-t border-slate-800/80 bg-[#06080e] pt-16 pb-12 relative">
@@ -8,14 +17,14 @@
       
       <!-- Brand & Mission (Col 1 & 2) -->
       <div class="lg:col-span-2 space-y-4">
-        <a href="/" class="flex items-center gap-3">
+        <a href={homeUrl} class="flex items-center gap-3">
           <div class="w-9 h-9 rounded-xl bg-gradient-to-br from-emerald-500/20 to-teal-500/10 border border-emerald-500/30 flex items-center justify-center p-1.5 shadow-sm">
             <img src="/favicon.svg" alt="Loredex Logo" class="w-full h-full object-contain" />
           </div>
           <span class="font-bold text-xl text-white tracking-tight">Loredex</span>
         </a>
         <p class="text-sm text-slate-400 max-w-sm leading-relaxed">
-          给 AI Coding Agent 提供有据可查、永不腐化的代码库 Wiki。纯 Markdown 存储、Git 驱动的新鲜度追踪，以 Rust 极致性能打造。
+          {t.footer.mission}
         </p>
         <div class="flex items-center gap-3 pt-2">
           <a
@@ -46,21 +55,21 @@
       <!-- Navigation Links (Col 3) -->
       <div>
         <h4 class="text-xs font-semibold text-white uppercase tracking-wider mb-4 font-mono">
-          产品与架构
+          {t.footer.productAndArch}
         </h4>
         <ul class="space-y-2.5 text-sm text-slate-400">
-          <li><a href="#features" class="hover:text-emerald-400 transition-colors">核心特性</a></li>
-          <li><a href="#dual-entry" class="hover:text-emerald-400 transition-colors">CLI 与 MCP 双入口</a></li>
-          <li><a href="#workflow" class="hover:text-emerald-400 transition-colors">全闭环生命周期</a></li>
-          <li><a href="#architecture" class="hover:text-emerald-400 transition-colors">Rust 分层与性能</a></li>
-          <li><a href="#quickstart" class="hover:text-emerald-400 transition-colors">快速上手安装</a></li>
+          <li><a href="#features" class="hover:text-emerald-400 transition-colors">{t.nav.features}</a></li>
+          <li><a href="#dual-entry" class="hover:text-emerald-400 transition-colors">{t.nav.dualEntry}</a></li>
+          <li><a href="#workflow" class="hover:text-emerald-400 transition-colors">{t.nav.workflow}</a></li>
+          <li><a href="#architecture" class="hover:text-emerald-400 transition-colors">{t.nav.architecture}</a></li>
+          <li><a href="#quickstart" class="hover:text-emerald-400 transition-colors">{t.nav.quickstart}</a></li>
         </ul>
       </div>
 
       <!-- Protocol & Crates (Col 4) -->
       <div>
         <h4 class="text-xs font-semibold text-white uppercase tracking-wider mb-4 font-mono">
-          技术与工具
+          {t.footer.techAndTools}
         </h4>
         <ul class="space-y-2.5 text-sm text-slate-400 font-mono text-xs">
           <li><a href="https://github.com/zkz098/loredex/tree/main/crates/loredex-cli" target="_blank" class="hover:text-emerald-400 transition-colors">loredex-cli</a></li>
@@ -74,14 +83,14 @@
       <!-- Community & License (Col 5) -->
       <div>
         <h4 class="text-xs font-semibold text-white uppercase tracking-wider mb-4 font-mono">
-          开源协议
+          {t.footer.openSourceLicense}
         </h4>
         <p class="text-xs text-slate-400 leading-relaxed mb-3">
-          核心工具链采用 <a href="https://github.com/zkz098/loredex/blob/main/LICENSE" target="_blank" class="text-emerald-400 hover:underline">GPL-3.0-or-later</a> 开源。
+          {t.footer.licenseText} <a href="https://github.com/zkz098/loredex/blob/main/LICENSE" target="_blank" class="text-emerald-400 hover:underline">GPL-3.0-or-later</a>
         </p>
         <p class="text-[11px] text-slate-500 leading-relaxed">
           <i class="ri-shield-check-line text-emerald-400 mr-1"></i>
-          注：你的仓库生成的 <code class="text-slate-300">.wiki/</code> 内容属于你自己的代码资产，不受此协议限制。
+          {t.footer.licenseNote}
         </p>
       </div>
 
@@ -90,12 +99,12 @@
     <!-- Bottom Copyright & Badges -->
     <div class="pt-8 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-slate-400">
       <div>
-        &copy; 2026 Loredex Contributors. Crafted with precision for the autonomous AI era.
+        {t.footer.copyright}
       </div>
       <div class="flex items-center gap-4 text-slate-400">
         <span class="flex items-center gap-1.5">
           <i class="ri-code-box-line text-emerald-400"></i>
-          <span>Built with Astro</span>
+          <span>Astro</span>
         </span>
         <span>&bull;</span>
         <span class="flex items-center gap-1.5">

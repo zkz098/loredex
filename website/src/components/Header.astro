@@ -1,11 +1,23 @@
 ---
 // Header.astro
+import { type Lang, useTranslations } from '../i18n/translations';
+
+interface Props {
+  lang?: Lang;
+}
+
+const { lang = 'zh' } = Astro.props;
+const t = useTranslations(lang);
+const homeUrl = lang === 'zh' ? '/' : '/en';
+const switchLangUrl = lang === 'zh' ? '/en' : '/';
+const switchLangText = lang === 'zh' ? 'English' : '简体中文';
+const switchLangBadge = lang === 'zh' ? 'EN' : '中';
 ---
 
 <header class="sticky top-0 z-50 w-full border-b border-slate-800/80 bg-[#07090e]/80 backdrop-blur-xl transition-all duration-300">
   <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
     <!-- Left: Brand Logo -->
-    <a href="/" class="flex items-center gap-3 group">
+    <a href={homeUrl} class="flex items-center gap-3 group">
       <div class="relative w-9 h-9 rounded-xl bg-gradient-to-br from-emerald-500/20 to-teal-500/10 border border-emerald-500/30 flex items-center justify-center p-1.5 shadow-sm group-hover:border-emerald-400 transition-colors">
         <img src="/favicon.svg" alt="Loredex Logo" class="w-full h-full object-contain" />
       </div>
@@ -19,42 +31,53 @@
     <nav class="hidden md:flex items-center gap-6 text-sm font-medium text-slate-300">
       <a href="#why" class="hover:text-emerald-400 transition-colors py-1 flex items-center gap-1.5">
         <i class="ri-lightbulb-line text-emerald-400/80"></i>
-        <span>痛点解析</span>
+        <span>{t.nav.why}</span>
       </a>
       <a href="#features" class="hover:text-emerald-400 transition-colors py-1 flex items-center gap-1.5">
         <i class="ri-shield-star-line text-emerald-400/80"></i>
-        <span>核心特性</span>
+        <span>{t.nav.features}</span>
       </a>
       <a href="#dual-entry" class="hover:text-emerald-400 transition-colors py-1 flex items-center gap-1.5">
         <i class="ri-terminal-box-line text-emerald-400/80"></i>
-        <span>CLI & MCP</span>
+        <span>{t.nav.dualEntry}</span>
       </a>
       <a href="#workflow" class="hover:text-emerald-400 transition-colors py-1 flex items-center gap-1.5">
         <i class="ri-git-merge-line text-emerald-400/80"></i>
-        <span>闭环工作流</span>
+        <span>{t.nav.workflow}</span>
       </a>
       <a href="#architecture" class="hover:text-emerald-400 transition-colors py-1 flex items-center gap-1.5">
         <i class="ri-cpu-line text-emerald-400/80"></i>
-        <span>架构与基准</span>
+        <span>{t.nav.architecture}</span>
       </a>
       <a href="#faq" class="hover:text-emerald-400 transition-colors py-1 flex items-center gap-1.5">
         <i class="ri-questionnaire-line text-emerald-400/80"></i>
-        <span>FAQ</span>
+        <span>{t.nav.faq}</span>
       </a>
     </nav>
 
     <!-- Right: Actions -->
     <div class="flex items-center gap-3">
+      <!-- Language Switcher Pill -->
+      <a
+        href={switchLangUrl}
+        class="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium text-slate-300 bg-slate-800/80 hover:bg-slate-700/80 border border-slate-700/60 hover:text-white transition-all shadow-sm"
+        title={switchLangText}
+      >
+        <i class="ri-global-line text-emerald-400"></i>
+        <span class="font-mono">{switchLangBadge}</span>
+        <span class="hidden sm:inline text-[11px] text-slate-400">({switchLangText})</span>
+      </a>
+
       <!-- GitHub Button -->
       <a
         href="https://github.com/zkz098/loredex"
         target="_blank"
         rel="noopener noreferrer"
         class="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium text-slate-300 bg-slate-800/80 hover:bg-slate-700/80 border border-slate-700/60 hover:text-white transition-all shadow-sm"
-        title="在 GitHub 查看源码"
+        title="GitHub"
       >
         <i class="ri-github-fill text-base"></i>
-        <span class="hidden sm:inline">Star on GitHub</span>
+        <span class="hidden lg:inline">{t.nav.starOnGithub}</span>
       </a>
 
       <!-- Quick Install CTA -->
@@ -63,14 +86,14 @@
         class="btn-primary !px-3.5 !py-1.5 !text-xs !rounded-lg"
       >
         <i class="ri-flashlight-line"></i>
-        <span>快速上手</span>
+        <span>{t.nav.quickstart}</span>
       </a>
 
       <!-- Mobile Menu Toggle Button -->
       <button
         id="mobile-menu-btn"
         class="md:hidden p-2 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800/80 transition-colors"
-        aria-label="打开菜单"
+        aria-label="Toggle Menu"
       >
         <i class="ri-menu-line text-xl" id="menu-icon"></i>
       </button>
@@ -81,32 +104,34 @@
   <div id="mobile-menu" class="hidden md:hidden border-b border-slate-800 bg-[#07090e]/95 px-4 pt-3 pb-5 space-y-3">
     <a href="#why" class="mobile-nav-link flex items-center gap-2 text-sm text-slate-300 hover:text-emerald-400 py-1.5">
       <i class="ri-lightbulb-line text-emerald-400"></i>
-      <span>痛点解析</span>
+      <span>{t.nav.why}</span>
     </a>
     <a href="#features" class="mobile-nav-link flex items-center gap-2 text-sm text-slate-300 hover:text-emerald-400 py-1.5">
       <i class="ri-shield-star-line text-emerald-400"></i>
-      <span>核心特性</span>
+      <span>{t.nav.features}</span>
     </a>
     <a href="#dual-entry" class="mobile-nav-link flex items-center gap-2 text-sm text-slate-300 hover:text-emerald-400 py-1.5">
       <i class="ri-terminal-box-line text-emerald-400"></i>
-      <span>CLI & MCP 双入口</span>
+      <span>{t.nav.dualEntry}</span>
     </a>
     <a href="#workflow" class="mobile-nav-link flex items-center gap-2 text-sm text-slate-300 hover:text-emerald-400 py-1.5">
       <i class="ri-git-merge-line text-emerald-400"></i>
-      <span>闭环工作流</span>
+      <span>{t.nav.workflow}</span>
     </a>
     <a href="#architecture" class="mobile-nav-link flex items-center gap-2 text-sm text-slate-300 hover:text-emerald-400 py-1.5">
       <i class="ri-cpu-line text-emerald-400"></i>
-      <span>架构设计与基准</span>
+      <span>{t.nav.architecture}</span>
     </a>
     <a href="#faq" class="mobile-nav-link flex items-center gap-2 text-sm text-slate-300 hover:text-emerald-400 py-1.5">
       <i class="ri-questionnaire-line text-emerald-400"></i>
-      <span>常见问题 (FAQ)</span>
+      <span>{t.nav.faq}</span>
     </a>
+
+    <!-- Mobile Language Switcher Row -->
     <div class="pt-2 border-t border-slate-800/80 flex items-center justify-between">
-      <a href="https://github.com/zkz098/loredex" target="_blank" class="text-xs text-slate-400 flex items-center gap-1 hover:text-white">
-        <i class="ri-github-fill text-sm"></i>
-        <span>GitHub 源码库</span>
+      <a href={switchLangUrl} class="text-xs text-slate-300 hover:text-emerald-400 flex items-center gap-1.5 py-1">
+        <i class="ri-global-line text-emerald-400"></i>
+        <span>切换到 {switchLangText}</span>
       </a>
       <span class="text-xs font-mono text-emerald-400">Rust 1.85+</span>
     </div>
