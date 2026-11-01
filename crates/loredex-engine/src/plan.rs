@@ -289,19 +289,20 @@ pub fn plan_with_view(view: &GitView, wiki_dir: &Path, reset: bool) -> Result<Ru
             .collect()
     };
     // A pending New task is *interrupted work*, so it survives a run boundary —
-    // but it is a claim about coverage, not about a page id. Once any page cites
-    // its seed files the module is documented, and carrying it on would make the
-    // worklist resurrect forever (the suggested id and the id actually authored
-    // rarely agree).
+    // but it is a claim about coverage, not about a page id. Once the module it
+    // named is mostly documented the claim is false, and carrying it on would
+    // make the worklist resurrect forever (the suggested id and the id actually
+    // authored rarely agree). Retire it with the same ratio that created it.
     let carried: Vec<PlanTask> = prev
         .map(|r| {
             r.tasks
                 .iter()
                 .filter(|t| t.status == TaskStatus::Pending)
                 .filter(|t| {
-                    !(t.kind == TaskKind::New
-                        && !t.seeds.is_empty()
-                        && t.seeds.iter().all(|s| cited.contains(s)))
+                    t.kind != TaskKind::New
+                        || t.seeds.is_empty()
+                        || t.seeds.iter().filter(|s| !cited.contains(*s)).count() as f64
+                            >= t.seeds.len() as f64 * 0.5
                 })
                 .cloned()
                 .collect()

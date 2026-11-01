@@ -573,3 +573,40 @@ fn carried_new_task_retires_when_another_page_covers_its_seeds() {
         run2.tasks.iter().map(|t| &t.page_id).collect::<Vec<_>>()
     );
 }
+
+#[test]
+fn carried_new_task_retires_on_the_ratio_that_created_it() {
+    // seeds are the uncovered files at creation time; documenting most of them
+    // drops the module below the emit threshold, so the carried task must go too
+    let fx = Fx::new(&[
+        ("pkg/a.rs", "fn a() {}\n"),
+        ("pkg/b.rs", "fn b() {}\n"),
+        ("pkg/c.rs", "fn c() {}\n"),
+        ("pkg/d.rs", "fn d() {}\n"),
+    ]);
+    let run1 = open_plan(&fx.repo, &fx.wiki()).unwrap();
+    let new = run1
+        .tasks
+        .iter()
+        .find(|t| t.kind == TaskKind::New && t.page_id == "pkg")
+        .expect("four uncovered files must plan one module task");
+    assert_eq!(new.seeds.len(), 4);
+
+    put_page(
+        &fx.repo,
+        &fx.wiki(),
+        "pkg-notes",
+        "Package notes",
+        "[[cite:pkg/a.rs:L1-L1]] [[cite:pkg/b.rs:L1-L1]] [[cite:pkg/c.rs:L1-L1]]",
+        vec![],
+        Some("system".into()),
+    )
+    .unwrap();
+
+    let run2 = open_plan(&fx.repo, &fx.wiki()).unwrap();
+    assert!(
+        !run2.tasks.iter().any(|t| t.page_id == "pkg"),
+        "1 of 4 uncovered is below the threshold: {:?}",
+        run2.tasks.iter().map(|t| &t.page_id).collect::<Vec<_>>()
+    );
+}
