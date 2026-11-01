@@ -57,6 +57,29 @@ enum Command {
         #[arg(long)]
         mark: bool,
     },
+    /// Report which pages' evidence is touched by changes between a ref and
+    /// HEAD (the PR-review question: "what docs did this diff break?")
+    Diff {
+        /// Base ref: sha, branch, tag, HEAD~n (diffed against HEAD)
+        #[arg(long)]
+        since: String,
+        #[arg(long)]
+        json: bool,
+        /// Exit 1 when any verified page is affected (CI/hook friendly)
+        #[arg(long)]
+        fail_on_affected: bool,
+    },
+    /// Suggest cross-page [[wiki:id]] links from shared citations, module
+    /// adjacency and text similarity (advisory; never a lint error)
+    Links {
+        /// Only suggestions authored by this page
+        #[arg(long)]
+        id: Option<String>,
+        #[arg(long, default_value_t = 3)]
+        limit: usize,
+        #[arg(long)]
+        json: bool,
+    },
     /// Verify a page's evidence at snippet level (content hashes, not just commits)
     Verify { id: String },
     /// Re-point a stale page's evidence at HEAD using line drift projection
@@ -297,6 +320,90 @@ fn main() -> anyhow::Result<()> {
             );
             if stale_count > 0 {
                 std::process::exit(1);
+            }
+        }
+        Command::Diff {
+            since,
+            json,
+            fail_on_affected,
+        } => {
+            let view = repo.view();
+            let report = engine::diff_since_with(&view, &wiki_dir, &since)?;
+            if json {
+                println!(
+                    "{}",
+                    serde_json::to_string_pretty(&report).map_err(|e| anyhow::anyhow!(e))?
+                );
+            } else if report.affected_pages.is_empty() {
+                println!(
+                    "{} changed path(s) between {} and {}; no wiki evidence touched",
+                    report.changed_paths, report.since, report.head
+                );
+            } else {
+                if !report.since_is_ancestor {
+                    println!(
+                        "note: {} is not an ancestor of HEAD; reporting the symmetric tree diff",
+                        report.since
+                    );
+                }
+                println!(
+                    "{} page(s) affected by {} changed path(s) between {} and {}:",
+                    report.affected_pages.len(),
+                    report.changed_paths,
+                    report.since,
+                    report.head
+                );
+                for p in &report.affected_pages {
+                    println!("  [{}] {} — {}", p.status, p.id, p.title);
+                    for e in &p.evidence {
+                        let range = e
+                            .lines
+                            .map(|[a, b]| format!("L{a}-L{b}"))
+                            .unwrap_or_else(|| "whole file".into());
+                        let extra = match (&e.renamed_to, &e.renamed_from) {
+                            (Some(t), _) => format!(" -> {t}"),
+                            (_, Some(f)) => format!(" (was {f})"),
+                            _ => String::new(),
+                        };
+                        println!("       - {} {range} {}{extra}", e.path, e.change);
+                    }
+                }
+            }
+            if fail_on_affected && report.affected_pages.iter().any(|p| p.status == "verified") {
+                std::process::exit(1);
+            }
+        }
+        Command::Links { id, limit, json } => {
+            let view = repo.view();
+            let mut report = engine::links::suggest_links_with(&view, &wiki_dir, limit, 3)?;
+            if let Some(page) = &id {
+                report.suggestions.retain(|s| s.from == *page);
+            }
+            if json {
+                println!(
+                    "{}",
+                    serde_json::to_string_pretty(&report).map_err(|e| anyhow::anyhow!(e))?
+                );
+            } else if report.suggestions.is_empty() {
+                println!(
+                    "no link suggestions ({} page(s) scanned)",
+                    report.pages_scanned
+                );
+            } else {
+                let mut cur = "";
+                for s in &report.suggestions {
+                    if s.from != cur {
+                        cur = &s.from;
+                        println!("{}:", s.from);
+                    }
+                    println!(
+                        "   [[wiki:{}]] (score {}) — {}",
+                        s.to,
+                        s.score,
+                        s.reasons.join("; ")
+                    );
+                }
+                println!("hint: {}", report.hint);
             }
         }
         Command::Verify { id } => {

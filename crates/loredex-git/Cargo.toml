@@ -13,3 +13,6 @@ anyhow = { workspace = true }
 thiserror = { workspace = true }
 git2 = { workspace = true }
 loredex-core = { workspace = true }
+
+[dev-dependencies]
+tempfile = "3"

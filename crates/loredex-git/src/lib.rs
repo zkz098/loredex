@@ -146,6 +146,48 @@ impl GitRepo {
             !(f.is_wt_new() || f.is_index_new() || f.is_ignored())
         }))
     }
+
+    /// Structured change set between any resolvable ref and HEAD (see `GitView::path_deltas`).
+    pub fn path_deltas(&self, since_ref: &str) -> Result<Vec<PathDelta>> {
+        self.view().path_deltas(since_ref)
+    }
+}
+
+/// A whole-repo path change between a ref and HEAD.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct PathDelta {
+    pub old: Option<String>,
+    pub new: Option<String>,
+    pub change: PathChange,
+}
+
+impl PathDelta {
+    pub fn new_path(&self) -> Option<&str> {
+        self.new.as_deref()
+    }
+
+    pub fn old_path(&self) -> Option<&str> {
+        self.old.as_deref()
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum PathChange {
+    Modified,
+    Added,
+    Deleted,
+    Renamed,
+}
+
+impl PathChange {
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            PathChange::Modified => "modified",
+            PathChange::Added => "added",
+            PathChange::Deleted => "deleted",
+            PathChange::Renamed => "renamed",
+        }
+    }
 }
 
 /// Precomputed HEAD tree: path -> blob/non-blob, sorted tracked files, and the
@@ -381,6 +423,71 @@ impl<'a> GitView<'a> {
             .collect())
     }
 
+    /// Structured change set between any resolvable ref (commit sha, branch,
+    /// tag, `HEAD~n`) and HEAD, with similarity-based rename pairing. Unlike
+    /// `changed_paths_since` there is no pathspec: callers join the full delta
+    /// list against their own index (e.g. wiki evidence paths).
+    pub fn path_deltas(&self, since_ref: &str) -> Result<Vec<PathDelta>> {
+        let Some(old_tree) = self.tree_of(since_ref) else {
+            return Err(WikiError::Git(format!(
+                "{since_ref} does not resolve to a commit with a tree"
+            )));
+        };
+        let head_commit = self
+            .repo
+            .repo
+            .head()
+            .and_then(|h| h.peel_to_commit())
+            .map_err(|e| WikiError::Git(e.to_string()))?;
+        let head_tree = head_commit
+            .tree()
+            .map_err(|e| WikiError::Git(e.to_string()))?;
+        let mut diff = self
+            .repo
+            .repo
+            .diff_tree_to_tree(Some(&old_tree), Some(&head_tree), None)
+            .map_err(|e| WikiError::Git(e.to_string()))?;
+        let mut find = git2::DiffFindOptions::new();
+        find.renames(true);
+        // best effort: without similarity detection renames surface as a
+        // delete + add pair, which is still honest
+        let _ = diff.find_similar(Some(&mut find));
+        let mut out = Vec::new();
+        for delta in diff.deltas() {
+            let old = delta.old_file().path().and_then(|p| {
+                (delta.status() != git2::Delta::Added).then(|| p.display().to_string())
+            });
+            let new = delta.new_file().path().and_then(|p| {
+                (delta.status() != git2::Delta::Deleted).then(|| p.display().to_string())
+            });
+            // the wiki's own storage is not evidence material: exclude it from
+            // range deltas so committed pages/ledgers do not pollute the report
+            let is_wiki = |p: &Option<String>| {
+                p.as_deref()
+                    .map(|x| x == ".wiki" || x.starts_with(".wiki/"))
+                    .unwrap_or(false)
+            };
+            if is_wiki(&old) || is_wiki(&new) {
+                continue;
+            }
+            let change = match delta.status() {
+                git2::Delta::Renamed => PathChange::Renamed,
+                git2::Delta::Added => PathChange::Added,
+                git2::Delta::Deleted => PathChange::Deleted,
+                _ => PathChange::Modified,
+            };
+            if old.is_some() || new.is_some() {
+                out.push(PathDelta { old, new, change });
+            }
+        }
+        out.sort_by(|a, b| {
+            a.new_path()
+                .unwrap_or_default()
+                .cmp(b.new_path().unwrap_or_default())
+        });
+        Ok(out)
+    }
+
     /// Batch pre-load: one pathspec-limited diff per recorded commit, covering
     /// the union of all evidence paths for that commit. Without this a batch
     /// still works, but grows the cached diff path-by-path.
@@ -473,6 +580,56 @@ impl<'a> GitView<'a> {
         let commit = self.repo.repo.revparse_single(commit).ok()?;
         let commit = commit.peel_to_commit().ok()?;
         commit.tree().ok()
+    }
+
+    /// Full commit sha a ref (sha, branch, tag, `HEAD~n`) resolves to.
+    pub fn resolve_ref_commit(&self, rev: &str) -> Result<String> {
+        let obj = self
+            .repo
+            .repo
+            .revparse_single(rev)
+            .map_err(|e| WikiError::Git(format!("cannot resolve ref `{rev}`: {e}")))?;
+        let commit = obj
+            .peel_to_commit()
+            .map_err(|e| WikiError::Git(format!("{rev} is not a commit-able object: {e}")))?;
+        Ok(commit.id().to_string())
+    }
+
+    pub fn is_ancestor(&self, maybe_ancestor: &str, descendant: &str) -> Result<bool> {
+        let a = self
+            .repo
+            .repo
+            .revparse_single(maybe_ancestor)
+            .map_err(|e| WikiError::Git(e.to_string()))?
+            .peel_to_commit()
+            .map_err(|e| WikiError::Git(e.to_string()))?;
+        let b = self
+            .repo
+            .repo
+            .revparse_single(descendant)
+            .map_err(|e| WikiError::Git(e.to_string()))?
+            .peel_to_commit()
+            .map_err(|e| WikiError::Git(e.to_string()))?;
+        if a.id() == b.id() {
+            return Ok(true);
+        }
+        // walk b's history in time order and stop at a: hide() is not a
+        // boundary for non-ancestors, so membership is tested explicitly
+        let mut walk = self
+            .repo
+            .repo
+            .revwalk()
+            .map_err(|e| WikiError::Git(e.to_string()))?;
+        walk.set_sorting(git2::Sort::TIME)
+            .map_err(|e| WikiError::Git(e.to_string()))?;
+        walk.push(b.id())
+            .map_err(|e| WikiError::Git(e.to_string()))?;
+        for id in walk {
+            if id.map_err(|e| WikiError::Git(e.to_string()))? == a.id() {
+                return Ok(true);
+            }
+        }
+        Ok(false)
     }
 
     /// old -> new path pairs renamed between `from_commit` and HEAD.
@@ -697,7 +854,7 @@ fn lines_of(content: &str, lo: u32, hi: u32) -> Option<String> {
 
 #[cfg(test)]
 mod tests {
-    use super::lines_of;
+    use super::{lines_of, GitRepo, PathChange};
 
     #[test]
     fn extracts_requested_window() {
@@ -713,5 +870,56 @@ mod tests {
         assert_eq!(lines_of(content, 3, 3).as_deref(), Some(""));
         assert_eq!(lines_of(content, 4, 6).as_deref(), Some(""));
         assert_eq!(lines_of(content, 3, 1).as_deref(), Some(""));
+    }
+
+    #[test]
+    fn path_deltas_classifies_modify_rename_delete() {
+        use git2::{Repository, Signature};
+        let tmp = tempfile::TempDir::new().unwrap();
+        let root = tmp.path();
+        let git = Repository::init(root).unwrap();
+        let sig = Signature::now("t", "t@l").unwrap();
+        let commit = |git: &Repository, msg: &str| -> String {
+            let mut idx = git.index().unwrap();
+            idx.add_all(["*"].iter(), git2::IndexAddOption::DEFAULT, None)
+                .unwrap();
+            let tree = git.find_tree(idx.write_tree().unwrap()).unwrap();
+            let head = git.head().ok().map(|h| h.peel_to_commit().unwrap());
+            let oid = match head {
+                Some(p) => git
+                    .commit(Some("HEAD"), &sig, &sig, msg, &tree, &[&p])
+                    .unwrap(),
+                None => git
+                    .commit(Some("HEAD"), &sig, &sig, msg, &tree, &[])
+                    .unwrap(),
+            };
+            oid.to_string()
+        };
+        std::fs::write(root.join("keep.rs"), "fn a() {}\n").unwrap();
+        std::fs::write(root.join("mod.rs"), "fn b() {}\n").unwrap();
+        std::fs::write(root.join("gone.rs"), "fn c() {}\n").unwrap();
+        std::fs::write(root.join("ren.rs"), "fn d() {}\nfn e() {}\nfn f() {}\n").unwrap();
+        let base = commit(&git, "one");
+        std::fs::write(root.join("mod.rs"), "fn b2() {}\n").unwrap();
+        std::fs::remove_file(root.join("gone.rs")).unwrap();
+        std::fs::rename(root.join("ren.rs"), root.join("renamed.rs")).unwrap();
+        std::fs::write(root.join("new.rs"), "fn n() {}\n").unwrap();
+        commit(&git, "two");
+
+        let repo = GitRepo::discover(root).unwrap();
+        let deltas = repo.path_deltas(&base).unwrap();
+        let find = |p: &str| {
+            deltas
+                .iter()
+                .find(|d| d.new_path() == Some(p) || d.old_path() == Some(p))
+        };
+        assert_eq!(find("mod.rs").unwrap().change, PathChange::Modified);
+        assert_eq!(find("new.rs").unwrap().change, PathChange::Added);
+        assert_eq!(find("gone.rs").unwrap().change, PathChange::Deleted);
+        let r = find("renamed.rs").expect("rename pair");
+        assert_eq!(r.change, PathChange::Renamed);
+        assert_eq!(r.old_path(), Some("ren.rs"));
+        assert!(repo.view().is_ancestor(&base, "HEAD").unwrap());
+        assert!(!repo.view().is_ancestor("HEAD", &base).unwrap());
     }
 }

@@ -890,6 +890,7 @@ dependencies = [
  "foldhash",
  "git2",
  "loredex-core",
+ "tempfile",
  "thiserror",
 ]
 

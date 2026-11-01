@@ -44,6 +44,8 @@ loredex evidence crates/foo --kw serve --kw auth  # 引用草稿：可直接粘�
 loredex put core --title "核心层" --body notes.md   # 引用命中密钥形态行会被拒绝（--no-redact 放行）
 loredex list / show core / search "关键词"
 loredex check --mark          # 过期扫描，exit code 非 0 = 有 stale（可挂 CI）
+loredex diff --since v0.1.4   # ref→HEAD 变更集触及哪些页面的证据（--json 供 PR 机器人，--fail-on-affected 做门禁）
+loredex links                 # 基于共引/模块邻接/文本相似度的 [[wiki:id]] 互链推荐（仅供参考，不算 lint 错误）
 loredex plan [--json]         # 生成计划：未覆盖模块(New) + stale页(Refresh)，写入 .wiki/runs.json 账本
 loredex index                 # 重新生成 pages/index.md + pages/quickstart.md（按类型读序 + agent 协议）
 loredex playbooks             # 页面类型写作指南（内置5类 + wiki.toml 扩展）
@@ -94,6 +96,8 @@ Server 在 `initialize` 时下发协议契约（先查新鲜度、stale 视为�
 | 工具 | 用途 |
 |---|---|
 | `wiki_check_freshness` | 全量 git 过期扫描 + 标注可投影项 |
+| `wiki_diff_since` | ref→HEAD 变更集与各页证据连接（PR 范围过期分析） |
+| `wiki_link_suggestions` | 带理由的跨页 `[[wiki:id]]` 互链推荐（排序输出） |
 | `wiki_list` / `wiki_read` | 页面清单 / 读页面（stale 带醒目 warning） |
 | `wiki_search` | 分词搜索（驼峰、下划线、CJK 二元组、前缀） |
 | `wiki_get_evidence` | 把单条引用展开为 HEAD 当前源码内容 |

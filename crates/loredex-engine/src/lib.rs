@@ -9,10 +9,12 @@ use sha1::{Digest, Sha1};
 pub mod agents_md;
 pub mod auto;
 pub mod config;
+pub mod diff_since;
 pub mod drift;
 pub mod evidence;
 pub mod import;
 pub mod index;
+pub mod links;
 pub mod lint;
 pub mod modules;
 pub mod plan;
@@ -25,6 +27,9 @@ pub use agents_md::{
 };
 pub use auto::{auto_refresh, auto_refresh_with, AutoReport};
 pub use config::{locale as wiki_locale, set_language, Locale};
+pub use diff_since::{
+    diff_since, diff_since_with, DiffPageHit, DiffReport, EvidenceHit as DiffEvidenceHit,
+};
 pub use drift::{
     project_evidence, project_evidence_with, project_range, refresh_page_with_drift,
     refresh_page_with_drift_view, DriftOutcome,
@@ -34,6 +39,7 @@ pub use import::{import_dir, import_openwiki, ImportFormat, ImportReport};
 pub use index::{
     all_wiki_links, generate_index, generate_index_with, is_generated, INDEX_ID, QUICKSTART_ID,
 };
+pub use links::{LinkReport, LinkSuggestion};
 pub use lint::{lint, lint_with, LintIssue};
 pub use modules::{discover as discover_modules, discover_with, ModuleInfo};
 pub use plan::{

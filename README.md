@@ -44,6 +44,8 @@ loredex evidence crates/foo --kw serve --kw auth   # citation drafts: pasteable 
 loredex put core --title "Core layer" --body notes.md --type system   # citations hitting secret-shaped lines are rejected (--no-redact to override)
 loredex list / show core / search "keyword"
 loredex check --mark           # staleness scan; non-zero exit = stale found (CI-friendly)
+loredex diff --since v0.1.4    # which pages' evidence a ref->HEAD change set touches (--json for PR bots, --fail-on-affected for gates)
+loredex links                  # suggest [[wiki:id]] cross-links from shared citations/module adjacency/text similarity (advisory)
 loredex plan [--json]          # generation worklist: uncovered modules (New) + stale pages (Refresh), persisted to .wiki/runs.json
 loredex index                  # regenerate pages/index.md + pages/quickstart.md (typed reading path + agent protocol)
 loredex playbooks              # page-type authoring guides (5 built-in + wiki.toml extensions)
@@ -94,6 +96,8 @@ The server advertises a behavioral contract at `initialize` (check freshness bef
 | Tool | Purpose |
 |---|---|
 | `wiki_check_freshness` | Full git staleness scan + projectable-item annotation |
+| `wiki_diff_since` | Ref->HEAD change set joined against page evidence (PR-scope staleness) |
+| `wiki_link_suggestions` | Ranked cross-page `[[wiki:id]]` link proposals with reasons |
 | `wiki_list` / `wiki_read` | Page inventory / read a page (stale pages carry a warning) |
 | `wiki_search` | Tokenized search (camelCase, snake_case, CJK bigrams, prefix) |
 | `wiki_get_evidence` | Expand one citation to the actual file content at HEAD |

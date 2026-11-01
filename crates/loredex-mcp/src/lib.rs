@@ -27,7 +27,9 @@ are rejected; citations whose range matches a secret pattern are rejected too \
 (override only when the user asks: allow_secret_citations).
 3. When wiki_check_freshness reports drift, call wiki_refresh_page: unchanged \
 snippets are line-projected onto the new revision and stay verified; lost ones \
-must be rewritten via wiki_put_page.
+must be rewritten via wiki_put_page. To scope damage to a branch or commit \
+range before merging, call wiki_diff_since with that ref. \
+wiki_link_suggestions proposes [[wiki:id]] cross-links worth adding.
 4. wiki_get_evidence resolves one citation to the file content at current git \
 HEAD, so you can audit claims without opening the repo yourself.
 5. Maintenance is one call: wiki_auto projects recoverable drift (zero tokens), lints, \
@@ -210,6 +212,21 @@ struct EvidenceCandidatesParam {
 
 fn default_module() -> String {
     ".".into()
+}
+
+#[derive(Debug, Deserialize, schemars::JsonSchema)]
+struct DiffSinceParam {
+    /// Base ref: sha, branch, tag, HEAD~n (diffed against HEAD)
+    since: String,
+}
+
+#[derive(Debug, Deserialize, schemars::JsonSchema)]
+struct LinksParam {
+    /// Only suggestions authored by this page id
+    #[serde(default)]
+    id: Option<String>,
+    #[serde(default)]
+    limit: Option<usize>,
 }
 
 #[derive(Debug, Deserialize, schemars::JsonSchema)]
@@ -975,6 +992,56 @@ impl WikiServer {
                 )
                 .map_err(Self::err)?;
                 serde_json::to_value(cand).map_err(|e| Self::err(e.to_string()))
+            })
+            .await?;
+        Ok(Json(out))
+    }
+
+    #[tool(
+        name = "wiki_diff_since",
+        description = "Which wiki pages does the change set between a ref and HEAD touch: per-page evidence joined against a structured tree diff (adds/modifies/deletes, rename-paired). Answers 'what docs did this diff break' for a branch or commit range; independent of each page's recorded commit."
+    )]
+    async fn wiki_diff_since(
+        &self,
+        Parameters(p): Parameters<DiffSinceParam>,
+        peer: Peer<RoleServer>,
+    ) -> Result<Json<serde_json::Value>, ErrorData> {
+        let _gate = self.gate.read().await;
+        let out = self
+            .with_repo(&peer, move |repo| {
+                let view = repo.view();
+                let report = engine::diff_since_with(&view, &repo.wiki_dir(), &p.since)
+                    .map_err(Self::err)?;
+                serde_json::to_value(report).map_err(|e| Self::err(e.to_string()))
+            })
+            .await?;
+        Ok(Json(out))
+    }
+
+    #[tool(
+        name = "wiki_link_suggestions",
+        description = "Suggest cross-page [[wiki:id]] links ranked by shared citations, module adjacency and text similarity (advisory; adding a link is a put with the marker in the body, never required)."
+    )]
+    async fn wiki_link_suggestions(
+        &self,
+        Parameters(p): Parameters<LinksParam>,
+        peer: Peer<RoleServer>,
+    ) -> Result<Json<serde_json::Value>, ErrorData> {
+        let _gate = self.gate.read().await;
+        let out = self
+            .with_repo(&peer, move |repo| {
+                let view = repo.view();
+                let mut report = engine::links::suggest_links_with(
+                    &view,
+                    &repo.wiki_dir(),
+                    p.limit.unwrap_or(3),
+                    3,
+                )
+                .map_err(Self::err)?;
+                if let Some(id) = &p.id {
+                    report.suggestions.retain(|s| s.from == *id);
+                }
+                serde_json::to_value(report).map_err(|e| Self::err(e.to_string()))
             })
             .await?;
         Ok(Json(out))
