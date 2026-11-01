@@ -298,6 +298,17 @@ fn overlapping_evidence_is_advisory_and_linking_silences_it() {
         .filter(|i| i.kind == "overlapping-evidence")
         .collect();
     assert!(overlap.is_empty(), "{overlap:?}");
+    // the same suppression applies to the consolidation report: a declared
+    // division of labor is not an open work item
+    assert!(
+        consolidation_clusters(&fx.wiki())
+            .unwrap()
+            .clusters
+            .iter()
+            .all(|c| !(c.pages.contains(&"note-a".to_string())
+                && c.pages.contains(&"note-b".to_string()))),
+        "linked pages must not cluster"
+    );
     // advisory findings alone must not make `auto` report the wiki unclean;
     // note-c is a draft, so it stays as the single pending authoring task
     let auto = loredex_engine::auto_refresh(&fx.repo, &fx.wiki()).unwrap();

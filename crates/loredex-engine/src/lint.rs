@@ -7,7 +7,7 @@
 //! - pages whose evidence overlaps without cross-links (advisory: a curation
 //!   work item, not a defect — see `loredex organize` for the cluster view)
 
-use std::collections::{BTreeMap, BTreeSet};
+use std::collections::BTreeSet;
 use std::path::Path;
 
 use loredex_core::{dedup_citations, parse_citations, parse_wiki_links, Status};
@@ -149,25 +149,10 @@ pub fn lint_with(view: &GitView, wiki_dir: &Path) -> Result<Vec<LintIssue>> {
     //    without linking each other. Advisory — the maintainer decides whether
     //    to merge or to split responsibilities; `loredex organize` shows the
     //    same pairs grouped into clusters.
-    let linked: BTreeMap<&str, BTreeSet<String>> = pages
-        .iter()
-        .filter(|p| !crate::index::is_generated(&p.meta.id))
-        .map(|p| {
-            (
-                p.meta.id.as_str(),
-                parse_wiki_links(&p.body).into_iter().collect(),
-            )
-        })
-        .collect();
     for o in crate::organize::overlap_pairs(&pages) {
-        let (a, b) = (o.a.as_str(), o.b.as_str());
-        if linked.get(a).is_some_and(|l| l.contains(b))
-            || linked.get(b).is_some_and(|l| l.contains(a))
-        {
-            continue;
-        }
+        let (a, b) = (o.a, o.b);
         issues.push(LintIssue {
-            page: a.to_string(),
+            page: a.clone(),
             kind: "overlapping-evidence".into(),
             detail: format!(
                 "`{a}` and `{b}` both cite {} and neither links the other",

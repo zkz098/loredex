@@ -46,9 +46,12 @@ pub struct OrganizeReport {
 
 /// Pairs whose evidence sets substantially coincide. Generated navigation
 /// pages carry no pins and drafts have none yet (`plan` queues them for
-/// backfill), so neither participates.
+/// backfill), so neither participates. A pair that already cross-links is a
+/// *declared* division of labor — the readers can find each other — so it is
+/// not an open consolidation item.
 pub fn overlap_pairs(pages: &[WikiPage]) -> Vec<Overlap> {
     let mut sets: Vec<(&str, BTreeSet<&str>)> = Vec::new();
+    let mut links: Vec<BTreeSet<String>> = Vec::new();
     for p in pages {
         if crate::index::is_generated(&p.meta.id) || p.meta.status == Status::Draft {
             continue;
@@ -57,6 +60,11 @@ pub fn overlap_pairs(pages: &[WikiPage]) -> Vec<Overlap> {
             p.meta.id.as_str(),
             p.meta.evidence.iter().map(|e| e.path.as_str()).collect(),
         ));
+        links.push(
+            loredex_core::parse_wiki_links(&p.body)
+                .into_iter()
+                .collect(),
+        );
     }
     let mut out = Vec::new();
     for i in 0..sets.len() {
@@ -66,9 +74,13 @@ pub fn overlap_pairs(pages: &[WikiPage]) -> Vec<Overlap> {
             if shared.is_empty() || shared.len() * OVERLAP_RATIO < smaller {
                 continue;
             }
+            let (a, b) = (sets[i].0, sets[j].0);
+            if links[i].contains(b) || links[j].contains(a) {
+                continue;
+            }
             out.push(Overlap {
-                a: sets[i].0.to_string(),
-                b: sets[j].0.to_string(),
+                a: a.to_string(),
+                b: b.to_string(),
                 shared: shared.into_iter().map(str::to_string).collect(),
             });
         }
