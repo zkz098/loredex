@@ -3,13 +3,21 @@ use loredex_core::{
 };
 use loredex_git::{GitRepo, GitView};
 
-use crate::{now_iso, record_evidence_with, Result};
+use crate::{now_iso, record_evidence_with, redact, Result};
 
 #[derive(Debug)]
 pub struct PutOutcome {
     pub page: WikiPage,
     pub citations: usize,
     pub created: bool,
+}
+
+#[derive(Debug, Default, Clone, Copy)]
+pub struct PutOptions {
+    /// Store citations even when the cited range matches a secret pattern.
+    /// The scan never echoes snippet content, so opting out is the operator's
+    /// explicit call (e.g. a repo that documents test fixtures).
+    pub allow_secret_citations: bool,
 }
 
 /// Store wiki content authored by a coding agent: the body must carry
@@ -26,9 +34,19 @@ pub fn put_page(
     tags: Vec<String>,
     page_type: Option<String>,
 ) -> Result<PutOutcome> {
-    put_page_with(&repo.view(), wiki_dir, id, title, body, tags, page_type)
+    put_page_with(
+        &repo.view(),
+        wiki_dir,
+        id,
+        title,
+        body,
+        tags,
+        page_type,
+        &PutOptions::default(),
+    )
 }
 
+#[allow(clippy::too_many_arguments)]
 pub fn put_page_with(
     view: &GitView,
     wiki_dir: &std::path::Path,
@@ -37,6 +55,7 @@ pub fn put_page_with(
     body: &str,
     tags: Vec<String>,
     page_type: Option<String>,
+    opts: &PutOptions,
 ) -> Result<PutOutcome> {
     loredex_core::validate_page_id(id).map_err(|m| {
         WikiError::Git(format!(
@@ -68,6 +87,36 @@ pub fn put_page_with(
             ))
         })?;
         evidence.push(ev);
+    }
+
+    // secret gate: reject citations that point public wiki readers at secret
+    // material; report every hit at once so the author fixes them in one pass
+    if !opts.allow_secret_citations {
+        let mut hits: Vec<String> = Vec::new();
+        for e in &evidence {
+            if let Some([lo, hi]) = e.lines {
+                if let Some(snippet) = view.head_lines(&e.path, lo, hi)? {
+                    let lines: Vec<&str> = snippet.lines().collect();
+                    hits.extend(redact::scan_lines(&lines).into_iter().map(|f| {
+                        format!(
+                            "{}:L{} [{rule}]",
+                            e.path,
+                            lo + f.line as u32 - 1,
+                            rule = f.rule
+                        )
+                    }));
+                }
+            }
+        }
+        if !hits.is_empty() {
+            return Err(WikiError::FrontmatterParse(
+                id.into(),
+                format!(
+                    "citations point at secret-shaped content: {}; cite different lines or pass --no-redact / allow_secret_citations to override",
+                    hits.join(", ")
+                ),
+            ));
+        }
     }
 
     let path = crate::pages_dir(wiki_dir).join(format!("{id}.md"));

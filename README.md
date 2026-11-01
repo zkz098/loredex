@@ -12,6 +12,7 @@ A **trustworthy repository wiki for AI coding agents**: plain-Markdown storage, 
 Agents reading a repository face two costs: expensive context and misleading stale docs. Loredex answers with:
 
 - **Pinned evidence** — every claim in a page body carries a `[[cite:path:Lx-Ly]]` marker, resolved at write time into a `(path, line range, git blob sha, snippet content sha1)` tuple. Bodies without citations are rejected.
+- **Secret gate** — citations whose line range matches secret patterns (keys, tokens, private-key blocks) are rejected at write time and re-flagged by `lint`; snippet plaintext is never persisted or echoed, only masked previews are.
 - **Git-driven staleness** — commit ids are never trusted alone: HEAD blob comparison cross-checked against a tree diff, and verification recomputes the content hash of the cited lines. Change the code and the citing pages go stale.
 - **Line drift projection** — after insertions/deletions, citations are remapped onto the new revision via line-level diff; accepted above a similarity threshold with an audit note, keeping the page `verified`. Only genuinely lost content is downgraded to `draft` for rewrite.
 - **Rename recovery** — a plain `git mv` keeps the same blob oid, so the new path is found by content-addressed lookup (more precise than rename heuristics); mv + small edits use git similarity detection plus line projection; everything else falls back to a rewrite.
@@ -39,13 +40,14 @@ cd /path/to/your-repo          # must have at least one commit
 loredex init                   # creates .wiki/pages/ + wiki.toml (language setting); gitignores .wiki/.cache/
 
 loredex modules                # module discovery (cargo targets / directory groups)
-loredex put core --title "Core layer" --body notes.md --type system
+loredex evidence crates/foo --kw serve --kw auth   # citation drafts: pasteable [[cite:...]] windows, secret-masked previews
+loredex put core --title "Core layer" --body notes.md --type system   # citations hitting secret-shaped lines are rejected (--no-redact to override)
 loredex list / show core / search "keyword"
 loredex check --mark           # staleness scan; non-zero exit = stale found (CI-friendly)
 loredex plan [--json]          # generation worklist: uncovered modules (New) + stale pages (Refresh), persisted to .wiki/runs.json
 loredex index                  # regenerate pages/index.md + pages/quickstart.md (typed reading path + agent protocol)
 loredex playbooks              # page-type authoring guides (5 built-in + wiki.toml extensions)
-loredex lint                   # broken links / stale-but-verified / body-evidence drift / unknown type; exit 1 on findings
+loredex lint                   # broken links / stale-but-verified / body-evidence drift / unknown type / secret-in-evidence; exit 1 on findings
 loredex auto [--json]          # one-call maintenance: algorithmic self-heal -> lint -> plan for the rest (exit 1 = authoring work remains)
 loredex task <id> skipped      # resolve a plan task by hand (skips are remembered; `plan --reset` re-exposes)
 loredex templates --out contrib    # export GitHub Action + post-merge hook templates
@@ -96,7 +98,8 @@ The server advertises a behavioral contract at `initialize` (check freshness bef
 | `wiki_search` | Tokenized search (camelCase, snake_case, CJK bigrams, prefix) |
 | `wiki_get_evidence` | Expand one citation to the actual file content at HEAD |
 | `wiki_list_modules` | Discover authoring targets with citation coverage |
-| `wiki_put_page` | Store agent-authored content (zero citations = rejected) |
+| `wiki_evidence_candidates` | Citation drafts: keyword-ranked `[[cite:...]]` windows with masked previews |
+| `wiki_put_page` | Store agent-authored content (zero citations = rejected; secret-cited ranges = rejected unless `allow_secret_citations`) |
 | `wiki_refresh_page` | Drift projection refresh with per-citation outcomes |
 | `wiki_attach_repo` / `wiki_current_repo` | Attach/switch repository, introspect resolution |
 | `wiki_plan` / `wiki_mark_task` | Open/resume the generation run, resolve tasks (auto-completed by put/refresh) |

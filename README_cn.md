@@ -12,6 +12,7 @@
 Agent 读仓库的痛点：上下文贵、过期文档误导。Loredex 的答案是：
 
 - **Evidence 钉定** — 页面正文里的每个声明都携带 `[[cite:path:Lx-Ly]]` 标记，落库时解析为 `(路径, 行区间, git blob sha, 片段内容 sha1)` 四元组。没有引用的内容拒绝入库。
+- **密钥门禁** — 引用行区间命中密钥形态（API key、token、私钥块）时写入即拒绝，`lint` 会回扫存量页面；片段明文从不落库、从不回显，预览只出脱敏文本。
 - **Git 自动追踪过期** — 不信任 commit 号本身：对比 HEAD blob、用 tree diff 交叉验证、校验时直接重算行区间内容哈希。代码一改，相关页面即判 stale。
 - **行号漂移投影** — 源文件增删行后，旧引用通过行级 diff 自动映射到新位置（相似度达标就采纳并在 note 留痕），页面保持 verified；确实丢失的降级 draft 强制重写
 - **重命名自动恢复** — `git mv` 不改内容时按 blob oid 在 HEAD 反查新路径（内容寻址，比重命名启发式更精确）；mv+小改走 git 相似度改名检测 + 行投影；两步都失败的才要求人工重写。
@@ -39,13 +40,14 @@ cd /path/to/your-repo          # 需至少有一个 commit
 loredex init                  # 创建 .wiki/pages/ + wiki.toml（语言设置），gitignore .wiki/.cache/
 
 loredex modules               # 模块发现（cargo targets / 目录分组）
-loredex put core --title "核心层" --body notes.md
+loredex evidence crates/foo --kw serve --kw auth  # 引用草稿：可直接粘贴的 [[cite:...]] 窗口，预览已脱敏
+loredex put core --title "核心层" --body notes.md   # 引用命中密钥形态行会被拒绝（--no-redact 放行）
 loredex list / show core / search "关键词"
 loredex check --mark          # 过期扫描，exit code 非 0 = 有 stale（可挂 CI）
 loredex plan [--json]         # 生成计划：未覆盖模块(New) + stale页(Refresh)，写入 .wiki/runs.json 账本
 loredex index                 # 重新生成 pages/index.md + pages/quickstart.md（按类型读序 + agent 协议）
 loredex playbooks             # 页面类型写作指南（内置5类 + wiki.toml 扩展）
-loredex lint                  # 断链 / stale-but-verified / 正文-frontmatter 漂移 / 未知 type，有问题 exit 1
+loredex lint                  # 断链 / stale-but-verified / 正文-frontmatter 漂移 / 未知 type / 密钥引用回扫，有问题 exit 1
 loredex auto [--json]         # 一条命令维护：投影自愈 -> lint -> 剩余工作开 plan（exit 1 = 有撰写工作）
 loredex task <id> skipped     # 手工销账 plan 任务（skip 会被记住，不再复发；plan --reset 重新暴露）
 loredex templates --out contrib   # 导出 GitHub Action 模板 + post-merge hook 模板
@@ -96,7 +98,8 @@ Server 在 `initialize` 时下发协议契约（先查新鲜度、stale 视为�
 | `wiki_search` | 分词搜索（驼峰、下划线、CJK 二元组、前缀） |
 | `wiki_get_evidence` | 把单条引用展开为 HEAD 当前源码内容 |
 | `wiki_list_modules` | 发现待编写模块，含已有引用覆盖统计 |
-| `wiki_put_page` | 提交 agent 撰写的内容（零引用拒绝） |
+| `wiki_evidence_candidates` | 引用草稿：按关键字排序的 `[[cite:...]]` 窗口，预览已脱敏 |
+| `wiki_put_page` | 提交 agent 撰写的内容（零引用拒绝；命中密钥形态引用拒绝，除非 `allow_secret_citations`） |
 | `wiki_refresh_page` | 漂移投影刷新，逐条返回投影结果 |
 | `wiki_attach_repo` / `wiki_current_repo` | 挂载/切换仓库、自省解析状态 |
 | `wiki_plan` / `wiki_mark_task` | 打开/续传生成计划 run、销账（put/refresh 自动销账） |

@@ -10,6 +10,7 @@ pub mod agents_md;
 pub mod auto;
 pub mod config;
 pub mod drift;
+pub mod evidence;
 pub mod import;
 pub mod index;
 pub mod lint;
@@ -17,6 +18,7 @@ pub mod modules;
 pub mod plan;
 pub mod playbook;
 pub mod put;
+pub mod redact;
 
 pub use agents_md::{
     agents_block_check, agents_block_remove, agents_block_upsert, AgentsMdStatus, UpsertAction,
@@ -27,6 +29,7 @@ pub use drift::{
     project_evidence, project_evidence_with, project_range, refresh_page_with_drift,
     refresh_page_with_drift_view, DriftOutcome,
 };
+pub use evidence::{candidates as evidence_candidates, EvidenceCandidates, Window};
 pub use import::{import_dir, import_openwiki, ImportFormat, ImportReport};
 pub use index::{
     all_wiki_links, generate_index, generate_index_with, is_generated, INDEX_ID, QUICKSTART_ID,
@@ -39,7 +42,8 @@ pub use plan::{
     TaskStatus,
 };
 pub use playbook::{registry as playbook_registry, TypePlaybook};
-pub use put::{put_page, put_page_with, PutOutcome};
+pub use put::{put_page, put_page_with, PutOptions, PutOutcome};
+pub use redact::{mask_line, scan_lines, Finding as SecretFinding};
 
 pub type Result<T> = std::result::Result<T, WikiError>;
 

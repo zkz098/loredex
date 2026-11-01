@@ -3,6 +3,7 @@
 //! - pages marked verified that git says are stale
 //! - body/frontmatter drift: hand-edited markers no longer matching evidence
 //!   (openwiki forbids hand-edits outright; Loredex detects instead)
+//! - cited ranges matching secret patterns at HEAD
 
 use std::collections::BTreeSet;
 use std::path::Path;
@@ -109,6 +110,27 @@ pub fn lint_with(view: &GitView, wiki_dir: &Path) -> Result<Vec<LintIssue>> {
                             "body cites {path} but frontmatter has no evidence for it (hand edit? re-put the page)"
                         ),
                     });
+                }
+            }
+        }
+        // 4. cited ranges must not point at secret-shaped content at HEAD
+        //    (pages written before the gate existed, or with --no-redact)
+        for e in &p.meta.evidence {
+            if let Some([lo, hi]) = e.lines {
+                if let Some(snippet) = view.head_lines(&e.path, lo, hi)? {
+                    let lines: Vec<&str> = snippet.lines().collect();
+                    for f in crate::redact::scan_lines(&lines) {
+                        issues.push(LintIssue {
+                            page: p.meta.id.clone(),
+                            kind: "secret-in-evidence".into(),
+                            detail: format!(
+                                "{}:L{} matches secret rule `{}`; re-put the page citing other lines",
+                                e.path,
+                                lo + f.line as u32 - 1,
+                                f.rule
+                            ),
+                        });
+                    }
                 }
             }
         }

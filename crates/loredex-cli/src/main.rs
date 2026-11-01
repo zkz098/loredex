@@ -43,6 +43,9 @@ enum Command {
         /// Page kind, e.g. architecture | workflow | system | testing
         #[arg(long = "type")]
         page_type: Option<String>,
+        /// Store citations even when the cited range matches a secret pattern
+        #[arg(long)]
+        no_redact: bool,
     },
     /// List pages with status
     List,
@@ -62,6 +65,20 @@ enum Command {
     Search { query: String },
     /// List discoverable modules (cargo targets / directory groups) for wiki authoring
     Modules,
+    /// Generate citation drafts: pasteable [[cite:path:Lx-Ly]] windows for a
+    /// module, ranked by keyword matches against HEAD content
+    Evidence {
+        /// Module name (see `loredex modules`) or '.', or a directory prefix
+        #[arg(default_value = ".")]
+        module: String,
+        /// Case-insensitive keywords to look for in the source
+        #[arg(long = "kw")]
+        keyword: Vec<String>,
+        #[arg(long, default_value_t = 12)]
+        limit: usize,
+        #[arg(long)]
+        json: bool,
+    },
     /// Compute the generation plan (new-coverage + stale-refresh tasks) and record a run
     Plan {
         #[arg(long)]
@@ -178,6 +195,7 @@ fn main() -> anyhow::Result<()> {
             body,
             tag,
             page_type,
+            no_redact,
         } => {
             let body_text = if body == "-" {
                 let mut buf = String::new();
@@ -186,8 +204,19 @@ fn main() -> anyhow::Result<()> {
             } else {
                 std::fs::read_to_string(&body)?
             };
-            let outcome =
-                engine::put_page(&repo, &wiki_dir, &id, &title, &body_text, tag, page_type)?;
+            let opts = engine::PutOptions {
+                allow_secret_citations: no_redact,
+            };
+            let outcome = engine::put_page_with(
+                &repo.view(),
+                &wiki_dir,
+                &id,
+                &title,
+                &body_text,
+                tag,
+                page_type,
+                &opts,
+            )?;
             println!(
                 "{} {}: {} evidence citation(s), pinned to HEAD {}",
                 if outcome.created {
@@ -328,6 +357,41 @@ fn main() -> anyhow::Result<()> {
                 for l in &h.matched_lines {
                     println!("   {l}");
                 }
+            }
+        }
+        Command::Evidence {
+            module,
+            keyword,
+            limit,
+            json,
+        } => {
+            let view = repo.view();
+            let out = engine::evidence_candidates(&view, &module, &keyword, limit)?;
+            if json {
+                println!(
+                    "{}",
+                    serde_json::to_string_pretty(&out).map_err(|e| anyhow::anyhow!(e))?
+                );
+            } else {
+                if out.windows.is_empty() {
+                    println!(
+                        "no matching windows in module `{}`; check `loredex modules` or loosen keywords",
+                        out.module
+                    );
+                }
+                println!(
+                    "{} candidate window(s) in {} file(s) at HEAD {}:",
+                    out.windows.len(),
+                    out.matched_files,
+                    view.head_short()?
+                );
+                for w in &out.windows {
+                    println!("  {}", w.cite);
+                    for p in &w.masked_preview {
+                        println!("     | {p}");
+                    }
+                }
+                println!("hint: {}", out.hint);
             }
         }
         Command::Plan { json, close, reset } => {

@@ -19,9 +19,12 @@ Loredex: evidence-backed repository wiki. Protocol contract:
 1. Call wiki_check_freshness before trusting any wiki content; treat pages \
 reported as stale as UNVERIFIED and fall back to reading source files directly.
 2. To author or update a page: call wiki_list_modules to find a generation unit, \
-read the cited source files, then call wiki_put_page with a markdown body where \
+call wiki_evidence_candidates with keywords to get pasteable [[cite:path:Lx-Ly]] \
+windows instead of hunting line numbers, read the cited source, then call \
+wiki_put_page with a markdown body where \
 every claim carries an inline [[cite:path:Lx-Ly]] marker. Pages without citations \
-are rejected.
+are rejected; citations whose range matches a secret pattern are rejected too \
+(override only when the user asks: allow_secret_citations).
 3. When wiki_check_freshness reports drift, call wiki_refresh_page: unchanged \
 snippets are line-projected onto the new revision and stay verified; lost ones \
 must be rewritten via wiki_put_page.
@@ -189,6 +192,24 @@ struct PutPageParam {
     /// Page kind: architecture | workflow | system | integration | testing | ...
     #[serde(default, rename = "type")]
     page_type: Option<String>,
+    /// Store citations even when the cited range matches a secret pattern
+    #[serde(default)]
+    allow_secret_citations: Option<bool>,
+}
+
+#[derive(Debug, Deserialize, schemars::JsonSchema)]
+struct EvidenceCandidatesParam {
+    /// Module name (see wiki_list_modules) or '.', or a directory prefix
+    #[serde(default = "default_module")]
+    module: String,
+    /// Case-insensitive keywords searched in HEAD content
+    keywords: Vec<String>,
+    #[serde(default)]
+    limit: Option<usize>,
+}
+
+fn default_module() -> String {
+    ".".into()
 }
 
 #[derive(Debug, Deserialize, schemars::JsonSchema)]
@@ -934,6 +955,32 @@ impl WikiServer {
     }
 
     #[tool(
+        name = "wiki_evidence_candidates",
+        description = "Generate citation drafts before authoring: scans a module's files at HEAD for the given keywords and returns ranked, pasteable [[cite:path:Lx-Ly]] windows with masked preview lines. Saves reading whole files to find line numbers; verify claims against the source before putting the page."
+    )]
+    async fn wiki_evidence_candidates(
+        &self,
+        Parameters(p): Parameters<EvidenceCandidatesParam>,
+        peer: Peer<RoleServer>,
+    ) -> Result<Json<serde_json::Value>, ErrorData> {
+        let _gate = self.gate.read().await;
+        let out = self
+            .with_repo(&peer, move |repo| {
+                let view = repo.view();
+                let cand = engine::evidence_candidates(
+                    &view,
+                    &p.module,
+                    &p.keywords,
+                    p.limit.unwrap_or(12),
+                )
+                .map_err(Self::err)?;
+                serde_json::to_value(cand).map_err(|e| Self::err(e.to_string()))
+            })
+            .await?;
+        Ok(Json(out))
+    }
+
+    #[tool(
         name = "wiki_put_page",
         description = "Store agent-authored wiki content. Body must contain [[cite:path:Lx-Ly]] markers; each is pinned to the git blob at HEAD as evidence. A body with no citations is rejected."
     )]
@@ -949,6 +996,9 @@ impl WikiServer {
         let body = p.body;
         let tags = p.tags.unwrap_or_default();
         let page_type = p.page_type;
+        let opts = engine::PutOptions {
+            allow_secret_citations: p.allow_secret_citations.unwrap_or(false),
+        };
         let out = self
             .with_repo(&peer, move |repo| {
                 let view = repo.view();
@@ -960,6 +1010,7 @@ impl WikiServer {
                     &body,
                     tags,
                     page_type,
+                    &opts,
                 );
                 // a failed put may still have written a page
                 *cache.lock().unwrap() = PageCache::default();
