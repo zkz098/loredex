@@ -9,8 +9,6 @@ description = "Read-only git evidence layer for Loredex (libgit2 bindings)"
 
 [dependencies]
 foldhash = { workspace = true }
-anyhow = { workspace = true }
-thiserror = { workspace = true }
 git2 = { workspace = true }
 loredex-core = { workspace = true }
 

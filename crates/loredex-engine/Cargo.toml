@@ -8,13 +8,11 @@ rust-version.workspace = true
 description = "Loredex engine: freshness checks, snippet verification, drift projection, plans"
 
 [dependencies]
-anyhow = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 serde_yaml = { workspace = true }
 similar = { workspace = true }
 regex = { workspace = true }
-thiserror = { workspace = true }
 sha1 = { workspace = true }
 hex = { workspace = true }
 loredex-core = { workspace = true }

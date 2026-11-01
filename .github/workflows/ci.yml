@@ -20,6 +20,12 @@ jobs:
         run: cargo fmt --all -- --check
       - name: clippy (deny warnings)
         run: cargo clippy --workspace --all-targets -- -D warnings
+      - name: install cargo-machete
+        uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-machete
+      - name: unused dependencies
+        run: cargo machete
 
   test:
     runs-on: ubuntu-latest

@@ -853,7 +853,6 @@ dependencies = [
 name = "loredex-core"
 version = "0.1.6"
 dependencies = [
- "anyhow",
  "foldhash",
  "regex",
  "serde",
@@ -865,7 +864,6 @@ dependencies = [
 name = "loredex-engine"
 version = "0.1.6"
 dependencies = [
- "anyhow",
  "criterion",
  "git2",
  "hex",
@@ -878,7 +876,6 @@ dependencies = [
  "sha1",
  "similar",
  "tempfile",
- "thiserror",
  "toml",
 ]
 
@@ -886,12 +883,10 @@ dependencies = [
 name = "loredex-git"
 version = "0.1.6"
 dependencies = [
- "anyhow",
  "foldhash",
  "git2",
  "loredex-core",
  "tempfile",
- "thiserror",
 ]
 
 [[package]]

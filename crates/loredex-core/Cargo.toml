@@ -9,7 +9,6 @@ description = "Loredex data model: evidence-backed wiki pages, citation syntax, 
 
 [dependencies]
 foldhash = { workspace = true }
-anyhow = { workspace = true }
 thiserror = { workspace = true }
 serde = { workspace = true }
 serde_yaml = { workspace = true }
