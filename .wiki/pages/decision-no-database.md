@@ -2,21 +2,23 @@
 id: decision-no-database
 title: The frontmatter is the database
 status: verified
-generated_at: 2026-11-01T03:15:14Z
-commit: d0155cf4e48bdf51a9efb9b1cfbaf21320314f23
+generated_at: 2026-11-02T11:24:23Z
+commit: fe5974431c3ea5d7d6b228f66457cfdc2182befd
 evidence:
 - path: crates/loredex-core/src/page.rs
   lines:
   - 41
   - 57
-  blob: 0a5365724b11730690a2a857196929b865e7eb43
+  blob: 04a91928fedae8fe609044e59cbd6ec4a564cdc9
   snippet_sha1: e6114a75be2ac5ef7cda901c36235c68c522d569
+  note: drift-projected L41-L57@0a536572 -> L41-L57 (similarity 1.00)
 - path: crates/loredex-core/src/page.rs
   lines:
-  - 135
-  - 145
-  blob: 0a5365724b11730690a2a857196929b865e7eb43
+  - 143
+  - 153
+  blob: 04a91928fedae8fe609044e59cbd6ec4a564cdc9
   snippet_sha1: 669c21e454c64c95a15afd1bf13e20b4b0e2d76c
+  note: drift-projected L135-L145@0a536572 -> L143-L153 (similarity 1.00)
 - path: crates/loredex-core/src/search.rs
   lines:
   - 106
@@ -37,16 +39,18 @@ evidence:
   snippet_sha1: d50881deb99637930250c8faad294ab772f17e9d
 - path: crates/loredex-mcp/src/lib.rs
   lines:
-  - 462
-  - 470
-  blob: ed2c43380383c1d1aee829a667556ede7d3a8657
+  - 529
+  - 537
+  blob: c80142e0bcb6707abf0119392942b2c83d283ba3
   snippet_sha1: 29551fb8394878d8509a005b38db3855fb903a23
+  note: drift-projected L462-L470@ed2c4338 -> L529-L537 (similarity 1.00)
 - path: crates/loredex-engine/src/lib.rs
   lines:
-  - 99
-  - 108
-  blob: bc899494cd898a0e2bbe24cf06a4fe1da946508d
+  - 112
+  - 121
+  blob: 6c0a4740633feaa42b227e67227ed8545d43d802
   snippet_sha1: 283e5dc1033a8132bdfc3741c781d364cf63ca80
+  note: drift-projected L99-L108@bc899494 -> L112-L121 (similarity 1.00)
 tags:
 - policy
 type: decision

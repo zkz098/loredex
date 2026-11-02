@@ -2,8 +2,8 @@
 id: testing-gates
 title: Test and CI layers
 status: verified
-generated_at: 2026-11-01T03:31:17Z
-commit: d43a1b59b393a2bf4ccd67984e1bbf430d256db0
+generated_at: 2026-11-02T11:24:23Z
+commit: fe5974431c3ea5d7d6b228f66457cfdc2182befd
 evidence:
 - path: crates/loredex-engine/tests/e2e.rs
   lines:
@@ -46,8 +46,9 @@ evidence:
   lines:
   - 1
   - 6
-  blob: c6ab107ca0957652d0811e439e98210b86fb2772
+  blob: 9772880ccf2de9fcab7ade6078681d732b091573
   snippet_sha1: 0c87247e0a7694c9e7857121a373cd081db676fb
+  note: drift-projected L1-L6@c6ab107c -> L1-L6 (similarity 1.00)
 - path: .github/workflows/ci.yml
   lines:
   - 19
@@ -100,8 +101,9 @@ evidence:
   lines:
   - 8
   - 12
-  blob: c6ab107ca0957652d0811e439e98210b86fb2772
+  blob: 9772880ccf2de9fcab7ade6078681d732b091573
   snippet_sha1: 6c63d4529ab644a369bfaeb78dd4c6f3cd19d28c
+  note: drift-projected L8-L12@c6ab107c -> L8-L12 (similarity 1.00)
 - path: crates/loredex-engine/tests/knowledge.rs
   lines:
   - 215

@@ -2,21 +2,23 @@
 id: troubleshooting-lost-citations
 title: '"citation content lost" flips pages to draft'
 status: verified
-generated_at: 2026-11-01T03:14:48Z
-commit: d0155cf4e48bdf51a9efb9b1cfbaf21320314f23
+generated_at: 2026-11-02T11:24:23Z
+commit: fe5974431c3ea5d7d6b228f66457cfdc2182befd
 evidence:
 - path: crates/loredex-engine/src/drift.rs
   lines:
   - 28
   - 30
-  blob: 81c113ab88942e4388af5b2d1c8710bbf435e1f3
+  blob: f40c756f8c4738472d9f66c9c24f81fbc8f2ff79
   snippet_sha1: 4ca069b9ca1c9df03f402f88117ac2bebaa11fd7
+  note: drift-projected L28-L30@81c113ab -> L28-L30 (similarity 1.00)
 - path: crates/loredex-engine/src/drift.rs
   lines:
-  - 399
-  - 411
-  blob: 81c113ab88942e4388af5b2d1c8710bbf435e1f3
-  snippet_sha1: 53e11eae038acb7e67caafa24e6eec54add05bb8
+  - 406
+  - 417
+  blob: f40c756f8c4738472d9f66c9c24f81fbc8f2ff79
+  snippet_sha1: 53e778d40b1e2e279e316a500be9f11f5696d899
+  note: drift-projected L399-L411@81c113ab -> L406-L417 (similarity 0.85)
 - path: crates/loredex-engine/src/auto.rs
   lines:
   - 64
@@ -27,21 +29,23 @@ evidence:
   lines:
   - 85
   - 96
-  blob: 81c113ab88942e4388af5b2d1c8710bbf435e1f3
+  blob: f40c756f8c4738472d9f66c9c24f81fbc8f2ff79
   snippet_sha1: a01e6c0297db68a7399add05bf04847673acf2d8
+  note: drift-projected L85-L96@81c113ab -> L85-L96 (similarity 1.00)
 - path: crates/loredex-engine/src/put.rs
   lines:
-  - 163
-  - 192
-  blob: a9842770ec28a68164352211a73f07e39bcbf2d0
-  snippet_sha1: b81499e884e60651a5893e20340ca4568b658ded
+  - 196
+  - 236
+  blob: 5b2edb909c4766ac339c59c8f4eb804a2d85c4c2
+  snippet_sha1: 692fa1cfb1dc8b0f15e9db2f0dbc3ac9767f4437
+  note: drift-projected L163-L192@a9842770 -> L196-L236 (similarity 0.93)
 - path: crates/loredex-engine/src/lib.rs
   lines:
-  - 316
-  - 330
-  blob: bc899494cd898a0e2bbe24cf06a4fe1da946508d
+  - 339
+  - 353
+  blob: 6c0a4740633feaa42b227e67227ed8545d43d802
   snippet_sha1: 58819359d859568299c50d43a98675ffd8e53d9c
-  note: drift-projected L316-L330@babdf319 -> L316-L330 (similarity 1.00)
+  note: drift-projected L316-L330@bc899494 -> L339-L353 (similarity 1.00)
 tags:
 - policy
 type: troubleshooting

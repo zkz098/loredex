@@ -2,30 +2,30 @@
 id: core-model
 title: 'loredex-core: data model and parsing'
 status: verified
-generated_at: 2026-11-01T02:58:00Z
-commit: 5fe6004cfe49890d5d14150d96e7200277613764
+generated_at: 2026-11-02T11:24:23Z
+commit: fe5974431c3ea5d7d6b228f66457cfdc2182befd
 evidence:
 - path: crates/loredex-core/src/page.rs
   lines:
   - 10
   - 27
-  blob: 0a5365724b11730690a2a857196929b865e7eb43
+  blob: 04a91928fedae8fe609044e59cbd6ec4a564cdc9
   snippet_sha1: 969389b2ae71fbef2971bc79a759298546071e44
-  note: drift-projected L9-L26@e814a40a -> L10-L27 (similarity 1.00)
+  note: drift-projected L10-L27@0a536572 -> L10-L27 (similarity 1.00)
 - path: crates/loredex-core/src/page.rs
   lines:
   - 71
   - 97
-  blob: 0a5365724b11730690a2a857196929b865e7eb43
+  blob: 04a91928fedae8fe609044e59cbd6ec4a564cdc9
   snippet_sha1: 798aedcddab6ba41b856879b0f7ec746cacc7be7
-  note: drift-projected L68-L94@e814a40a -> L71-L97 (similarity 0.96)
+  note: drift-projected L71-L97@0a536572 -> L71-L97 (similarity 1.00)
 - path: crates/loredex-core/src/page.rs
   lines:
   - 115
-  - 127
-  blob: 0a5365724b11730690a2a857196929b865e7eb43
-  snippet_sha1: c2851e6ee8582e5996db4fabb92712f011c35a8a
-  note: drift-projected L112-L124@e814a40a -> L115-L127 (similarity 1.00)
+  - 135
+  blob: 04a91928fedae8fe609044e59cbd6ec4a564cdc9
+  snippet_sha1: ef6249dddeca4ce47c183c6d5fdb8d56f37698f3
+  note: drift-projected L115-L127@0a536572 -> L115-L135 (similarity 0.77)
 - path: crates/loredex-core/src/cite.rs
   lines:
   - 27

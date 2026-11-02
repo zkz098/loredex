@@ -2,8 +2,8 @@
 id: crates-packaging
 title: 'Crate packaging: one release train, five units'
 status: verified
-generated_at: 2026-11-01T03:31:30Z
-commit: d43a1b59b393a2bf4ccd67984e1bbf430d256db0
+generated_at: 2026-11-02T11:24:23Z
+commit: fe5974431c3ea5d7d6b228f66457cfdc2182befd
 evidence:
 - path: Cargo.toml
   lines:
@@ -51,8 +51,9 @@ evidence:
   lines:
   - 1
   - 4
-  blob: 7b9bf513d6b710cf61282966828227e9667b5b52
+  blob: 4a27934601b8e70385997a2cb7a047aa35e6d577
   snippet_sha1: 4c2958d2ecb57f637d83cba770fedcf0b09a9a0b
+  note: drift-projected L1-L4@7b9bf513 -> L1-L4 (similarity 1.00)
 - path: crates/loredex-cli/Cargo.toml
   lines:
   - 10
@@ -63,8 +64,9 @@ evidence:
   lines:
   - 1
   - 4
-  blob: 7ba82f3d3914d7e3567dd7907360889412356208
+  blob: 54457721f76de5fc9ed4a85c42ecc3259427bee6
   snippet_sha1: 07fd47f78dbb5191fce67eac53acd4ce6ad9f948
+  note: drift-projected L1-L4@7ba82f3d -> L1-L4 (similarity 1.00)
 - path: crates/loredex-mcp/Cargo.toml
   lines:
   - 10
@@ -75,8 +77,9 @@ evidence:
   lines:
   - 1
   - 4
-  blob: 5ed4487018bf5cb770b30bcd1adcc24ae589b396
+  blob: 7cd90b12d049c15eae51baee4b6f76b7a6836380
   snippet_sha1: a05cf669be8d4f48c71fc4e1e666801541206057
+  note: drift-projected L1-L4@5ed44870 -> L1-L4 (similarity 1.00)
 - path: crates/loredex-engine/Cargo.toml
   lines:
   - 22
@@ -85,10 +88,11 @@ evidence:
   snippet_sha1: 95a2a02e460b7e837c08703daf6661517e9a8ed5
 - path: crates/loredex-cli/src/main.rs
   lines:
-  - 671
-  - 675
-  blob: ee39b2bb45a936c44a4cb13ce936e990cebdc605
+  - 824
+  - 828
+  blob: 39e2b9b14b2d9aa74ee28b53f1f6db44056d8675
   snippet_sha1: e187a2a82afad82d21785360a8b1bbc44abc69f6
+  note: drift-projected L671-L675@ee39b2bb -> L824-L828 (similarity 1.00)
 - path: crates/loredex-cli/templates/loredex-refresh.yml
   lines:
   - 1
