@@ -158,3 +158,29 @@ fn candidates_returns_pasteable_masked_windows() {
     assert!(!preview.contains("abc123def456ghi789jkl0"), "{preview}");
     assert!(preview.contains("[masked]"), "{preview}");
 }
+
+#[test]
+fn put_rejects_a_range_inside_a_pem_body_without_its_header() {
+    // Assembled at runtime: no literal key block in this source file.
+    let begin = format!("-----BEGIN {}PRIVATE KEY-----", "OPENSSH ");
+    let end = format!("-----END {}PRIVATE KEY-----", "OPENSSH ");
+    let b64 = "b3BlbnNzaC1rZXktdjEAAAAABG5vbmUAAAAEbm9uZQAAAAAAAAABAAAAMwAAAAtzc2gtZW";
+    let src = format!("// fixture key\n{begin}\n{b64}\n{b64}\n{end}\n");
+    let fx = Fixture::new(&[("keys/id_test", &src)]);
+    let body = "the fixture key body [[cite:keys/id_test:L3-L4]].";
+    let err = put_page_with(
+        &fx.repo.view(),
+        &fx.wiki(),
+        "keys",
+        "Keys",
+        body,
+        vec![],
+        None,
+        &PutOptions::default(),
+    )
+    .expect_err("a PEM body range must be rejected even without the header");
+    let msg = err.to_string();
+    assert!(msg.contains("keys/id_test:L3 [private-key-block]"), "{msg}");
+    assert!(msg.contains("keys/id_test:L4 [private-key-block]"), "{msg}");
+    assert!(!msg.contains(b64), "{msg}");
+}

@@ -12,7 +12,7 @@ A **trustworthy repository wiki for AI coding agents**: plain-Markdown storage, 
 Agents reading a repository face two costs: expensive context and misleading stale docs. Loredex answers with:
 
 - **Pinned evidence** — every claim in a page body carries a `[[cite:path:Lx-Ly]]` marker, resolved at write time into a `(path, line range, git blob sha, snippet content sha1)` tuple. Bodies without citations are rejected.
-- **Secret gate** — citations whose line range matches secret patterns (keys, tokens, private-key blocks) are rejected at write time and re-flagged by `lint`; snippet plaintext is never persisted or echoed, only masked previews are.
+- **Secret gate** — citations whose line range matches secret patterns (cloud/vendor keys and tokens, credentials in URLs, private-key blocks) are rejected at write time and re-flagged by `lint`; the scan sees the whole file, so a range inside a PEM key body is caught even without its `-----BEGIN` line. Snippet plaintext is never persisted or echoed, only masked previews are.
 - **Git-driven staleness** — commit ids are never trusted alone: HEAD blob comparison cross-checked against a tree diff, and verification recomputes the content hash of the cited lines. Change the code and the citing pages go stale.
 - **Line drift projection** — after insertions/deletions, citations are remapped onto the new revision via line-level diff; accepted above a similarity threshold with an audit note, keeping the page `verified`. Only genuinely lost content is downgraded to `draft` for rewrite.
 - **Rename recovery** — a plain `git mv` keeps the same blob oid, so the new path is found by content-addressed lookup (more precise than rename heuristics); mv + small edits use git similarity detection plus line projection; everything else falls back to a rewrite.
@@ -20,7 +20,7 @@ Agents reading a repository face two costs: expensive context and misleading sta
 
 ## Install
 
-**From crates.io (cargo)** — requires Rust 1.85+ (git2 vendors and compiles libgit2; takes a few minutes):
+**From crates.io (cargo)** — requires Rust 1.89+ (git2 vendors and compiles libgit2; takes a few minutes):
 
 ```bash
 cargo install loredex-cli loredex-mcp
@@ -136,7 +136,7 @@ discover modules -> read source -> put_page (with citations) -> [code evolves] -
 - `loredex lint` belongs in CI; page ids support hierarchy (`architecture/overview`), `--type` labels the kind
 - `loredex agents-md` keeps a marked block (`<!-- BEGIN loredex -->`) in AGENTS.md/CLAUDE.md so agents entering the repo discover the wiki and its freshness protocol — only the marked region is ever rewritten; `loredex config --language zh` switches the locale of all generated skeleton text
 - `loredex import` migrates an existing openwiki / Google OKF bundle; the trust model survives the move — pages without resolvable citations land as `draft` and get backfilled via `plan`
-- Parallel agents coordinate without a server: `wiki_read`/`loredex show` return a page content sha1, and `if_match` turns a concurrent overwrite into a conflict instead of a lost update; `wiki_claim_tasks` / `loredex claim` lease plan tasks in `runs.json` (an expired lease is reclaimable, so a crashed agent does not wedge the worklist)
+- Parallel agents coordinate without a server: `wiki_read`/`loredex show` return a page content sha1, and `if_match` turns a concurrent overwrite into a conflict instead of a lost update; page writes and the `runs.json` ledger are serialized across processes by OS file locks (`flock` / `LockFileEx`) that the kernel releases even if the holder crashes; `wiki_claim_tasks` / `loredex claim` lease plan tasks in `runs.json` (an expired lease is reclaimable, so a crashed agent does not wedge the worklist)
 
 ## Architecture
 
@@ -187,7 +187,7 @@ GNU GPL v3.0 or later (see [LICENSE](LICENSE)). Wiki data under `.wiki/` is unaf
 ## Development
 
 ```bash
-cargo nextest run --workspace          # 120 tests (unit + git-fixture integration + in-process MCP protocol)
+cargo nextest run --workspace          # 132 tests (unit + git-fixture integration + in-process MCP protocol)
 cargo llvm-cov nextest --workspace --summary-only   # coverage baseline (CI gates at 70% lines)
 cargo bench -p loredex-engine --bench scan -- --budget   # scan/index regression floor (CI gate)
 ```

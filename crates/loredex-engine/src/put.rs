@@ -164,14 +164,15 @@ pub fn put_page_with(
     }
 
     // secret gate: reject citations that point public wiki readers at secret
-    // material; report every hit at once so the author fixes them in one pass
+    // material; report every hit at once so the author fixes them in one pass.
+    // The whole file is scanned for context so a range inside a multi-line
+    // secret (PEM body) is caught even without the block's header line.
     if !opts.allow_secret_citations {
         let mut hits: Vec<String> = Vec::new();
         for e in &evidence {
             if let Some([lo, hi]) = e.lines {
-                if let Some(snippet) = view.head_lines(&e.path, lo, hi)? {
-                    let lines: Vec<&str> = snippet.lines().collect();
-                    hits.extend(redact::scan_lines(&lines).into_iter().map(|f| {
+                if let Some(content) = view.head_file_content(&e.path)? {
+                    hits.extend(redact::scan_range(&content, lo, hi).into_iter().map(|f| {
                         format!(
                             "{}:L{} [{rule}]",
                             e.path,

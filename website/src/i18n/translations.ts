@@ -212,7 +212,7 @@ export const translations = {
     architecture: {
       badge: '底层架构与性能',
       title: 'Rust 纯粹性能与精细化并发模型',
-      description: '摒弃沉重的外部运行时，采用 Rust 1.85+ 构建五层解耦 Crate 体系，在万级页面与大型 Monorepo 场景下依然保持毫秒级响应。',
+      description: '摒弃沉重的外部运行时，采用 Rust 1.89+ 构建五层解耦 Crate 体系，在万级页面与大型 Monorepo 场景下依然保持毫秒级响应。',
       crateTreeTitle: '工作区 Crate 分层拓扑',
       crates: {
         cli: 'crates/loredex-cli',
@@ -237,7 +237,7 @@ export const translations = {
       title: '为你的代码库即刻开启可信知识库',
       description: '只需几行指令，即可在本地和 CI 环境中建立起防幻觉、自愈化的证据代码库。',
       step1: '1. 安装 Loredex 工具链',
-      methodA: '方法 A: 从 crates.io 安装 (推荐，要求 Rust 1.85+)',
+      methodA: '方法 A: 从 crates.io 安装 (推荐，要求 Rust 1.89+)',
       methodB: '方法 B: 使用 cargo-binstall 秒级安装预编译产物',
       step2: '2. 在目标代码仓库中初始化',
       step2Desc: '进入任何带有 git commit 的代码仓库，一键生成 .wiki/ 骨架与配置：',
@@ -492,7 +492,7 @@ export const translations = {
     architecture: {
       badge: 'Architecture & Performance',
       title: 'Pure Rust Performance & Fine-Grained Concurrency',
-      description: 'Zero external runtime overhead. Built with Rust 1.85+ across five decoupled crates, ensuring sub-millisecond response times across tens of thousands of pages.',
+      description: 'Zero external runtime overhead. Built with Rust 1.89+ across five decoupled crates, ensuring sub-millisecond response times across tens of thousands of pages.',
       crateTreeTitle: 'Workspace Crate Decomposition',
       crates: {
         cli: 'crates/loredex-cli',
@@ -517,7 +517,7 @@ export const translations = {
       title: 'Empower Your Repository with Ground Truth',
       description: 'In just a few commands, set up a hallucination-free, self-healing repository wiki locally and in CI.',
       step1: '1. Install Loredex Toolchain',
-      methodA: 'Method A: Install from crates.io (Recommended, Rust 1.85+)',
+      methodA: 'Method A: Install from crates.io (Recommended, Rust 1.89+)',
       methodB: 'Method B: Fast install prebuilt binaries via cargo-binstall',
       step2: '2. Initialize in Target Repository',
       step2Desc: 'Run in any Git repository with at least one commit to generate `.wiki/` structure and configuration:',

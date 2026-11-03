@@ -261,14 +261,26 @@ pub fn context_pack(
             if !in_module(&e.path, module) {
                 continue;
             }
-            let agg = map
-                .entry((e.path.clone(), e.lines))
-                .or_insert_with(|| EvidenceAgg {
+            let agg = map.entry((e.path.clone(), e.lines)).or_insert_with(|| {
+                let content = e
+                    .lines
+                    .and_then(|_| view.head_file_content(&e.path).ok().flatten());
+                let (snippet, secret_lines) = match (e.lines, content) {
+                    (Some([lo, hi]), Some(content)) => (
+                        view.head_lines(&e.path, lo, hi).ok().flatten(),
+                        redact::scan_range(&content, lo, hi)
+                            .into_iter()
+                            .map(|f| f.line)
+                            .collect(),
+                    ),
+                    _ => (None, BTreeSet::new()),
+                };
+                EvidenceAgg {
                     pages: BTreeSet::new(),
-                    snippet: e
-                        .lines
-                        .and_then(|[lo, hi]| view.head_lines(&e.path, lo, hi).ok().flatten()),
-                });
+                    snippet,
+                    secret_lines,
+                }
+            });
             agg.pages.insert(sel.page.meta.id.clone());
         }
     }
@@ -296,7 +308,7 @@ pub fn context_pack(
         let page_ids: Vec<String> = agg.pages.into_iter().collect();
         let cited_by = page_ids.join(", ");
         let (body, masked) = match (lines.is_some(), &agg.snippet) {
-            (true, Some(snippet)) => render_snippet(snippet, &path),
+            (true, Some(snippet)) => render_snippet(snippet, &path, &agg.secret_lines),
             (true, None) => (
                 "_cited lines are not available at HEAD; treat this evidence as unverified._\n"
                     .to_string(),
@@ -348,13 +360,15 @@ pub fn context_pack(
 struct EvidenceAgg {
     pages: BTreeSet<String>,
     snippet: Option<String>,
+    /// 1-based offsets within `snippet` flagged by `redact::scan_range`
+    secret_lines: BTreeSet<usize>,
 }
 
-fn render_snippet(snippet: &str, path: &str) -> (String, usize) {
+fn render_snippet(snippet: &str, path: &str, secret_lines: &BTreeSet<usize>) -> (String, usize) {
     let mut masked = 0usize;
     let mut lines = Vec::new();
-    for line in snippet.lines() {
-        if redact::scan_lines(&[line]).is_empty() {
+    for (i, line) in snippet.lines().enumerate() {
+        if !secret_lines.contains(&(i + 1)) {
             lines.push(line.to_string());
         } else {
             masked += 1;

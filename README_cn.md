@@ -12,7 +12,7 @@
 Agent 读仓库的痛点：上下文贵、过期文档误导。Loredex 的答案是：
 
 - **Evidence 钉定** — 页面正文里的每个声明都携带 `[[cite:path:Lx-Ly]]` 标记，落库时解析为 `(路径, 行区间, git blob sha, 片段内容 sha1)` 四元组。没有引用的内容拒绝入库。
-- **密钥门禁** — 引用行区间命中密钥形态（API key、token、私钥块）时写入即拒绝，`lint` 会回扫存量页面；片段明文从不落库、从不回显，预览只出脱敏文本。
+- **密钥门禁** — 引用行区间命中密钥形态（云厂商/平台 API key 与 token、URL 内嵌凭据、私钥块）时写入即拒绝，`lint` 会回扫存量页面；扫描带整文件上下文，引用区间落在 PEM 私钥正文里、即使不含 `-----BEGIN` 行也会被拦下。片段明文从不落库、从不回显，预览只出脱敏文本。
 - **Git 自动追踪过期** — 不信任 commit 号本身：对比 HEAD blob、用 tree diff 交叉验证、校验时直接重算行区间内容哈希。代码一改，相关页面即判 stale。
 - **行号漂移投影** — 源文件增删行后，旧引用通过行级 diff 自动映射到新位置（相似度达标就采纳并在 note 留痕），页面保持 verified；确实丢失的降级 draft 强制重写
 - **重命名自动恢复** — `git mv` 不改内容时按 blob oid 在 HEAD 反查新路径（内容寻址，比重命名启发式更精确）；mv+小改走 git 相似度改名检测 + 行投影；两步都失败的才要求人工重写。
@@ -20,7 +20,7 @@ Agent 读仓库的痛点：上下文贵、过期文档误导。Loredex 的答案
 
 ## 安装
 
-**从 crates.io（cargo）**，需要 Rust 1.85+（git2 会 vendored 编译 libgit2，几分钟）：
+**从 crates.io（cargo）**，需要 Rust 1.89+（git2 会 vendored 编译 libgit2，几分钟）：
 
 ```bash
 cargo install loredex-cli loredex-mcp
@@ -131,7 +131,7 @@ Server 在 `initialize` 时下发协议契约（先查新鲜度、stale 视为�
 ```
 
 - agent 随手发现但暂时配不上引用的知识，用 `loredex note` / `wiki_note` 落为 `draft`（显式「未验证」标记，不会被当成事实）；等 `plan` 排队补上证据后才晋升 verified。`loredex organize` 与 `overlapping-evidence` lint 提示负责把长期积累的 notes/rules 重复项列成待办，避免不成体系地散落
-- 多 agent 并行无需额外服务：`wiki_read` / `loredex show` 返回页面内容 sha1，写入时传 `if_match` 会把并发覆盖变成显式冲突而不是丢失更新；`wiki_claim_tasks` / `loredex claim` 在 `runs.json` 中租约认领 plan 任务（租期过期即可回收，崩溃的 agent 不会永久占坑）
+- 多 agent 并行无需额外服务：`wiki_read` / `loredex show` 返回页面内容 sha1，写入时传 `if_match` 会把并发覆盖变成显式冲突而不是丢失更新；页面写入与 `runs.json` 账本由操作系统文件锁（`flock` / `LockFileEx`）跨进程串行化，持锁进程崩溃时内核自动释放；`wiki_claim_tasks` / `loredex claim` 在 `runs.json` 中租约认领 plan 任务（租期过期即可回收，崩溃的 agent 不会永久占坑）
 - 页面与 `.wiki/` 一起提交进 git，团队共享、PR 可 review；`runs.json` 账本同样入库，agent 中断后 `wiki_plan` 自动续传 pending 任务
 - plan 任务自带 `suggested_type` 与 playbook `instructions`（该类型页面应有哪些章节、回答哪些问题），生产 agent 无需隐藏 prompt 也能写出结构一致的页面；类型可在 `.wiki/wiki.toml [page_types.<name>]` 扩展，未注册的 type 会被 `lint` 标出
 - `loredex lint`（断链/stale/漂移）适合挂 CI；页面 id 支持 `architecture/overview` 式分层，`--type` 标注页面种类
@@ -185,7 +185,7 @@ GNU GPL v3.0 或更新版本（见 [LICENSE](LICENSE)）。`.wiki/` 中的 wiki 
 ## 开发
 
 ```bash
-cargo nextest run --workspace          # 120 个测试（单测 + git-fixture 集成 + MCP 协议内测试）
+cargo nextest run --workspace          # 132 个测试（单测 + git-fixture 集成 + MCP 协议内测试）
 cargo llvm-cov nextest --workspace --summary-only   # 覆盖率基线
 cargo bench -p loredex-engine --bench scan -- --budget   # 扫描/索引回归下限（CI 门禁）
 ```

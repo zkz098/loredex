@@ -125,9 +125,8 @@ pub fn lint_with(view: &GitView, wiki_dir: &Path) -> Result<Vec<LintIssue>> {
         //    (pages written before the gate existed, or with --no-redact)
         for e in &p.meta.evidence {
             if let Some([lo, hi]) = e.lines {
-                if let Some(snippet) = view.head_lines(&e.path, lo, hi)? {
-                    let lines: Vec<&str> = snippet.lines().collect();
-                    for f in crate::redact::scan_lines(&lines) {
+                if let Some(content) = view.head_file_content(&e.path)? {
+                    for f in crate::redact::scan_range(&content, lo, hi) {
                         issues.push(LintIssue {
                             page: p.meta.id.clone(),
                             kind: "secret-in-evidence".into(),

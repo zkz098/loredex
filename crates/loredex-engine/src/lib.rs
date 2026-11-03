@@ -58,7 +58,7 @@ pub use playbook::{registry as playbook_registry, TypePlaybook};
 pub use put::{
     note_page, note_page_with, put_page, put_page_with, PageExpectation, PutOptions, PutOutcome,
 };
-pub use redact::{mask_line, scan_lines, Finding as SecretFinding};
+pub use redact::{mask_line, scan_lines, scan_range, Finding as SecretFinding};
 
 pub type Result<T> = std::result::Result<T, WikiError>;
 
