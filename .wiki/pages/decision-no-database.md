@@ -2,8 +2,8 @@
 id: decision-no-database
 title: The frontmatter is the database
 status: verified
-generated_at: 2026-11-02T11:24:23Z
-commit: fe5974431c3ea5d7d6b228f66457cfdc2182befd
+generated_at: 2026-11-03T13:20:21Z
+commit: 67da1675a709e5972e22a3f53797fe275070907e
 evidence:
 - path: crates/loredex-core/src/page.rs
   lines:
@@ -21,10 +21,11 @@ evidence:
   note: drift-projected L135-L145@0a536572 -> L143-L153 (similarity 1.00)
 - path: crates/loredex-core/src/search.rs
   lines:
-  - 106
-  - 120
-  blob: f7ec83c7acd245116769c9889a0780e63c56638e
+  - 116
+  - 130
+  blob: d761dfe3556d4ca8fb2363ec5b06003e5e1fe9fa
   snippet_sha1: 826251caf0de5de1059b61e0d0e986da16d49c63
+  note: drift-projected L106-L120@f7ec83c7 -> L116-L130 (similarity 1.00)
 - path: crates/loredex-engine/src/organize.rs
   lines:
   - 54
@@ -35,8 +36,9 @@ evidence:
   lines:
   - 93
   - 110
-  blob: f71fc8f0e2194d45773d70bb6d4cbfd07d3dff54
+  blob: 4800de5f0cd1b0de76d09014bc25ad4f1d2f1f35
   snippet_sha1: d50881deb99637930250c8faad294ab772f17e9d
+  note: drift-projected L93-L110@f71fc8f0 -> L93-L110 (similarity 1.00)
 - path: crates/loredex-mcp/src/lib.rs
   lines:
   - 529
@@ -48,7 +50,7 @@ evidence:
   lines:
   - 112
   - 121
-  blob: 6c0a4740633feaa42b227e67227ed8545d43d802
+  blob: 4600a9da494272e7d428e28189a2035bdd4f43cc
   snippet_sha1: 283e5dc1033a8132bdfc3741c781d364cf63ca80
   note: drift-projected L99-L108@bc899494 -> L112-L121 (similarity 1.00)
 tags:

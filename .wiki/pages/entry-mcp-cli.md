@@ -2,8 +2,8 @@
 id: entry-mcp-cli
 title: 'Entry layer: MCP server and CLI'
 status: verified
-generated_at: 2026-11-02T11:24:23Z
-commit: fe5974431c3ea5d7d6b228f66457cfdc2182befd
+generated_at: 2026-11-03T13:20:21Z
+commit: 67da1675a709e5972e22a3f53797fe275070907e
 evidence:
 - path: crates/loredex-mcp/src/lib.rs
   lines:

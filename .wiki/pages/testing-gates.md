@@ -2,8 +2,8 @@
 id: testing-gates
 title: Test and CI layers
 status: verified
-generated_at: 2026-11-02T11:24:23Z
-commit: fe5974431c3ea5d7d6b228f66457cfdc2182befd
+generated_at: 2026-11-03T13:23:43Z
+commit: 67da1675a709e5972e22a3f53797fe275070907e
 evidence:
 - path: crates/loredex-engine/tests/e2e.rs
   lines:
@@ -17,7 +17,6 @@ evidence:
   - 3
   blob: be53af8325165c51e9900c87a518e4ac5bafeb84
   snippet_sha1: 9d40188363a01c1ea72d41df7d34f9f2e5f6fd29
-  note: drift-projected L1-L3@a62af033 -> L1-L3 (similarity 1.00)
 - path: crates/loredex-engine/tests/diff_links.rs
   lines:
   - 1
@@ -40,7 +39,7 @@ evidence:
   lines:
   - 1
   - 4
-  blob: 27413517b7cb091439ed6f2ce589a8b3053c7762
+  blob: 93cc729c254dba67fe1bc8501d0a99c4825e30c1
   snippet_sha1: 22cbb4eea3f25242e591a68a8fce427772e1a453
 - path: crates/loredex-mcp/tests/mcp_resolution.rs
   lines:
@@ -48,36 +47,35 @@ evidence:
   - 6
   blob: 9772880ccf2de9fcab7ade6078681d732b091573
   snippet_sha1: 0c87247e0a7694c9e7857121a373cd081db676fb
-  note: drift-projected L1-L6@c6ab107c -> L1-L6 (similarity 1.00)
 - path: .github/workflows/ci.yml
   lines:
   - 19
   - 22
-  blob: 420d2c4f9e6ac962ff99766cea257d6b48cfe45b
+  blob: 75c94256eca27ddfbceab1aad35e6f5bdad72305
   snippet_sha1: 5edf5908f6af0b86bf40171a278baa6cb7c5319b
 - path: .github/workflows/ci.yml
   lines:
   - 27
   - 28
-  blob: 420d2c4f9e6ac962ff99766cea257d6b48cfe45b
+  blob: 75c94256eca27ddfbceab1aad35e6f5bdad72305
   snippet_sha1: 121304982946f9a55c391d324d91bc89b82ea3c5
 - path: .github/workflows/ci.yml
   lines:
   - 40
   - 41
-  blob: 420d2c4f9e6ac962ff99766cea257d6b48cfe45b
+  blob: 75c94256eca27ddfbceab1aad35e6f5bdad72305
   snippet_sha1: 9802eeb2ed9062715ecb3df1ec2c7659b679dc8f
 - path: .github/workflows/ci.yml
   lines:
   - 29
   - 30
-  blob: 420d2c4f9e6ac962ff99766cea257d6b48cfe45b
+  blob: 75c94256eca27ddfbceab1aad35e6f5bdad72305
   snippet_sha1: 9f1711e607aa0650f2c3c2e1057db344aebc44ab
 - path: .github/workflows/ci.yml
   lines:
   - 49
   - 50
-  blob: 420d2c4f9e6ac962ff99766cea257d6b48cfe45b
+  blob: 75c94256eca27ddfbceab1aad35e6f5bdad72305
   snippet_sha1: 4485bd35e473ae9e143f85e37494d2f348e44f17
 - path: crates/loredex-engine/benches/scan.rs
   lines:
@@ -89,8 +87,14 @@ evidence:
   lines:
   - 68
   - 70
-  blob: 420d2c4f9e6ac962ff99766cea257d6b48cfe45b
+  blob: 75c94256eca27ddfbceab1aad35e6f5bdad72305
   snippet_sha1: a257e989009413de9728abc2726e44ed13113b63
+- path: .github/workflows/ci.yml
+  lines:
+  - 71
+  - 79
+  blob: 75c94256eca27ddfbceab1aad35e6f5bdad72305
+  snippet_sha1: fe85178b4c542c0491172f651161fc0d82967f50
 - path: crates/loredex-engine/tests/knowledge.rs
   lines:
   - 37
@@ -103,7 +107,6 @@ evidence:
   - 12
   blob: 9772880ccf2de9fcab7ade6078681d732b091573
   snippet_sha1: 6c63d4529ab644a369bfaeb78dd4c6f3cd19d28c
-  note: drift-projected L8-L12@c6ab107c -> L8-L12 (similarity 1.00)
 - path: crates/loredex-engine/tests/knowledge.rs
   lines:
   - 215
@@ -132,7 +135,7 @@ evidence:
   lines:
   - 64
   - 80
-  blob: 27413517b7cb091439ed6f2ce589a8b3053c7762
+  blob: 93cc729c254dba67fe1bc8501d0a99c4825e30c1
   snippet_sha1: 69451bfa625efa8f0dad30bf3179b768cec3041b
 - path: .github/workflows/loredex-refresh.yml
   lines:
@@ -144,8 +147,8 @@ evidence:
   lines:
   - 1
   - 16
-  blob: abf859da79ebc5ef0865f2c4b0342bc9cee29cca
-  snippet_sha1: a5da00a1b7b63ebbc6e7a2067ceb6e9da004b86e
+  blob: fbfdfa1014347291e7f923a830b9393ddaace249
+  snippet_sha1: 6821e548993b2da2e219527d38c2ca100cc1461e
 - path: .cargo/config.toml
   lines:
   - 1
@@ -156,8 +159,6 @@ tags:
 - policy
 type: testing
 ---
-# Test and CI layers
-
 **Layers.** Unit tests sit next to the code; behaviour is asserted at integration level under `crates/*/tests/`. `loredex-engine` covers the wiki lifecycle end to end — staleness and drift projection [[cite:crates/loredex-engine/tests/e2e.rs:L4-L10]], the generation plan, ledger resume, index and lint [[cite:crates/loredex-engine/tests/plan_lint.rs:L1-L3]], ref-scoped diff with link recommendations [[cite:crates/loredex-engine/tests/diff_links.rs:L1-L5]], language/AGENTS.md/import features [[cite:crates/loredex-engine/tests/features.rs:L1-L8]], the knowledge pipeline [[cite:crates/loredex-engine/tests/knowledge.rs:L1-L3]] and redaction [[cite:crates/loredex-engine/tests/redact_evidence.rs:L1-L4]] — `loredex-core` covers page and citation parsing, `loredex-git` covers diff and path classification, and `loredex-mcp` drives the real MCP protocol in-process over a duplex transport, so tool dispatch, the roots capability gate and structured output are exercised the way a client sees them [[cite:crates/loredex-mcp/tests/mcp_resolution.rs:L1-L6]].
 
 **How to run, in the order CI enforces.** Locally, before pushing:
@@ -168,7 +169,7 @@ cargo clippy --workspace --all-targets -- -D warnings
 cargo nextest run --workspace
 ```
 
-clippy runs with warnings denied [[cite:.github/workflows/ci.yml:L19-L22]] and an unused-dependency sweep gates the same job [[cite:.github/workflows/ci.yml:L27-L28]]; the test job is plain nextest over the workspace [[cite:.github/workflows/ci.yml:L40-L41]], and a step refuses a stale AGENTS.md managed block [[cite:.github/workflows/ci.yml:L29-L30]]. Two extra gates exist because this is a whole-repo scanner: a hard regression budget on the page-scan benchmark [[cite:.github/workflows/ci.yml:L49-L50]], which builds a fresh view per iteration over a synthetic 2000-page wiki so the number includes per-command git cache setup [[cite:crates/loredex-engine/benches/scan.rs:L1-L5]] and a coverage baseline of 70% lines [[cite:.github/workflows/ci.yml:L68-L70]]. While iterating, run one suite: `cargo nextest run -p loredex-engine --test knowledge`.
+clippy runs with warnings denied [[cite:.github/workflows/ci.yml:L19-L22]] and an unused-dependency sweep gates the same job [[cite:.github/workflows/ci.yml:L27-L28]]; the test job is plain nextest over the workspace [[cite:.github/workflows/ci.yml:L40-L41]], and a step refuses a stale AGENTS.md managed block [[cite:.github/workflows/ci.yml:L29-L30]]. Extra gates exist because this is a whole-repo scanner: a hard regression budget on the page-scan benchmark [[cite:.github/workflows/ci.yml:L49-L50]], which builds a fresh view per iteration over a synthetic 2000-page wiki so the number includes per-command git cache setup [[cite:crates/loredex-engine/benches/scan.rs:L1-L5]], a coverage baseline of 70% lines [[cite:.github/workflows/ci.yml:L68-L70]], and an MSRV gate ensuring all workspace targets build at the declared 1.89 floor [[cite:.github/workflows/ci.yml:L71-L79]]. While iterating, run one suite: `cargo nextest run -p loredex-engine --test knowledge`.
 
 **Fixtures and harness.** Integration suites build a throwaway git repository in a tempdir, commit the fixture files, then drive the engine against real blobs — freshness and drift projection cannot be rehearsed against a mock [[cite:crates/loredex-engine/tests/knowledge.rs:L37-L45]]. Tests that touch `LOREDEX_REPO` share a serialization lock: nextest isolates every test in its own process, plain `cargo test` threads them [[cite:crates/loredex-mcp/tests/mcp_resolution.rs:L8-L12]].
 
@@ -181,6 +182,6 @@ clippy runs with warnings denied [[cite:.github/workflows/ci.yml:L19-L22]] and a
 
 Wiki maintenance is exercised too: this repository's own `.wiki/` is refreshed on a schedule, committing what projection recovers and opening an issue only for genuine re-authoring [[cite:.github/workflows/loredex-refresh.yml:L1-L8]].
 
-**Workspace facts.** Five crates under `crates/` (core / git / engine / cli / mcp), edition 2021, Rust 1.85 [[cite:Cargo.toml:L1-L16]]. Release builds default to an `x86-64-v3` CPU baseline, so the CPU you test on is not necessarily the one a user has — cross-platform CI jobs matter more here than for a portable CLI [[cite:.cargo/config.toml:L1-L6]].
+**Workspace facts.** Five crates under `crates/` (core / git / engine / cli / mcp), edition 2021, Rust 1.89 [[cite:Cargo.toml:L1-L16]]. Release builds default to an `x86-64-v3` CPU baseline, so the CPU you test on is not necessarily the one a user has — cross-platform CI jobs matter more here than for a portable CLI [[cite:.cargo/config.toml:L1-L6]].
 
 Related: [[wiki:rule-advisory-never-fails-ci]], [[wiki:entry-mcp-cli]], [[wiki:repo-root]].

@@ -2,21 +2,21 @@
 id: rule-evidence-contract
 title: Every verified claim cites resolvable evidence
 status: verified
-generated_at: 2026-11-02T11:24:23Z
-commit: fe5974431c3ea5d7d6b228f66457cfdc2182befd
+generated_at: 2026-11-03T13:20:21Z
+commit: 67da1675a709e5972e22a3f53797fe275070907e
 evidence:
 - path: crates/loredex-engine/src/put.rs
   lines:
   - 123
   - 153
-  blob: 5b2edb909c4766ac339c59c8f4eb804a2d85c4c2
+  blob: 53f8b6e86e53d713a66c0bf4102f750cbdb0fba5
   snippet_sha1: ea7190bfa177bcdb5afdc9d6fe6bb1aa8764805a
   note: drift-projected L90-L120@a9842770 -> L123-L153 (similarity 1.00)
 - path: crates/loredex-engine/src/put.rs
   lines:
   - 53
   - 95
-  blob: 5b2edb909c4766ac339c59c8f4eb804a2d85c4c2
+  blob: 53f8b6e86e53d713a66c0bf4102f750cbdb0fba5
   snippet_sha1: a513c03b85b8d58947168a8f631e92c33c87f24a
   note: drift-projected L36-L62@a9842770 -> L53-L95 (similarity 1.00)
 - path: crates/loredex-engine/src/auto.rs
@@ -29,9 +29,9 @@ evidence:
   lines:
   - 93
   - 110
-  blob: f71fc8f0e2194d45773d70bb6d4cbfd07d3dff54
+  blob: 4800de5f0cd1b0de76d09014bc25ad4f1d2f1f35
   snippet_sha1: d50881deb99637930250c8faad294ab772f17e9d
-  note: drift-projected L93-L110@c78d2f6d -> L93-L110 (similarity 1.00)
+  note: drift-projected L93-L110@f71fc8f0 -> L93-L110 (similarity 1.00)
 - path: crates/loredex-engine/tests/knowledge.rs
   lines:
   - 215

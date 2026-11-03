@@ -2,8 +2,8 @@
 id: troubleshooting-lost-citations
 title: '"citation content lost" flips pages to draft'
 status: verified
-generated_at: 2026-11-02T11:24:23Z
-commit: fe5974431c3ea5d7d6b228f66457cfdc2182befd
+generated_at: 2026-11-03T13:20:21Z
+commit: 67da1675a709e5972e22a3f53797fe275070907e
 evidence:
 - path: crates/loredex-engine/src/drift.rs
   lines:
@@ -34,16 +34,16 @@ evidence:
   note: drift-projected L85-L96@81c113ab -> L85-L96 (similarity 1.00)
 - path: crates/loredex-engine/src/put.rs
   lines:
-  - 196
-  - 236
-  blob: 5b2edb909c4766ac339c59c8f4eb804a2d85c4c2
+  - 197
+  - 237
+  blob: 53f8b6e86e53d713a66c0bf4102f750cbdb0fba5
   snippet_sha1: 692fa1cfb1dc8b0f15e9db2f0dbc3ac9767f4437
-  note: drift-projected L163-L192@a9842770 -> L196-L236 (similarity 0.93)
+  note: drift-projected L163-L192@a9842770 -> L197-L237 (similarity 0.93)
 - path: crates/loredex-engine/src/lib.rs
   lines:
   - 339
   - 353
-  blob: 6c0a4740633feaa42b227e67227ed8545d43d802
+  blob: 4600a9da494272e7d428e28189a2035bdd4f43cc
   snippet_sha1: 58819359d859568299c50d43a98675ffd8e53d9c
   note: drift-projected L316-L330@bc899494 -> L339-L353 (similarity 1.00)
 tags:

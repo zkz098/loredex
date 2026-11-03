@@ -2,8 +2,8 @@
 id: rule-advisory-never-fails-ci
 title: Curation hints are advisory and never break CI
 status: verified
-generated_at: 2026-11-02T11:24:23Z
-commit: fe5974431c3ea5d7d6b228f66457cfdc2182befd
+generated_at: 2026-11-03T13:20:21Z
+commit: 67da1675a709e5972e22a3f53797fe275070907e
 evidence:
 - path: crates/loredex-engine/src/organize.rs
   lines:
@@ -27,14 +27,16 @@ evidence:
   lines:
   - 17
   - 26
-  blob: f71fc8f0e2194d45773d70bb6d4cbfd07d3dff54
+  blob: 4800de5f0cd1b0de76d09014bc25ad4f1d2f1f35
   snippet_sha1: da600c830af88a1a362d701e28653e394a051891
+  note: drift-projected L17-L26@f71fc8f0 -> L17-L26 (similarity 1.00)
 - path: crates/loredex-engine/src/lint.rs
   lines:
-  - 152
-  - 162
-  blob: f71fc8f0e2194d45773d70bb6d4cbfd07d3dff54
+  - 151
+  - 161
+  blob: 4800de5f0cd1b0de76d09014bc25ad4f1d2f1f35
   snippet_sha1: a0b584142e3f263cf4341f4fd28366363438fd71
+  note: drift-projected L152-L162@f71fc8f0 -> L151-L161 (similarity 1.00)
 - path: crates/loredex-cli/src/main.rs
   lines:
   - 858
