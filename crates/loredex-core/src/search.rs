@@ -95,43 +95,88 @@ pub struct SearchHit {
     pub page_idx: usize,
     pub id: String,
     pub title: String,
-    /// Ranking score, always >= 1 for a returned hit; hits are sorted by it
-    /// descending.
+    /// Ranking score (scaled BM25), always >= 1 for a returned hit; hits are
+    /// sorted by it descending.
     pub score: usize,
     pub matched_lines: Vec<String>,
 }
 
-/// Term frequency stops adding weight beyond this many occurrences per page.
-const TF_CAP: usize = 4;
-/// Weight a query token gets for matching a page token exactly (a prefix-only
-/// match gets 1), so `wiki` ranks a page about `wiki` above one about `wikis`.
-const EXACT_BONUS: usize = 2;
+/// Okapi BM25 parameters.
+const BM25_K1: f32 = 1.2;
+const BM25_B: f32 = 0.75;
+/// Discount applied to prefix-expanded tokens compared to exact token matches.
+const PREFIX_DISCOUNT: f32 = 0.6;
+/// Bonus factor for an exact token match.
+const EXACT_MATCH_BONUS: f32 = 1.25;
+
+/// Calculate non-negative smoothed IDF (Okapi BM25 / Lucene variant):
+/// ln(1.0 + (N - n + 0.5) / (n + 0.5))
+#[inline]
+fn idf(total_docs: usize, doc_freq: usize) -> f32 {
+    let n = doc_freq as f32;
+    let total = total_docs as f32;
+    ((1.0 + (total - n + 0.5) / (n + 0.5)).max(1.0)).ln()
+}
+
+/// Calculate BM25 term saturation with document length normalization:
+/// (tf * (k1 + 1.0)) / (tf + k1 * (1.0 - b + b * (|D| / avgdl)))
+#[inline]
+fn bm25_tf(tf: u32, doc_len: u32, avgdl: f32) -> f32 {
+    let tf = tf as f32;
+    let len_norm = (1.0 - BM25_B) + BM25_B * (doc_len as f32 / avgdl.max(1.0));
+    (tf * (BM25_K1 + 1.0)) / (tf + BM25_K1 * len_norm)
+}
 
 /// In-memory inverted index; rebuilt from page files in milliseconds,
 /// so there is no persistent cache that can drift from the Markdown source.
 pub struct InvertedIndex {
-    postings: BTreeMap<String, Vec<(usize, usize)>>, // token -> (page_idx, tf)
+    postings: BTreeMap<String, Vec<(usize, u32)>>, // token -> (page_idx, tf)
+    doc_lens: Vec<u32>,
+    avgdl: f32,
     pages: Vec<IndexedPage>,
 }
 
 impl InvertedIndex {
     pub fn build(pages: Vec<IndexedPage>) -> Self {
-        let mut postings: BTreeMap<String, Vec<(usize, usize)>> = BTreeMap::new();
+        let mut postings: BTreeMap<String, Vec<(usize, u32)>> = BTreeMap::new();
+        let mut doc_lens = Vec::with_capacity(pages.len());
+        let mut total_len = 0usize;
+
         for (pi, page) in pages.iter().enumerate() {
-            let mut text = page.title.clone();
+            let mut text =
+                String::with_capacity(page.title.len() + page.id.len() + page.body.len() + 2);
+            text.push_str(&page.title);
             text.push(' ');
             text.push_str(&page.id);
             text.push(' ');
             text.push_str(&page.body);
-            let mut tf: FastMap<String, usize> = FastMap::default();
-            for t in tokenize(&text) {
+
+            let tokens = tokenize(&text);
+            let d_len = tokens.len() as u32;
+            doc_lens.push(d_len);
+            total_len += d_len as usize;
+
+            let mut tf: FastMap<String, u32> = FastMap::default();
+            for t in tokens {
                 *tf.entry(t).or_insert(0) += 1;
             }
             for (t, n) in tf {
                 postings.entry(t).or_default().push((pi, n));
             }
         }
-        Self { postings, pages }
+
+        let avgdl = if pages.is_empty() {
+            1.0
+        } else {
+            (total_len as f32) / (pages.len() as f32)
+        };
+
+        Self {
+            postings,
+            doc_lens,
+            avgdl,
+            pages,
+        }
     }
 
     pub fn search(&self, query: &str, limit: usize) -> Vec<SearchHit> {
@@ -142,61 +187,73 @@ impl InvertedIndex {
                 .filter(|t| seen.insert(t.clone()))
                 .collect()
         };
-        if qtokens.is_empty() {
+        if qtokens.is_empty() || self.pages.is_empty() {
             return Vec::new();
         }
-        // page -> (summed per-token weight, number of query tokens matched)
-        let mut acc: FastMap<usize, (usize, usize)> = FastMap::default();
-        let mut best: FastMap<usize, usize> = FastMap::default();
+
+        let total_docs = self.pages.len();
+        // page -> (accumulated BM25 score, number of distinct query tokens matched)
+        let mut acc: FastMap<usize, (f32, usize)> = FastMap::default();
+        let mut best: FastMap<usize, f32> = FastMap::default();
+
         for t in &qtokens {
-            // Each query token contributes at most once per page: the best of
-            // its exact posting and its prefix expansions. Summing them would
-            // count the exact key twice (it is also its own prefix) and let a
-            // page with many `t*` variants outrank one that matches `t` itself.
             best.clear();
+
+            // 1. Exact token match with BM25 weighting
             if let Some(list) = self.postings.get(t) {
+                let term_idf = idf(total_docs, list.len());
                 for &(pi, tf) in list {
+                    let d_len = self.doc_lens[pi];
+                    let score = term_idf * bm25_tf(tf, d_len, self.avgdl) * EXACT_MATCH_BONUS;
                     let w = best.entry(pi).or_default();
-                    *w = (*w).max(EXACT_BONUS + tf.min(TF_CAP));
+                    *w = (*w).max(score);
                 }
             }
+
+            // 2. Prefix expansion for latin tokens (skip CJK)
             if t.chars().next().is_some_and(|c| !is_cjk(c)) {
-                // prefix match on latin tokens keeps `wik` -> `wiki` usable.
-                // Sorted postings: every key with prefix `t` is contiguous,
-                // starting right after `t` itself.
                 let after = (Bound::Excluded(t.as_str()), Bound::Unbounded);
                 for (key, list) in self.postings.range::<str, _>(after) {
                     if !key.starts_with(t.as_str()) {
                         break;
                     }
+                    let term_idf = idf(total_docs, list.len());
                     for &(pi, tf) in list {
+                        let d_len = self.doc_lens[pi];
+                        let score = term_idf * bm25_tf(tf, d_len, self.avgdl) * PREFIX_DISCOUNT;
                         let w = best.entry(pi).or_default();
-                        *w = (*w).max(1 + tf.min(TF_CAP));
+                        *w = (*w).max(score);
                     }
                 }
             }
+
+            // Each query token contributes at most once per page
             for (&pi, &w) in &best {
                 let e = acc.entry(pi).or_default();
                 e.0 += w;
                 e.1 += 1;
             }
         }
-        // Each unmatched query token costs one point, but a page that matched
-        // anything keeps a positive score: the old unsigned subtraction
-        // underflowed for long queries (debug panic, release score wrapped to
-        // usize::MAX and ranked the weakest hit first).
-        let mut hits: Vec<(usize, usize, usize)> = acc
+
+        // Rank documents:
+        // Combined score = sum(BM25) * coverage_multiplier
+        // where coverage rewards documents matching more of the query tokens.
+        let mut hits: Vec<(usize, usize, f32)> = acc
             .into_iter()
-            .map(|(pi, (sum, covered))| {
-                let missing = qtokens.len().saturating_sub(covered);
-                (pi, (sum * 2).saturating_sub(missing).max(1), sum)
+            .map(|(pi, (raw_score, covered))| {
+                let coverage_boost = 1.0 + 0.5 * (covered as f32 / qtokens.len() as f32);
+                let final_score = raw_score * coverage_boost;
+                let int_score = ((final_score * 100.0).round() as usize).max(1);
+                (pi, int_score, final_score)
             })
             .collect();
+
         hits.sort_by(|a, b| {
             b.1.cmp(&a.1)
-                .then_with(|| b.2.cmp(&a.2))
+                .then_with(|| b.2.partial_cmp(&a.2).unwrap_or(std::cmp::Ordering::Equal))
                 .then_with(|| a.0.cmp(&b.0))
         });
+
         let ql = query.to_lowercase();
         hits.into_iter()
             .take(limit)
@@ -298,9 +355,44 @@ mod tests {
         ]);
         let hits = idx.search("wiki", 5);
         assert_eq!(hits[0].id, "exact", "{hits:?}");
-        // exact: (2 + tf 1) * 2 = 6; variants: best prefix (1 + 1) * 2 = 4
-        assert_eq!(hits[0].score, 6);
-        assert_eq!(hits[1].score, 4);
+        assert!(
+            hits[0].score > hits[1].score,
+            "exact ({}) should beat variants ({})",
+            hits[0].score,
+            hits[1].score
+        );
+    }
+
+    #[test]
+    fn idf_favors_rare_keywords_over_generic_words() {
+        // "wiki" appears in all 3 pages; "flock" appears in only 1.
+        // Searching for "wiki flock" should rank the page with "flock" highest,
+        // even if another page repeats "wiki" repeatedly.
+        let idx = InvertedIndex::build(vec![
+            page("generic", "wiki wiki wiki wiki wiki wiki"),
+            page("both", "wiki system uses flock for process coordination"),
+            page("other", "wiki documentation page"),
+        ]);
+        let hits = idx.search("wiki flock", 5);
+        assert_eq!(hits[0].id, "both", "page with rare term must rank first");
+        assert!(hits[0].score > hits[1].score);
+    }
+
+    #[test]
+    fn length_normalization_favors_concise_exact_matches() {
+        // Both pages have 1 occurrence of "deadlock", but "short" is 5 tokens
+        // while "verbose" is a long document with 100 filler words.
+        let verbose_body = format!("deadlock {}", "filler ".repeat(100));
+        let idx = InvertedIndex::build(vec![
+            page("verbose", &verbose_body),
+            page("concise", "avoid deadlock in file locking"),
+        ]);
+        let hits = idx.search("deadlock", 5);
+        assert_eq!(
+            hits[0].id, "concise",
+            "concise document should get length-norm boost"
+        );
+        assert!(hits[0].score > hits[1].score);
     }
 
     #[test]
