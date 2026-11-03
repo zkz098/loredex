@@ -2,8 +2,8 @@
 id: core-model
 title: 'loredex-core: data model and parsing'
 status: verified
-generated_at: 2026-11-03T13:23:09Z
-commit: 67da1675a709e5972e22a3f53797fe275070907e
+generated_at: 2026-11-03T14:39:34Z
+commit: f82c02925e72f87f7286b6f35a14c829fbe60a74
 evidence:
 - path: crates/loredex-core/src/page.rs
   lines:
@@ -39,14 +39,16 @@ evidence:
   lines:
   - 23
   - 68
-  blob: d761dfe3556d4ca8fb2363ec5b06003e5e1fe9fa
+  blob: cd125703ab5b2d5d5abba89b07270a2b279ca8bc
   snippet_sha1: 4adf67c89aa7c7c0e63b7cc91bf51a35ebbc2b84
+  note: drift-projected L23-L68@d761dfe3 -> L23-L68 (similarity 1.00)
 - path: crates/loredex-core/src/search.rs
   lines:
-  - 137
-  - 200
-  blob: d761dfe3556d4ca8fb2363ec5b06003e5e1fe9fa
-  snippet_sha1: 0182ccb2f19165f67f2d0b77109183c2523dac87
+  - 182
+  - 257
+  blob: cd125703ab5b2d5d5abba89b07270a2b279ca8bc
+  snippet_sha1: 1e76f197b19a886fa5031189b1568427117b6ca7
+  note: drift-projected L137-L200@d761dfe3 -> L182-L257 (similarity 0.66)
 type: system
 ---
 Page state machine `draft -> verified -> stale`, defined in [[cite:crates/loredex-core/src/page.rs:L8-L25]]. `WikiPage::from_markdown` splits YAML frontmatter from the body at the first `---` and the nearest newline-delimited closing fence [[cite:crates/loredex-core/src/page.rs:L71-L97]]; `save` writes atomically via temp-file + rename [[cite:crates/loredex-core/src/page.rs:L115-L135]].
