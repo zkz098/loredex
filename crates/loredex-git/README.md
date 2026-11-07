@@ -1,6 +1,6 @@
 # loredex-git
 
-Read-only [libgit2](https://github.com/libgit2/libgit2) (git2) evidence layer for [Loredex](https://github.com/zkz098/loredex), an evidence-backed repository wiki for AI coding agents.
+Read-only [gitoxide](https://github.com/GitoxideLabs/gitoxide) (gix) evidence layer for [Loredex](https://github.com/zkz098/loredex), an evidence-backed repository wiki for AI coding agents.
 
 Single type, `GitRepo`, exposing exactly the git questions the wiki needs to decide whether a claim about the code is still true:
 

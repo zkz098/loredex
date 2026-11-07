@@ -5,12 +5,14 @@ edition.workspace = true
 license.workspace = true
 repository.workspace = true
 rust-version.workspace = true
-description = "Read-only git evidence layer for Loredex (libgit2 bindings)"
+description = "Read-only git evidence layer for Loredex (gitoxide bindings)"
 
 [dependencies]
 foldhash = { workspace = true }
-git2 = { workspace = true }
+gix = { workspace = true }
+similar = { workspace = true }
 loredex-core = { workspace = true }
 
 [dev-dependencies]
+git2 = { workspace = true }
 tempfile = "3"

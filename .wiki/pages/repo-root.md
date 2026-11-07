@@ -2,8 +2,8 @@
 id: repo-root
 title: Repository root and engineering
 status: verified
-generated_at: 2026-11-03T14:32:35Z
-commit: e1f2a8a9e756d04f0811a177e118f7c37788b90b
+generated_at: 2026-11-07T15:26:49Z
+commit: d77ab00e598a8f9f3059b5fee54f07b4780dd463
 evidence:
 - path: Cargo.toml
   lines:
@@ -16,9 +16,9 @@ evidence:
   lines:
   - 1
   - 9
-  blob: e2c3c78ba188fcf34843d2a1d50df6aeef115346
+  blob: 28e05cd5420af0f31687991f3d0574a9b4f36f35
   snippet_sha1: 2cffae28322fc373ba6a5d601fd9469a90f1aa11
-  note: drift-projected L1-L9@b1bb9e58 -> L1-L9 (similarity 1.00)
+  note: drift-projected L1-L9@e2c3c78b -> L1-L9 (similarity 1.00)
 - path: .config/nextest.toml
   lines:
   - 1

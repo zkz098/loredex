@@ -29,6 +29,7 @@ regex = { version = "1", default-features = false, features = ["std", "unicode-p
 foldhash = "0.2"
 mimalloc = "0.1"
 git2 = "0.20"
+gix = { version = "0.88", default-features = false, features = ["basic", "status", "revision", "parallel", "sha1"] }
 similar = "2"
 sha1 = "0.10"
 hex = "0.4"

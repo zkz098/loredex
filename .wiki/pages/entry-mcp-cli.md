@@ -2,72 +2,72 @@
 id: entry-mcp-cli
 title: 'Entry layer: MCP server and CLI'
 status: verified
-generated_at: 2026-11-03T13:20:21Z
-commit: 67da1675a709e5972e22a3f53797fe275070907e
+generated_at: 2026-11-07T15:26:49Z
+commit: d77ab00e598a8f9f3059b5fee54f07b4780dd463
 evidence:
 - path: crates/loredex-mcp/src/lib.rs
   lines:
-  - 17
-  - 26
-  blob: c80142e0bcb6707abf0119392942b2c83d283ba3
+  - 23
+  - 32
+  blob: d220dafd135548fdd3303b7bb7943dc9f86499c3
   snippet_sha1: dc10c3a9193f10dc416ed4b9b3131aacb7a45e76
-  note: drift-projected L17-L27@ed2c4338 -> L17-L26 (similarity 0.82)
+  note: drift-projected L17-L26@c80142e0 -> L23-L32 (similarity 1.00)
 - path: crates/loredex-mcp/src/lib.rs
   lines:
-  - 30
-  - 33
-  blob: c80142e0bcb6707abf0119392942b2c83d283ba3
+  - 36
+  - 39
+  blob: d220dafd135548fdd3303b7bb7943dc9f86499c3
   snippet_sha1: 81c5966e09ad7446dd1f3792a23f07cb84f93273
-  note: drift-projected L28-L31@ed2c4338 -> L30-L33 (similarity 1.00)
+  note: drift-projected L30-L33@c80142e0 -> L36-L39 (similarity 1.00)
 - path: crates/loredex-mcp/src/lib.rs
   lines:
-  - 38
-  - 40
-  blob: c80142e0bcb6707abf0119392942b2c83d283ba3
+  - 44
+  - 46
+  blob: d220dafd135548fdd3303b7bb7943dc9f86499c3
   snippet_sha1: 2824fc12ebf3eafb69b6eea2cbfad7ba61188f84
-  note: drift-projected L36-L38@ed2c4338 -> L38-L40 (similarity 1.00)
+  note: drift-projected L38-L40@c80142e0 -> L44-L46 (similarity 1.00)
 - path: crates/loredex-mcp/src/lib.rs
   lines:
-  - 52
-  - 55
-  blob: c80142e0bcb6707abf0119392942b2c83d283ba3
+  - 61
+  - 64
+  blob: d220dafd135548fdd3303b7bb7943dc9f86499c3
   snippet_sha1: 840f7780ad60f122d8c3fcf25a33c36896d249ff
-  note: drift-projected L45-L48@ed2c4338 -> L52-L55 (similarity 1.00)
+  note: drift-projected L52-L55@c80142e0 -> L61-L64 (similarity 1.00)
 - path: crates/loredex-mcp/src/lib.rs
   lines:
-  - 1228
-  - 1256
-  blob: c80142e0bcb6707abf0119392942b2c83d283ba3
+  - 1237
+  - 1265
+  blob: d220dafd135548fdd3303b7bb7943dc9f86499c3
   snippet_sha1: 578acf07ed012e9ee1b0bd3afa8295d0fa090e92
-  note: drift-projected L1096-L1122@ed2c4338 -> L1228-L1256 (similarity 1.00)
+  note: drift-projected L1228-L1256@c80142e0 -> L1237-L1265 (similarity 1.00)
 - path: crates/loredex-mcp/src/lib.rs
   lines:
-  - 1286
-  - 1316
-  blob: c80142e0bcb6707abf0119392942b2c83d283ba3
+  - 1295
+  - 1325
+  blob: d220dafd135548fdd3303b7bb7943dc9f86499c3
   snippet_sha1: 2121dda6cfeb340bd04f4b034e7141e817585c28
-  note: drift-projected L1151-L1172@ed2c4338 -> L1286-L1316 (similarity 0.91)
+  note: drift-projected L1286-L1316@c80142e0 -> L1295-L1325 (similarity 1.00)
 - path: crates/loredex-mcp/src/lib.rs
   lines:
-  - 923
-  - 942
-  blob: c80142e0bcb6707abf0119392942b2c83d283ba3
+  - 932
+  - 951
+  blob: d220dafd135548fdd3303b7bb7943dc9f86499c3
   snippet_sha1: 2483bbee316979f731c751e7011ff85d7b01f2c4
-  note: drift-projected L791-L810@ed2c4338 -> L923-L942 (similarity 1.00)
+  note: drift-projected L923-L942@c80142e0 -> L932-L951 (similarity 1.00)
 - path: crates/loredex-mcp/src/lib.rs
   lines:
-  - 729
-  - 745
-  blob: c80142e0bcb6707abf0119392942b2c83d283ba3
+  - 738
+  - 754
+  blob: d220dafd135548fdd3303b7bb7943dc9f86499c3
   snippet_sha1: edae31610f1a005652a6f5cd7a29a94e50071ba5
-  note: drift-projected L604-L620@ed2c4338 -> L729-L745 (similarity 1.00)
+  note: drift-projected L729-L745@c80142e0 -> L738-L754 (similarity 1.00)
 - path: crates/loredex-mcp/src/lib.rs
   lines:
-  - 1026
-  - 1042
-  blob: c80142e0bcb6707abf0119392942b2c83d283ba3
+  - 1035
+  - 1051
+  blob: d220dafd135548fdd3303b7bb7943dc9f86499c3
   snippet_sha1: 04e09de6b2cf2b73a5ba4ec4641335f113160d10
-  note: drift-projected L894-L910@ed2c4338 -> L1026-L1042 (similarity 1.00)
+  note: drift-projected L1026-L1042@c80142e0 -> L1035-L1051 (similarity 1.00)
 - path: crates/loredex-cli/src/main.rs
   lines:
   - 29

@@ -4,8 +4,8 @@ use std::path::{Path, PathBuf};
 use std::rc::Rc;
 
 use foldhash::fast::RandomState as FastState;
-use git2::{DiffOptions, Oid, Repository};
 use loredex_core::WikiError;
+use similar::{ChangeTag, TextDiff};
 
 /// Local git metadata only: foldhash is fast but not HashDoS-resistant.
 type FastMap<K, V> = HashMap<K, V, FastState>;
@@ -14,14 +14,14 @@ type LineMapCache = RefCell<FastMap<(String, String), Option<Rc<LineMap>>>>;
 pub type Result<T> = std::result::Result<T, WikiError>;
 
 pub struct GitRepo {
-    repo: Repository,
+    repo: gix::Repository,
     workdir: PathBuf,
 }
 
 impl GitRepo {
     /// Open the repository containing `path` (walks up like git does).
     pub fn discover(path: &Path) -> Result<Self> {
-        let repo = Repository::discover(path).map_err(|e| WikiError::Git(e.to_string()))?;
+        let repo = gix::discover(path).map_err(|e| WikiError::Git(e.to_string()))?;
         let workdir = repo
             .workdir()
             .ok_or_else(|| WikiError::Git("bare repository has no workdir".into()))?
@@ -49,10 +49,10 @@ impl GitRepo {
             .repo
             .head()
             .map_err(|e| WikiError::Git(e.to_string()))?;
-        let oid = head
-            .target()
+        let id = head
+            .id()
             .ok_or_else(|| WikiError::Git("HEAD does not point to a commit".into()))?;
-        Ok(oid.to_string())
+        Ok(id.to_string())
     }
 
     pub fn head_short(&self) -> Result<String> {
@@ -60,48 +60,26 @@ impl GitRepo {
     }
 
     pub fn commit_exists(&self, sha: &str) -> bool {
-        match self.repo.revparse_single(sha) {
-            Ok(obj) => obj.kind() == Some(git2::ObjectType::Commit) || obj.peel_to_commit().is_ok(),
-            Err(_) => false,
-        }
+        self.view().commit_exists(sha)
     }
 
     /// Blob oid of `rel_path` at HEAD, or None if the path is not tracked there.
     /// Single-path lookup via the HEAD tree (no full tree walk).
     pub fn head_blob_oid(&self, rel_path: &str) -> Result<Option<String>> {
-        let tree = match self.repo.head().and_then(|head| head.peel_to_tree()) {
-            Ok(tree) => tree,
-            // unborn/no-tree HEAD: nothing is tracked yet
-            Err(_) => return Ok(None),
-        };
-        match tree.get_path(Path::new(rel_path)) {
-            Ok(entry) if entry.kind() == Some(git2::ObjectType::Blob) => {
-                Ok(Some(entry.id().to_string()))
-            }
-            Ok(_) => Err(WikiError::Git(format!("{rel_path} is not a blob"))),
-            Err(e) if e.code() == git2::ErrorCode::NotFound => Ok(None),
-            Err(e) => Err(WikiError::Git(e.to_string())),
-        }
+        self.view().head_blob_oid(rel_path)
     }
 
     /// Content of `rel_path` as stored at HEAD.
     pub fn head_file_content(&self, rel_path: &str) -> Result<Option<String>> {
-        let Some(oid) = self.head_blob_oid(rel_path)? else {
+        let Some(content) = self.view().head_file_content(rel_path)? else {
             return Ok(None);
         };
-        let oid = Oid::from_str(&oid).map_err(|e| WikiError::Git(e.to_string()))?;
-        match self.repo.find_blob(oid) {
-            Ok(blob) => Ok(Some(String::from_utf8_lossy(blob.content()).into_owned())),
-            Err(_) => Ok(None),
-        }
+        Ok(Some((*content).clone()))
     }
 
     /// Inclusive line range [lo, hi] (1-based) of the file at HEAD.
     pub fn head_lines(&self, rel_path: &str, lo: u32, hi: u32) -> Result<Option<String>> {
-        let Some(content) = self.head_file_content(rel_path)? else {
-            return Ok(None);
-        };
-        Ok(lines_of(&content, lo, hi))
+        self.view().head_lines(rel_path, lo, hi)
     }
 
     /// Paths from `paths` that changed between `from_commit` and HEAD.
@@ -111,11 +89,10 @@ impl GitRepo {
 
     /// Raw content of any object by oid (used to read the recorded evidence blob).
     pub fn blob_content(&self, oid: &str) -> Result<Option<String>> {
-        let oid = Oid::from_str(oid).map_err(|e| WikiError::Git(e.to_string()))?;
-        match self.repo.find_blob(oid) {
-            Ok(blob) => Ok(Some(String::from_utf8_lossy(blob.content()).into_owned())),
-            Err(_) => Ok(None),
-        }
+        let Some(content) = self.view().blob_content(oid)? else {
+            return Ok(None);
+        };
+        Ok(Some((*content).clone()))
     }
 
     /// All file paths tracked at HEAD (recursive tree walk).
@@ -137,14 +114,7 @@ impl GitRepo {
 
     /// True if tracked files have uncommitted changes (ignores untracked files).
     pub fn is_dirty(&self) -> Result<bool> {
-        let statuses = self
-            .repo
-            .statuses(None)
-            .map_err(|e| WikiError::Git(e.to_string()))?;
-        Ok(statuses.iter().any(|s| {
-            let f = s.status();
-            !(f.is_wt_new() || f.is_index_new() || f.is_ignored())
-        }))
+        self.repo.is_dirty().map_err(|e| WikiError::Git(e.to_string()))
     }
 
     /// Structured change set between any resolvable ref and HEAD (see `GitView::path_deltas`).
@@ -205,38 +175,45 @@ enum PathKind {
 }
 
 impl TreeIndex {
-    fn walk(&mut self, repo: &Repository, tree: &git2::Tree, prefix: &str) {
-        let mut entries: Vec<_> = tree.iter().collect();
-        entries.sort_by_key(|e| e.name().unwrap_or("").to_string());
-        for entry in entries {
-            let Some(name) = entry.name() else { continue };
+    fn build(repo: &gix::Repository, tree: &gix::Tree) -> Result<Self> {
+        let mut index = TreeIndex::default();
+        Self::walk(repo, tree, "", &mut index)?;
+        index.files.sort();
+        Ok(index)
+    }
+
+    fn walk(
+        repo: &gix::Repository,
+        tree: &gix::Tree,
+        prefix: &str,
+        index: &mut TreeIndex,
+    ) -> Result<()> {
+        for entry in tree.iter() {
+            let entry = entry.map_err(|e| WikiError::Git(e.to_string()))?;
+            let name = entry.filename().to_string();
             let full = if prefix.is_empty() {
-                name.to_string()
+                name
             } else {
                 format!("{prefix}/{name}")
             };
-            if entry.kind() == Some(git2::ObjectType::Tree) {
-                if let Ok(obj) = entry.to_object(repo) {
-                    if let Ok(subtree) = obj.into_tree() {
-                        self.walk(repo, &subtree, &full);
+            if entry.mode().is_tree() {
+                if let Ok(obj) = repo.find_object(entry.oid()) {
+                    if let Ok(subtree) = obj.try_into_tree() {
+                        Self::walk(repo, &subtree, &full, index)?;
                     }
                 }
             } else {
-                self.files.push(full.clone());
-                match entry.kind() {
-                    Some(git2::ObjectType::Blob) => {
-                        let oid = entry.id().to_string();
-                        self.blobs
-                            .entry(oid.clone())
-                            .or_insert_with(|| full.clone());
-                        self.paths.insert(full, PathKind::Blob(oid));
-                    }
-                    _ => {
-                        self.paths.insert(full, PathKind::Other);
-                    }
+                index.files.push(full.clone());
+                if entry.mode().is_blob() {
+                    let oid = entry.oid().to_string();
+                    index.blobs.entry(oid.clone()).or_insert_with(|| full.clone());
+                    index.paths.insert(full, PathKind::Blob(oid));
+                } else {
+                    index.paths.insert(full, PathKind::Other);
                 }
             }
         }
+        Ok(())
     }
 }
 
@@ -256,7 +233,7 @@ pub struct GitView<'a> {
     changed_coverage: RefCell<FastMap<String, BTreeSet<String>>>,
     renames: RefCell<FastMap<String, Rc<BTreeMap<String, String>>>>,
     commit_exists: RefCell<FastMap<String, bool>>,
-    /// (old blob, new path) -> xdiff line map, shared by every citation that
+    /// (old blob, new path) -> line map, shared by every citation that
     /// points into the same file.
     line_maps: LineMapCache,
     dirty: OnceCell<bool>,
@@ -300,19 +277,22 @@ impl<'a> GitView<'a> {
         Ok(self.head_commit()?.chars().take(9).collect())
     }
 
+    fn head_tree(&self) -> Result<gix::Tree<'_>> {
+        let mut head = self
+            .repo
+            .repo
+            .head()
+            .map_err(|e| WikiError::Git(e.to_string()))?;
+        let commit = head
+            .peel_to_commit()
+            .map_err(|e| WikiError::Git(e.to_string()))?;
+        commit.tree().map_err(|e| WikiError::Git(e.to_string()))
+    }
+
     fn tree_index(&self) -> Result<&TreeIndex> {
         if self.tree.get().is_none() {
-            let head = self.head_commit()?;
-            let oid = Oid::from_str(head).map_err(|e| WikiError::Git(e.to_string()))?;
-            let commit = self
-                .repo
-                .repo
-                .find_commit(oid)
-                .map_err(|e| WikiError::Git(e.to_string()))?;
-            let tree = commit.tree().map_err(|e| WikiError::Git(e.to_string()))?;
-            let mut index = TreeIndex::default();
-            index.walk(&self.repo.repo, &tree, "");
-            index.files.sort();
+            let tree = self.head_tree()?;
+            let index = TreeIndex::build(&self.repo.repo, &tree)?;
             let _ = self.tree.set(index);
         }
         Ok(self.tree.get().expect("tree set above"))
@@ -334,16 +314,14 @@ impl<'a> GitView<'a> {
                 None => Ok(None),
             };
         }
-        let tree = match self.repo.repo.head().and_then(|head| head.peel_to_tree()) {
+        let tree = match self.head_tree() {
             Ok(tree) => tree,
             Err(_) => return Ok(None),
         };
-        match tree.get_path(Path::new(rel_path)) {
-            Ok(entry) if entry.kind() == Some(git2::ObjectType::Blob) => {
-                Ok(Some(entry.id().to_string()))
-            }
-            Ok(_) => Err(WikiError::Git(format!("{rel_path} is not a blob"))),
-            Err(e) if e.code() == git2::ErrorCode::NotFound => Ok(None),
+        match tree.lookup_entry_by_path(Path::new(rel_path)) {
+            Ok(Some(entry)) if entry.mode().is_blob() => Ok(Some(entry.object_id().to_string())),
+            Ok(Some(_)) => Err(WikiError::Git(format!("{rel_path} is not a blob"))),
+            Ok(None) => Ok(None),
             Err(e) => Err(WikiError::Git(e.to_string())),
         }
     }
@@ -353,15 +331,7 @@ impl<'a> GitView<'a> {
             return Ok(cached);
         }
         let content = match self.head_blob_oid(rel_path)? {
-            Some(oid) => {
-                let oid = Oid::from_str(&oid).map_err(|e| WikiError::Git(e.to_string()))?;
-                match self.repo.repo.find_blob(oid) {
-                    Ok(blob) => Some(Rc::new(
-                        String::from_utf8_lossy(blob.content()).into_owned(),
-                    )),
-                    Err(_) => None,
-                }
-            }
+            Some(oid) => self.blob_content(&oid)?,
             None => None,
         };
         self.contents
@@ -388,12 +358,12 @@ impl<'a> GitView<'a> {
         if let Some(cached) = self.blob_contents.borrow().get(oid_str).cloned() {
             return Ok(cached);
         }
-        let content = match Oid::from_str(oid_str) {
-            Ok(oid) => match self.repo.repo.find_blob(oid) {
-                Ok(blob) => Some(Rc::new(
-                    String::from_utf8_lossy(blob.content()).into_owned(),
-                )),
-                Err(_) => None,
+        let content = match gix::ObjectId::from_hex(oid_str.as_bytes()) {
+            Ok(oid) => match self.repo.repo.find_object(oid) {
+                Ok(obj) if obj.kind == gix::object::Kind::Blob => {
+                    Some(Rc::new(String::from_utf8_lossy(&obj.data).into_owned()))
+                }
+                _ => None,
             },
             Err(_) => None,
         };
@@ -424,60 +394,67 @@ impl<'a> GitView<'a> {
     }
 
     /// Structured change set between any resolvable ref (commit sha, branch,
-    /// tag, `HEAD~n`) and HEAD, with similarity-based rename pairing. Unlike
-    /// `changed_paths_since` there is no pathspec: callers join the full delta
-    /// list against their own index (e.g. wiki evidence paths).
+    /// tag, `HEAD~n`) and HEAD, with similarity-based rename pairing.
     pub fn path_deltas(&self, since_ref: &str) -> Result<Vec<PathDelta>> {
         let Some(old_tree) = self.tree_of(since_ref) else {
             return Err(WikiError::Git(format!(
                 "{since_ref} does not resolve to a commit with a tree"
             )));
         };
-        let head_commit = self
-            .repo
-            .repo
-            .head()
-            .and_then(|h| h.peel_to_commit())
-            .map_err(|e| WikiError::Git(e.to_string()))?;
-        let head_tree = head_commit
-            .tree()
-            .map_err(|e| WikiError::Git(e.to_string()))?;
-        let mut diff = self
+        let head_tree = self.head_tree()?;
+        let diff = self
             .repo
             .repo
             .diff_tree_to_tree(Some(&old_tree), Some(&head_tree), None)
             .map_err(|e| WikiError::Git(e.to_string()))?;
-        let mut find = git2::DiffFindOptions::new();
-        find.renames(true);
-        // best effort: without similarity detection renames surface as a
-        // delete + add pair, which is still honest
-        let _ = diff.find_similar(Some(&mut find));
+
         let mut out = Vec::new();
-        for delta in diff.deltas() {
-            let old = delta.old_file().path().and_then(|p| {
-                (delta.status() != git2::Delta::Added).then(|| p.display().to_string())
-            });
-            let new = delta.new_file().path().and_then(|p| {
-                (delta.status() != git2::Delta::Deleted).then(|| p.display().to_string())
-            });
-            // the wiki's own storage is not evidence material: exclude it from
-            // range deltas so committed pages/ledgers do not pollute the report
-            let is_wiki = |p: &Option<String>| {
-                p.as_deref()
-                    .map(|x| x == ".wiki" || x.starts_with(".wiki/"))
-                    .unwrap_or(false)
+        let is_wiki = |p: &Option<String>| {
+            p.as_deref()
+                .map(|x| x == ".wiki" || x.starts_with(".wiki/"))
+                .unwrap_or(false)
+        };
+
+        for change in diff {
+            let (old, new, path_change, mode) = match change {
+                gix::object::tree::diff::ChangeDetached::Addition { location, entry_mode, .. } => {
+                    (None, Some(location.to_string()), PathChange::Added, entry_mode)
+                }
+                gix::object::tree::diff::ChangeDetached::Deletion { location, entry_mode, .. } => {
+                    (Some(location.to_string()), None, PathChange::Deleted, entry_mode)
+                }
+                gix::object::tree::diff::ChangeDetached::Modification { location, entry_mode, .. } => (
+                    Some(location.to_string()),
+                    Some(location.to_string()),
+                    PathChange::Modified,
+                    entry_mode,
+                ),
+                gix::object::tree::diff::ChangeDetached::Rewrite {
+                    source_location,
+                    location,
+                    entry_mode,
+                    ..
+                } => (
+                    Some(source_location.to_string()),
+                    Some(location.to_string()),
+                    PathChange::Renamed,
+                    entry_mode,
+                ),
             };
+
+            if mode.is_tree() {
+                continue;
+            }
+
             if is_wiki(&old) || is_wiki(&new) {
                 continue;
             }
-            let change = match delta.status() {
-                git2::Delta::Renamed => PathChange::Renamed,
-                git2::Delta::Added => PathChange::Added,
-                git2::Delta::Deleted => PathChange::Deleted,
-                _ => PathChange::Modified,
-            };
             if old.is_some() || new.is_some() {
-                out.push(PathDelta { old, new, change });
+                out.push(PathDelta {
+                    old,
+                    new,
+                    change: path_change,
+                });
             }
         }
         out.sort_by(|a, b| {
@@ -489,8 +466,7 @@ impl<'a> GitView<'a> {
     }
 
     /// Batch pre-load: one pathspec-limited diff per recorded commit, covering
-    /// the union of all evidence paths for that commit. Without this a batch
-    /// still works, but grows the cached diff path-by-path.
+    /// the union of all evidence paths for that commit.
     pub fn prime_changed_paths<'p, I>(&self, groups: I) -> Result<()>
     where
         I: IntoIterator<Item = (&'p str, Vec<&'p str>)>,
@@ -547,85 +523,86 @@ impl<'a> GitView<'a> {
         let Some(old_tree) = self.tree_of(from_commit) else {
             return Ok(changed);
         };
-        let head_commit = self
-            .repo
-            .repo
-            .head()
-            .and_then(|h| h.peel_to_commit())
-            .map_err(|e| WikiError::Git(e.to_string()))?;
-        let head_tree = head_commit
-            .tree()
-            .map_err(|e| WikiError::Git(e.to_string()))?;
-        let mut opts = DiffOptions::new();
-        for p in paths {
-            opts.pathspec(*p);
-        }
+        let head_tree = self.head_tree()?;
         let diff = self
             .repo
             .repo
-            .diff_tree_to_tree(Some(&old_tree), Some(&head_tree), Some(&mut opts))
+            .diff_tree_to_tree(Some(&old_tree), Some(&head_tree), None)
             .map_err(|e| WikiError::Git(e.to_string()))?;
-        for delta in diff.deltas() {
-            if let Some(new) = delta.new_file().path() {
-                changed.insert(new.display().to_string());
+
+        let path_set: BTreeSet<&str> = paths.iter().copied().collect();
+        for change in diff {
+            let mode = change.entry_mode();
+            if mode.is_tree() {
+                continue;
             }
-            if let Some(old) = delta.old_file().path() {
-                changed.insert(old.display().to_string());
+            let loc = change.location().to_string();
+            if path_set.contains(loc.as_str()) {
+                changed.insert(loc.clone());
+            }
+            if let gix::object::tree::diff::ChangeDetached::Rewrite {
+                source_location, ..
+            } = change
+            {
+                let src = source_location.to_string();
+                if path_set.contains(src.as_str()) {
+                    changed.insert(src);
+                }
             }
         }
         Ok(changed)
     }
 
-    fn tree_of(&self, commit: &str) -> Option<git2::Tree<'_>> {
-        let commit = self.repo.repo.revparse_single(commit).ok()?;
-        let commit = commit.peel_to_commit().ok()?;
+    pub fn is_dirty(&self) -> Result<bool> {
+        if let Some(d) = self.dirty.get() {
+            return Ok(*d);
+        }
+        let d = self.repo.is_dirty()?;
+        let _ = self.dirty.set(d);
+        Ok(d)
+    }
+
+    fn tree_of(&self, commit_or_ref: &str) -> Option<gix::Tree<'_>> {
+        let sha = self.resolve_ref_commit(commit_or_ref).ok()?;
+        let id = gix::ObjectId::from_hex(sha.as_bytes()).ok()?;
+        let commit = self.repo.repo.find_object(id).ok()?.try_into_commit().ok()?;
         commit.tree().ok()
     }
 
     /// Full commit sha a ref (sha, branch, tag, `HEAD~n`) resolves to.
     pub fn resolve_ref_commit(&self, rev: &str) -> Result<String> {
-        let obj = self
+        let id = self
             .repo
             .repo
-            .revparse_single(rev)
+            .rev_parse_single(rev.as_bytes())
             .map_err(|e| WikiError::Git(format!("cannot resolve ref `{rev}`: {e}")))?;
-        let commit = obj
-            .peel_to_commit()
+        let commit = id
+            .object()
+            .map_err(|e| WikiError::Git(e.to_string()))?
+            .try_into_commit()
             .map_err(|e| WikiError::Git(format!("{rev} is not a commit-able object: {e}")))?;
         Ok(commit.id().to_string())
     }
 
     pub fn is_ancestor(&self, maybe_ancestor: &str, descendant: &str) -> Result<bool> {
-        let a = self
-            .repo
-            .repo
-            .revparse_single(maybe_ancestor)
-            .map_err(|e| WikiError::Git(e.to_string()))?
-            .peel_to_commit()
-            .map_err(|e| WikiError::Git(e.to_string()))?;
-        let b = self
-            .repo
-            .repo
-            .revparse_single(descendant)
-            .map_err(|e| WikiError::Git(e.to_string()))?
-            .peel_to_commit()
-            .map_err(|e| WikiError::Git(e.to_string()))?;
-        if a.id() == b.id() {
+        let a_sha = self.resolve_ref_commit(maybe_ancestor)?;
+        let b_sha = self.resolve_ref_commit(descendant)?;
+        if a_sha == b_sha {
             return Ok(true);
         }
-        // walk b's history in time order and stop at a: hide() is not a
-        // boundary for non-ancestors, so membership is tested explicitly
-        let mut walk = self
+        let a_id = gix::ObjectId::from_hex(a_sha.as_bytes())
+            .map_err(|e| WikiError::Git(e.to_string()))?;
+        let b_id = gix::ObjectId::from_hex(b_sha.as_bytes())
+            .map_err(|e| WikiError::Git(e.to_string()))?;
+        let walk = self
             .repo
             .repo
-            .revwalk()
+            .rev_walk([b_id])
+            .all()
             .map_err(|e| WikiError::Git(e.to_string()))?;
-        walk.set_sorting(git2::Sort::TIME)
-            .map_err(|e| WikiError::Git(e.to_string()))?;
-        walk.push(b.id())
-            .map_err(|e| WikiError::Git(e.to_string()))?;
-        for id in walk {
-            if id.map_err(|e| WikiError::Git(e.to_string()))? == a.id() {
+        for info in walk {
+            let info = info.map_err(|e| WikiError::Git(e.to_string()))?;
+            if info.id == a_id {
                 return Ok(true);
             }
         }
@@ -649,28 +626,20 @@ impl<'a> GitView<'a> {
         }
         let mut out = BTreeMap::new();
         if let Some(old_tree) = self.tree_of(from_commit) {
-            if let Ok(head_commit) = self.repo.repo.head().and_then(|h| h.peel_to_commit()) {
-                if let Ok(head_tree) = head_commit.tree() {
-                    if let Ok(mut diff) =
-                        self.repo
-                            .repo
-                            .diff_tree_to_tree(Some(&old_tree), Some(&head_tree), None)
-                    {
-                        let mut find = git2::DiffFindOptions::new();
-                        find.renames(true);
-                        if diff.find_similar(Some(&mut find)).is_ok() {
-                            for delta in diff.deltas() {
-                                if delta.status() == git2::Delta::Renamed {
-                                    if let (Some(o), Some(n)) =
-                                        (delta.old_file().path(), delta.new_file().path())
-                                    {
-                                        out.insert(
-                                            o.display().to_string(),
-                                            n.display().to_string(),
-                                        );
-                                    }
-                                }
-                            }
+            if let Ok(head_tree) = self.head_tree() {
+                if let Ok(diff) = self
+                    .repo
+                    .repo
+                    .diff_tree_to_tree(Some(&old_tree), Some(&head_tree), None)
+                {
+                    for change in diff {
+                        if let gix::object::tree::diff::ChangeDetached::Rewrite {
+                            source_location,
+                            location,
+                            ..
+                        } = change
+                        {
+                            out.insert(source_location.to_string(), location.to_string());
                         }
                     }
                 }
@@ -683,10 +652,8 @@ impl<'a> GitView<'a> {
         out
     }
 
-    /// Line map from the recorded blob to `new_path` at HEAD, computed by
-    /// libgit2's xdiff and cached per (blob, path). Drift projection uses this
-    /// instead of a full-file diff per citation: xdiff is linear-ish with
-    /// heuristics, while a pure Myers diff can go quadratic on big rewrites.
+    /// Line map from the recorded blob to `new_path` at HEAD.
+    /// Drift projection uses this instead of a full-file diff per citation.
     /// `None` means "not text / blob unavailable"; callers fall back to the
     /// pure projection.
     pub fn line_map(&self, old_blob: &str, new_path: &str) -> Result<Option<Rc<LineMap>>> {
@@ -706,91 +673,21 @@ impl<'a> GitView<'a> {
         let Some(new_content) = self.cached_content(new_path)? else {
             return Ok(None);
         };
-        let Ok(oid) = Oid::from_str(old_blob) else {
-            return Ok(None);
-        };
-        let Ok(old_obj) = self.repo.repo.find_blob(oid) else {
-            return Ok(None);
-        };
-        if old_obj.is_binary() {
+        if old_content.as_bytes().contains(&0) || new_content.as_bytes().contains(&0) {
             return Ok(None);
         }
-        let mut opts = DiffOptions::new();
-        opts.context_lines(0);
-        let patch = match git2::Patch::from_blob_and_buffer(
-            &old_obj,
-            Some(Path::new(new_path)),
-            new_content.as_bytes(),
-            Some(Path::new(new_path)),
-            Some(&mut opts),
-        ) {
-            Ok(patch) => patch,
-            Err(_) => return Ok(None),
-        };
-
-        // Walk diff hunks with the same cursor rules as the line-based
-        // reference projection: equal lines map 1:1, deleted lines anchor to
-        // the previous surviving new line, inserted lines only advance new.
-        let old_len = old_content.split('\n').count();
-        let new_len = new_content.split('\n').count();
-        let mut map = vec![0u32; old_len];
-        let (mut oi, mut ni) = (0usize, 0usize);
-        for h in 0..patch.num_hunks() {
-            let (hunk, count) = patch.hunk(h).map_err(|e| WikiError::Git(e.to_string()))?;
-            // For a pure insertion git reports old_start as the number of old
-            // lines before the insertion (0 at the top, N after line N); only
-            // hunks that consume old lines use the 1-based line number.
-            let hunk_old = if hunk.old_lines() == 0 {
-                hunk.old_start() as usize
-            } else {
-                (hunk.old_start() as usize).saturating_sub(1)
-            };
-            while oi < hunk_old && oi < map.len() {
-                map[oi] = ni as u32;
-                oi += 1;
-                ni += 1;
-            }
-            for l in 0..count {
-                let line = patch
-                    .line_in_hunk(h, l)
-                    .map_err(|e| WikiError::Git(e.to_string()))?;
-                match line.origin() {
-                    ' ' => {
-                        if oi < map.len() {
-                            map[oi] = ni as u32;
-                        }
-                        oi += 1;
-                        ni += 1;
-                    }
-                    '-' => {
-                        if oi < map.len() {
-                            map[oi] = ni.saturating_sub(1) as u32;
-                        }
-                        oi += 1;
-                    }
-                    '+' => ni += 1,
-                    _ => {}
-                }
-            }
-        }
-        while oi < map.len() {
-            map[oi] = ni as u32;
-            oi += 1;
-            ni += 1;
-        }
-        let max_new = (new_len - 1) as u32;
-        for slot in &mut map {
-            *slot = (*slot).min(max_new);
-        }
-        Ok(Some(LineMap { map, new_len }))
+        Ok(Some(LineMap::compute(&old_content, &new_content)))
     }
 
     pub fn commit_exists(&self, sha: &str) -> bool {
         if let Some(cached) = self.commit_exists.borrow().get(sha) {
             return *cached;
         }
-        let exists = match self.repo.repo.revparse_single(sha) {
-            Ok(obj) => obj.kind() == Some(git2::ObjectType::Commit) || obj.peel_to_commit().is_ok(),
+        let exists = match gix::ObjectId::from_hex(sha.as_bytes()) {
+            Ok(oid) => match self.repo.repo.find_object(oid) {
+                Ok(obj) => obj.kind == gix::object::Kind::Commit,
+                Err(_) => false,
+            },
             Err(_) => false,
         };
         self.commit_exists
@@ -798,128 +695,160 @@ impl<'a> GitView<'a> {
             .insert(sha.to_string(), exists);
         exists
     }
-
-    pub fn is_dirty(&self) -> Result<bool> {
-        if let Some(cached) = self.dirty.get() {
-            return Ok(*cached);
-        }
-        let dirty = self.repo.is_dirty()?;
-        let _ = self.dirty.set(dirty);
-        Ok(dirty)
-    }
 }
 
-/// 0-based line projection from an old blob onto the current file content.
-/// `map[old_line]` is the new line a deleted old line anchors to (the
-/// previous surviving line); equal lines map 1:1.
+/// Precomputed line-to-line mapping between two revisions of a file.
 pub struct LineMap {
+    /// map[old_line_0based] = new_line_0based
     map: Vec<u32>,
     new_len: usize,
 }
 
 impl LineMap {
-    /// Project a 0-based inclusive old range. A collapsed range keeps its
-    /// width when possible, matching the reference projection rules.
-    pub fn project(&self, lo: usize, hi: usize) -> (usize, usize) {
-        let last = self.map.len() - 1;
-        let lo = lo.min(last);
-        let hi = hi.min(last);
-        let mut nlo = self.map[lo] as usize;
-        let mut nhi = self.map[hi] as usize;
-        if nhi < nlo {
-            std::mem::swap(&mut nlo, &mut nhi);
+    pub fn compute(old_content: &str, new_content: &str) -> Self {
+        let old_lines: Vec<&str> = old_content.split('\n').collect();
+        let new_lines: Vec<&str> = new_content.split('\n').collect();
+        let old_len = old_lines.len();
+        let new_len = new_lines.len();
+        let mut map = vec![0u32; old_len];
+        let (mut oi, mut ni) = (0usize, 0usize);
+        let diff = TextDiff::from_lines(old_content, new_content);
+        for change in diff.iter_all_changes() {
+            match change.tag() {
+                ChangeTag::Equal => {
+                    if oi < old_len {
+                        map[oi] = ni as u32;
+                    }
+                    oi += 1;
+                    ni += 1;
+                }
+                ChangeTag::Delete => {
+                    if oi < old_len {
+                        map[oi] = ni.saturating_sub(1) as u32;
+                    }
+                    oi += 1;
+                }
+                ChangeTag::Insert => {
+                    ni += 1;
+                }
+            }
         }
-        if nlo == nhi && hi > lo {
-            nhi = (nlo + (hi - lo)).min(self.new_len - 1);
+        while oi < old_len {
+            map[oi] = ni as u32;
+            oi += 1;
+            ni += 1;
         }
-        (nlo, nhi)
+        let max_new = (new_len.saturating_sub(1)) as u32;
+        for slot in &mut map {
+            *slot = (*slot).min(max_new);
+        }
+        LineMap { map, new_len }
+    }
+
+    /// Map a 0-based range from old lines onto the new lines.
+    pub fn project(&self, lo0: usize, hi0: usize) -> (usize, usize) {
+        if self.map.is_empty() {
+            return (lo0, hi0);
+        }
+        let o_lo = lo0.min(self.map.len() - 1);
+        let o_hi = hi0.min(self.map.len() - 1);
+        let mut n_lo = self.map[o_lo] as usize;
+        let mut n_hi = self.map[o_hi] as usize;
+        if n_hi < n_lo {
+            std::mem::swap(&mut n_lo, &mut n_hi);
+        }
+        if n_lo == n_hi && hi0 > lo0 {
+            n_hi = (n_lo + (hi0 - lo0)).min(self.new_len.saturating_sub(1));
+        }
+        (n_lo, n_hi)
     }
 }
 
 fn lines_of(content: &str, lo: u32, hi: u32) -> Option<String> {
-    let lo = lo.max(1) as usize;
-    let hi = hi as usize;
-    if hi < lo {
-        return Some(String::new());
+    if lo == 0 || hi < lo {
+        return None;
     }
-    Some(
-        content
-            .split('\n')
-            .skip(lo - 1)
-            .take(hi - lo + 1)
-            .collect::<Vec<_>>()
-            .join("\n"),
-    )
+    let mut lines = Vec::new();
+    for (idx, line) in content.split('\n').enumerate() {
+        let line_no = (idx + 1) as u32;
+        if line_no >= lo && line_no <= hi {
+            lines.push(line);
+        }
+        if line_no > hi {
+            break;
+        }
+    }
+    if lines.is_empty() {
+        None
+    } else {
+        Some(lines.join("\n"))
+    }
 }
 
 #[cfg(test)]
 mod tests {
-    use super::{lines_of, GitRepo, PathChange};
+    use super::*;
 
     #[test]
     fn extracts_requested_window() {
-        let content = "a\nb\nc\nd\n";
-        assert_eq!(lines_of(content, 2, 3).as_deref(), Some("b\nc"));
-        assert_eq!(lines_of(content, 1, 99).as_deref(), Some("a\nb\nc\nd\n"));
+        let text = "line 1\nline 2\nline 3\nline 4\nline 5";
+        assert_eq!(lines_of(text, 1, 1), Some("line 1".into()));
+        assert_eq!(lines_of(text, 2, 4), Some("line 2\nline 3\nline 4".into()));
+        assert_eq!(lines_of(text, 5, 5), Some("line 5".into()));
+        assert_eq!(lines_of(text, 0, 1), None);
+        assert_eq!(lines_of(text, 4, 2), None);
+        assert_eq!(lines_of(text, 6, 8), None);
     }
 
     #[test]
     fn keeps_split_newline_semantics_at_edges() {
-        let content = "a\nb\n";
-        // split('\n') yields a trailing empty segment
-        assert_eq!(lines_of(content, 3, 3).as_deref(), Some(""));
-        assert_eq!(lines_of(content, 4, 6).as_deref(), Some(""));
-        assert_eq!(lines_of(content, 3, 1).as_deref(), Some(""));
+        let text = "a\nb\n";
+        assert_eq!(lines_of(text, 1, 2), Some("a\nb".into()));
+        assert_eq!(lines_of(text, 3, 3), Some("".into()));
     }
 
     #[test]
     fn path_deltas_classifies_modify_rename_delete() {
-        use git2::{Repository, Signature};
         let tmp = tempfile::TempDir::new().unwrap();
-        let root = tmp.path();
-        let git = Repository::init(root).unwrap();
-        let sig = Signature::now("t", "t@l").unwrap();
-        let commit = |git: &Repository, msg: &str| -> String {
-            let mut idx = git.index().unwrap();
-            idx.add_all(["*"].iter(), git2::IndexAddOption::DEFAULT, None)
-                .unwrap();
-            let tree = git.find_tree(idx.write_tree().unwrap()).unwrap();
-            let head = git.head().ok().map(|h| h.peel_to_commit().unwrap());
-            let oid = match head {
-                Some(p) => git
-                    .commit(Some("HEAD"), &sig, &sig, msg, &tree, &[&p])
-                    .unwrap(),
-                None => git
-                    .commit(Some("HEAD"), &sig, &sig, msg, &tree, &[])
-                    .unwrap(),
-            };
-            oid.to_string()
-        };
-        std::fs::write(root.join("keep.rs"), "fn a() {}\n").unwrap();
-        std::fs::write(root.join("mod.rs"), "fn b() {}\n").unwrap();
-        std::fs::write(root.join("gone.rs"), "fn c() {}\n").unwrap();
-        std::fs::write(root.join("ren.rs"), "fn d() {}\nfn e() {}\nfn f() {}\n").unwrap();
-        let base = commit(&git, "one");
-        std::fs::write(root.join("mod.rs"), "fn b2() {}\n").unwrap();
-        std::fs::remove_file(root.join("gone.rs")).unwrap();
-        std::fs::rename(root.join("ren.rs"), root.join("renamed.rs")).unwrap();
-        std::fs::write(root.join("new.rs"), "fn n() {}\n").unwrap();
-        commit(&git, "two");
+        let path = tmp.path();
 
-        let repo = GitRepo::discover(root).unwrap();
-        let deltas = repo.path_deltas(&base).unwrap();
-        let find = |p: &str| {
-            deltas
-                .iter()
-                .find(|d| d.new_path() == Some(p) || d.old_path() == Some(p))
-        };
-        assert_eq!(find("mod.rs").unwrap().change, PathChange::Modified);
-        assert_eq!(find("new.rs").unwrap().change, PathChange::Added);
-        assert_eq!(find("gone.rs").unwrap().change, PathChange::Deleted);
-        let r = find("renamed.rs").expect("rename pair");
-        assert_eq!(r.change, PathChange::Renamed);
-        assert_eq!(r.old_path(), Some("ren.rs"));
-        assert!(repo.view().is_ancestor(&base, "HEAD").unwrap());
-        assert!(!repo.view().is_ancestor("HEAD", &base).unwrap());
+        let sig = git2::Signature::now("t", "t@l").unwrap();
+        let g2 = git2::Repository::init(path).unwrap();
+
+        std::fs::write(path.join("keep.txt"), "v1\n").unwrap();
+        std::fs::write(path.join("modify.txt"), "v1\n").unwrap();
+        std::fs::write(path.join("delete.txt"), "v1\n").unwrap();
+        std::fs::write(path.join("mv_clean.txt"), "identical body\n").unwrap();
+        std::fs::write(path.join("mv_edit.txt"), "long body line 1\nline 2\nline 3\nline 4\n").unwrap();
+        let mut idx = g2.index().unwrap();
+        idx.add_all(["*"].iter(), git2::IndexAddOption::DEFAULT, None).unwrap();
+        let t1 = idx.write_tree().unwrap();
+        let c1 = g2.commit(Some("HEAD"), &sig, &sig, "c1", &g2.find_tree(t1).unwrap(), &[]).unwrap();
+
+        std::fs::write(path.join("modify.txt"), "v2 modified\n").unwrap();
+        std::fs::remove_file(path.join("delete.txt")).unwrap();
+        std::fs::rename(path.join("mv_clean.txt"), path.join("renamed_clean.txt")).unwrap();
+        std::fs::write(path.join("renamed_edit.txt"), "long body line 1\nline 2 edited\nline 3\nline 4\n").unwrap();
+        std::fs::remove_file(path.join("mv_edit.txt")).unwrap();
+        std::fs::write(path.join("added.txt"), "brand new\n").unwrap();
+        let mut idx = g2.index().unwrap();
+        idx.add_all(["*"].iter(), git2::IndexAddOption::DEFAULT, None).unwrap();
+        let t2 = idx.write_tree().unwrap();
+        let c1_obj = g2.find_commit(c1).unwrap();
+        let _c2 = g2.commit(Some("HEAD"), &sig, &sig, "c2", &g2.find_tree(t2).unwrap(), &[&c1_obj]).unwrap();
+
+        let lrepo = GitRepo::discover(path).unwrap();
+        let deltas = lrepo.path_deltas(&c1.to_string()).unwrap();
+
+        let by_new: HashMap<String, &PathDelta> = deltas
+            .iter()
+            .filter_map(|d| d.new.as_ref().map(|n| (n.clone(), d)))
+            .collect();
+
+        assert_eq!(by_new.get("modify.txt").unwrap().change, PathChange::Modified);
+        assert_eq!(by_new.get("added.txt").unwrap().change, PathChange::Added);
+        assert!(deltas.iter().any(|d| d.old.as_deref() == Some("delete.txt") && d.change == PathChange::Deleted));
+        assert_eq!(by_new.get("renamed_clean.txt").unwrap().change, PathChange::Renamed);
+        assert_eq!(by_new.get("renamed_clean.txt").unwrap().old.as_deref(), Some("mv_clean.txt"));
     }
 }

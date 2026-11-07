@@ -2,8 +2,8 @@
 id: decision-no-database
 title: The frontmatter is the database
 status: verified
-generated_at: 2026-11-03T14:39:34Z
-commit: f82c02925e72f87f7286b6f35a14c829fbe60a74
+generated_at: 2026-11-07T15:26:49Z
+commit: d77ab00e598a8f9f3059b5fee54f07b4780dd463
 evidence:
 - path: crates/loredex-core/src/page.rs
   lines:
@@ -41,11 +41,11 @@ evidence:
   note: drift-projected L93-L110@f71fc8f0 -> L93-L110 (similarity 1.00)
 - path: crates/loredex-mcp/src/lib.rs
   lines:
-  - 529
-  - 537
-  blob: c80142e0bcb6707abf0119392942b2c83d283ba3
+  - 538
+  - 546
+  blob: d220dafd135548fdd3303b7bb7943dc9f86499c3
   snippet_sha1: 29551fb8394878d8509a005b38db3855fb903a23
-  note: drift-projected L462-L470@ed2c4338 -> L529-L537 (similarity 1.00)
+  note: drift-projected L529-L537@c80142e0 -> L538-L546 (similarity 1.00)
 - path: crates/loredex-engine/src/lib.rs
   lines:
   - 112
