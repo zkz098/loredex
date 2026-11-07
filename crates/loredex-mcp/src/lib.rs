@@ -7,7 +7,13 @@ use loredex_core::{list_page_files, Evidence, WikiPage};
 use loredex_engine::{self as engine, DriftOutcome};
 use loredex_git::{GitRepo, GitView};
 use rmcp::handler::server::wrapper::{Json, Parameters};
-use rmcp::model::{ServerCapabilities, ServerConfig};
+use rmcp::model::{
+    GetPromptRequestParams, GetPromptResponse, GetPromptResult, ListPromptsResult,
+    ListResourceTemplatesResult, ListResourcesResult, PaginatedRequestParams, Prompt,
+    PromptArgument, PromptMessage, ReadResourceRequestParams, ReadResourceResponse,
+    ReadResourceResult, Resource, ResourceContents, ResourceTemplate, Role, ServerCapabilities,
+    ServerConfig,
+};
 use rmcp::{
     schemars, tool, tool_handler, tool_router, transport::stdio, ErrorData, Peer, RoleServer,
     ServiceExt,
@@ -49,6 +55,9 @@ authoring: a leased task is not handed to another agent until its lease expires 
 (wiki_plan shows claimed_by and lease_until).
 Wiki pages live in .wiki/pages/*.md (frontmatter = machine-readable evidence) \
 and are committed to git.
+RESOURCES: Wiki pages are accessible via loredex://pages/{id} (or loredex://quickstart, \
+loredex://index, and loredex://modules for discoverable project layout).
+PROMPTS: Workflows are pre-configured: author_wiki_page, audit_pr_freshness, heal_wiki.
 REPOSITORY RESOLUTION: the server resolves its target repo lazily in this order \
 -- --repo flag (pinned), LOREDEX_REPO env var, client MCP roots, then the \
 process working directory. If a tool answers 'no repository resolved', call \
@@ -1397,11 +1406,281 @@ impl WikiServer {
     }
 }
 
+#[derive(Debug, PartialEq, Eq)]
+enum ResourceTarget {
+    Modules,
+    Page(String),
+}
+
+fn parse_resource_uri(uri: &str) -> Option<ResourceTarget> {
+    let stripped = uri.strip_prefix("loredex://")?;
+    let path = stripped.trim_start_matches('/');
+    if path == "modules" || path == "modules/" {
+        Some(ResourceTarget::Modules)
+    } else if path == "quickstart" || path == "quickstart/" {
+        Some(ResourceTarget::Page("quickstart".to_string()))
+    } else if path == "index" || path == "index/" {
+        Some(ResourceTarget::Page("index".to_string()))
+    } else if let Some(page_id) = path.strip_prefix("pages/") {
+        let clean = page_id.trim_end_matches(".md").trim_matches('/');
+        if clean.is_empty() {
+            None
+        } else {
+            Some(ResourceTarget::Page(clean.to_string()))
+        }
+    } else {
+        let clean = path.trim_end_matches(".md").trim_matches('/');
+        if clean.is_empty() {
+            None
+        } else {
+            Some(ResourceTarget::Page(clean.to_string()))
+        }
+    }
+}
+
 #[tool_handler]
 impl rmcp::ServerHandler for WikiServer {
     fn get_info(&self) -> ServerConfig {
-        ServerConfig::new(ServerCapabilities::builder().enable_tools().build())
-            .with_instructions(INSTRUCTIONS)
+        ServerConfig::new(
+            ServerCapabilities::builder()
+                .enable_tools()
+                .enable_resources()
+                .enable_prompts()
+                .build(),
+        )
+        .with_instructions(INSTRUCTIONS)
+    }
+
+    async fn list_resources(
+        &self,
+        _request: Option<PaginatedRequestParams>,
+        context: rmcp::service::RequestContext<RoleServer>,
+    ) -> Result<ListResourcesResult, ErrorData> {
+        let _gate = self.gate.read().await;
+        let resolved = match self.ensure_repo(&context.peer).await {
+            Ok(r) => r,
+            Err(_) => return Ok(ListResourcesResult::default()),
+        };
+        let path = resolved.path;
+        let resources = tokio::task::spawn_blocking(move || {
+            let mut items = Vec::new();
+            items.push(
+                Resource::new("loredex://modules", "Modules")
+                    .with_title("Codebase Modules")
+                    .with_description("List of discoverable modules in the repository with tracked files")
+                    .with_mime_type("application/json"),
+            );
+
+            let repo = match GitRepo::discover(&path) {
+                Ok(r) => r,
+                Err(_) => return items,
+            };
+            let pages_dir = repo.wiki_dir().join("pages");
+            if let Ok(files) = list_page_files(&pages_dir) {
+                for f in files {
+                    if let Ok(p) = WikiPage::load(&f) {
+                        let id = &p.meta.id;
+                        let uri = format!("loredex://pages/{id}");
+                        let desc = format!("[{}] {}", p.meta.status.as_str(), p.meta.title);
+                        items.push(
+                            Resource::new(uri, &p.meta.title)
+                                .with_title(&p.meta.title)
+                                .with_description(desc)
+                                .with_mime_type("text/markdown"),
+                        );
+                    }
+                }
+            }
+            items
+        })
+        .await
+        .map_err(|e| ErrorData::internal_error(e.to_string(), None))?;
+
+        Ok(ListResourcesResult::with_all_items(resources))
+    }
+
+    async fn list_resource_templates(
+        &self,
+        _request: Option<PaginatedRequestParams>,
+        _context: rmcp::service::RequestContext<RoleServer>,
+    ) -> Result<ListResourceTemplatesResult, ErrorData> {
+        let template = ResourceTemplate::new("loredex://pages/{id}", "wiki-page")
+            .with_title("Wiki Page")
+            .with_description("Evidence-backed wiki markdown page by ID")
+            .with_mime_type("text/markdown");
+        Ok(ListResourceTemplatesResult::with_all_items(vec![template]))
+    }
+
+    async fn read_resource(
+        &self,
+        request: ReadResourceRequestParams,
+        context: rmcp::service::RequestContext<RoleServer>,
+    ) -> Result<ReadResourceResponse, ErrorData> {
+        let _gate = self.gate.read().await;
+        let resolved = self.ensure_repo(&context.peer).await?;
+        let target = parse_resource_uri(&request.uri).ok_or_else(|| {
+            ErrorData::invalid_params(format!("Invalid resource URI format: {}", request.uri), None)
+        })?;
+        let uri = request.uri.clone();
+        let path = resolved.path;
+
+        let content = tokio::task::spawn_blocking(move || -> Result<ResourceContents, ErrorData> {
+            let repo = GitRepo::discover(&path).map_err(Self::err)?;
+            match target {
+                ResourceTarget::Modules => {
+                    let view = repo.view();
+                    let modules = engine::discover_with(&view).map_err(Self::err)?;
+                    let json = serde_json::to_string_pretty(&modules).map_err(|e| Self::err(e.to_string()))?;
+                    Ok(ResourceContents::text(json, uri).with_mime_type("application/json"))
+                }
+                ResourceTarget::Page(id) => {
+                    let page = engine::find_page(&repo.wiki_dir(), &id)
+                        .map_err(|e| ErrorData::resource_not_found(format!("Resource '{id}' not found: {e}"), None))?;
+                    let text = if let Some(source_path) = &page.source_path {
+                        std::fs::read_to_string(source_path)
+                            .unwrap_or_else(|_| page.to_markdown().unwrap_or_default())
+                    } else {
+                        page.to_markdown().map_err(Self::err)?
+                    };
+                    Ok(ResourceContents::text(text, uri).with_mime_type("text/markdown"))
+                }
+            }
+        })
+        .await
+        .map_err(|e| ErrorData::internal_error(e.to_string(), None))??;
+
+        let result = ReadResourceResult::new(vec![content]);
+        Ok(result.into())
+    }
+
+    async fn list_prompts(
+        &self,
+        _request: Option<PaginatedRequestParams>,
+        _context: rmcp::service::RequestContext<RoleServer>,
+    ) -> Result<ListPromptsResult, ErrorData> {
+        let prompts = vec![
+            Prompt::new(
+                "author_wiki_page",
+                Some("Guide an agent to author or update a wiki page for a codebase module following the evidence contract."),
+                Some(vec![
+                    PromptArgument::new("module")
+                        .with_title("Module Name")
+                        .with_description("Target module name (e.g. from wiki_list_modules or a directory path)")
+                        .with_required(true),
+                    PromptArgument::new("page_type")
+                        .with_title("Page Type")
+                        .with_description("Page type playbook (e.g. architecture, workflow, system, rule, troubleshooting, decision)")
+                        .with_required(false),
+                    PromptArgument::new("keywords")
+                        .with_title("Keywords")
+                        .with_description("Keywords to discover candidate citations (comma-separated)")
+                        .with_required(false),
+                ]),
+            )
+            .with_title("Author Wiki Page"),
+            Prompt::new(
+                "audit_pr_freshness",
+                Some("Check which wiki pages become stale due to code changes between a base ref and HEAD, and formulate refresh tasks."),
+                Some(vec![
+                    PromptArgument::new("base_ref")
+                        .with_title("Base Ref")
+                        .with_description("Base ref or branch to diff against HEAD (default: origin/main or main)")
+                        .with_required(false),
+                ]),
+            )
+            .with_title("Audit PR Freshness"),
+            Prompt::new(
+                "heal_wiki",
+                Some("Run automated line drift recovery, check lint rules, and inspect remaining authoring plan tasks."),
+                None,
+            )
+            .with_title("Heal Wiki & Plan Maintenance"),
+        ];
+
+        Ok(ListPromptsResult::with_all_items(prompts))
+    }
+
+    async fn get_prompt(
+        &self,
+        request: GetPromptRequestParams,
+        _context: rmcp::service::RequestContext<RoleServer>,
+    ) -> Result<GetPromptResponse, ErrorData> {
+        let name = request.name.as_str();
+        let args = request.arguments.unwrap_or_default();
+
+        let prompt_text = match name {
+            "author_wiki_page" => {
+                let module = args
+                    .get("module")
+                    .and_then(|v| v.as_str())
+                    .ok_or_else(|| {
+                        ErrorData::invalid_params("Missing required argument: 'module'", None)
+                    })?;
+                let page_type = args.get("page_type").and_then(|v| v.as_str()).unwrap_or("");
+                let keywords = args.get("keywords").and_then(|v| v.as_str()).unwrap_or("");
+
+                let type_clause = if !page_type.is_empty() {
+                    format!("Target page type: `{page_type}`. Call `wiki_playbooks` to review structure rules for this type.\n")
+                } else {
+                    String::new()
+                };
+
+                let kw_clause = if !keywords.is_empty() {
+                    format!(" with keywords: \"{keywords}\"")
+                } else {
+                    String::new()
+                };
+
+                format!(
+                    "You are authoring or updating an evidence-backed wiki page for module: `{module}`.\n\
+                     {type_clause}\
+                     Follow the Loredex Evidence Contract:\n\
+                     1. Discover Citations: Call `wiki_evidence_candidates` for module `{module}`{kw_clause} to get verified [[cite:path:Lx-Ly]] citation candidates.\n\
+                     2. Read Code: Read the cited source code to understand its architecture, public interfaces, and key algorithms.\n\
+                     3. Concurrency Check: If updating an existing page, call `wiki_read` to retrieve its latest `page_sha1` for optimistic locking (`if_match`).\n\
+                     4. Write Content: Compose a concise, high-density Markdown document where every non-trivial claim carries an inline `[[cite:path:Lx-Ly]]` marker.\n\
+                     5. Save: Call `wiki_put_page` (or `wiki_note` if capturing unverified findings) to store the page. Pages without citations or with secret-shaped lines will be rejected."
+                )
+            }
+            "audit_pr_freshness" => {
+                let base_ref = args
+                    .get("base_ref")
+                    .and_then(|v| v.as_str())
+                    .unwrap_or("origin/main");
+
+                format!(
+                    "You are auditing wiki documentation freshness against code changes in this pull request.\n\
+                     Base revision: `{base_ref}`.\n\n\
+                     Steps:\n\
+                     1. Call `wiki_diff_since` with `since=\"{base_ref}\"` to inspect all touched files and their citing wiki pages.\n\
+                     2. For each affected page:\n\
+                        - Call `wiki_refresh_page` to attempt zero-token line drift projection recovery.\n\
+                        - For citations reported as 'lost', examine the code diff and rewrite the affected paragraphs using `wiki_put_page`.\n\
+                     3. Call `wiki_check_freshness` to confirm that no verified pages remain stale before submitting/merging."
+                )
+            }
+            "heal_wiki" => {
+                "You are performing automated maintenance on the repository wiki.\n\n\
+                 Steps:\n\
+                 1. Call `wiki_auto` to run zero-token line drift projection recovery, lint checks, and open/update the maintenance plan.\n\
+                 2. Inspect the report from `wiki_auto`:\n\
+                    - If no lint findings and authoring work is complete, the wiki is healthy and fresh!\n\
+                    - If drift was projected, verify the updated citations.\n\
+                    - If pending authoring tasks remain, call `wiki_plan` to inspect them, lease a task with `wiki_claim_tasks`, and author the required page using `wiki_put_page`."
+                    .to_string()
+            }
+            other => {
+                return Err(ErrorData::invalid_params(
+                    format!("Unknown prompt: '{other}'"),
+                    None,
+                ));
+            }
+        };
+
+        let message = PromptMessage::new_text(Role::User, prompt_text);
+        let result = GetPromptResult::new(vec![message])
+            .with_description(format!("Instructions for {name}"));
+        Ok(result.into())
     }
 }
 

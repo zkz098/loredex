@@ -119,6 +119,18 @@ Server 在 `initialize` 时下发协议契约（先查新鲜度、stale 视为�
 | `wiki_playbooks` | 页面类型写作指南（plan 任务的 `instructions` 即由此推导） |
 | `wiki_auto` | 维护编排：零 token 投影自愈 + lint + 剩余工作的 plan |
 
+### MCP 资源与提示词（Resources & Prompts）
+
+Loredex 完整支持 MCP 协议的三大支柱（`tools`、`resources`、`prompts`）：
+
+- **Resources（免 Tool-Call 直接注入上下文）**：
+  - `loredex://modules`：仓库内发现的所有模块及文件清单（JSON 格式）。
+  - `loredex://pages/{id}`：按页面 ID 读取 Markdown 原文（如 `loredex://pages/quickstart`、`loredex://pages/architecture`）。支持 `@resource` 引用的宿主（Cursor/Windsurf/Zed 等）可零开销直接将经证据验证的文档注入 Agent 上下文。
+- **Prompts（开箱即用的最佳实践工作流）**：
+  - `author_wiki_page`：引导 Agent 寻找引用候选、查阅源码并严格遵循证据契约撰写/更新指定模块的 Wiki 页面。
+  - `audit_pr_freshness`：针对基准分支审查 PR 代码变更对相关 Wiki 页面的过期影响，执行自愈刷新与补写。
+  - `heal_wiki`：一键触发零 Token 漂移自愈、运行 lint 检查并排查待办维护任务。
+
 ## 工作流
 
 ```

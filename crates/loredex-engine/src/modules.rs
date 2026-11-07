@@ -8,7 +8,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::Result;
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ModuleInfo {
     pub name: String,
     pub kind: String,

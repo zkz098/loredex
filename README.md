@@ -119,6 +119,18 @@ The server advertises a behavioral contract at `initialize` (check freshness bef
 | `wiki_playbooks` | Page-type guides (source of each plan task's `instructions`) |
 | `wiki_auto` | Maintenance orchestration: zero-token self-heal + lint + plan |
 
+### MCP Resources & Prompts
+
+Loredex advertises full MCP capabilities (`tools`, `resources`, `prompts`):
+
+- **Resources** (direct context injection without tool calls):
+  - `loredex://modules`: Codebase modules discovered in the repository (JSON).
+  - `loredex://pages/{id}`: Specific wiki markdown document by page ID (e.g. `loredex://pages/quickstart`). Clients supporting `@resource` can inject verified documentation directly into context with zero tool-call roundtrips.
+- **Prompts** (pre-configured expert workflows):
+  - `author_wiki_page`: Guided workflow to discover citations and author/update an evidence-backed page for a target module.
+  - `audit_pr_freshness`: Diff against a base ref, inspect touched wiki pages, and perform refresh/rewriting.
+  - `heal_wiki`: Execute zero-token drift self-heal, run lints, and inspect pending maintenance tasks.
+
 ## Workflow
 
 ```
