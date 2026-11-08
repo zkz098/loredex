@@ -2,16 +2,16 @@
 id: crates-packaging
 title: 'Crate packaging: one release train, five units'
 status: verified
-generated_at: 2026-11-03T14:32:35Z
-commit: e1f2a8a9e756d04f0811a177e118f7c37788b90b
+generated_at: 2026-11-08T15:19:47Z
+commit: 6218b0933acfd281aa30842652167f82a491d069
 evidence:
 - path: Cargo.toml
   lines:
   - 1
   - 15
-  blob: 5c79748e22ff9ac3bfaeba3d12e3a934f9a8f0bb
+  blob: a731b14a83819e681bdb8da6a4daa4fd4f62f934
   snippet_sha1: 7d4a53ab9963c550f24a0f7a78ddb2fcef24fbf3
-  note: drift-projected L1-L15@fbfdfa10 -> L1-L15 (similarity 1.00)
+  note: drift-projected L1-L15@5c79748e -> L1-L15 (similarity 1.00)
 - path: crates/loredex-core/Cargo.toml
   lines:
   - 1
@@ -21,9 +21,10 @@ evidence:
 - path: crates/loredex-git/Cargo.toml
   lines:
   - 1
-  - 16
-  blob: 25086f1d8b1e3f31b245efbb0a3738b515afaa12
-  snippet_sha1: 0eccea42a28fa90a10ad2cddac0ab70049b2fe4d
+  - 18
+  blob: 57ff03d7870dae66cfd4edf6069353103fc91ac1
+  snippet_sha1: 2e01acbe0d74aee5c872faaa344974154bf6c758
+  note: drift-projected L1-L16@25086f1d -> L1-L18 (similarity 0.88)
 - path: crates/loredex-engine/Cargo.toml
   lines:
   - 1
@@ -46,8 +47,9 @@ evidence:
   lines:
   - 1
   - 4
-  blob: ec5571df5ffea883cd8b458d37f9fe1ed0eb6349
-  snippet_sha1: f003db60b1516184dbf3565df65c7e65db7e20b2
+  blob: 35ee105416941a144bec644f4f8f69782a39e4f9
+  snippet_sha1: c748a2d9da8c69403a29f5c2a6587fdfa8300f6a
+  note: drift-projected L1-L4@ec5571df -> L1-L4 (similarity 0.67)
 - path: crates/loredex-engine/README.md
   lines:
   - 1
@@ -89,11 +91,11 @@ evidence:
   snippet_sha1: 95a2a02e460b7e837c08703daf6661517e9a8ed5
 - path: crates/loredex-cli/src/main.rs
   lines:
-  - 824
-  - 828
-  blob: 39e2b9b14b2d9aa74ee28b53f1f6db44056d8675
+  - 838
+  - 842
+  blob: 5da7033ed58277192e958178bd6824cd1b588300
   snippet_sha1: e187a2a82afad82d21785360a8b1bbc44abc69f6
-  note: drift-projected L671-L675@ee39b2bb -> L824-L828 (similarity 1.00)
+  note: drift-projected L824-L828@39e2b9b1 -> L838-L842 (similarity 1.00)
 - path: crates/loredex-cli/templates/loredex-refresh.yml
   lines:
   - 1

@@ -2,30 +2,30 @@
 id: engine-freshness
 title: 'loredex-engine: staleness, verification, drift projection'
 status: verified
-generated_at: 2026-11-03T13:20:21Z
-commit: 67da1675a709e5972e22a3f53797fe275070907e
+generated_at: 2026-11-08T15:19:47Z
+commit: 6218b0933acfd281aa30842652167f82a491d069
 evidence:
 - path: crates/loredex-engine/src/lib.rs
   lines:
-  - 169
-  - 191
-  blob: 4600a9da494272e7d428e28189a2035bdd4f43cc
+  - 174
+  - 196
+  blob: c2376300ae68670e70a6cf650587fa7d50421535
   snippet_sha1: 283e3285b868e8f97890cce8658fa81d64361966
-  note: drift-projected L146-L168@bc899494 -> L169-L191 (similarity 1.00)
+  note: drift-projected L169-L191@4600a9da -> L174-L196 (similarity 1.00)
 - path: crates/loredex-engine/src/lib.rs
   lines:
-  - 279
-  - 285
-  blob: 4600a9da494272e7d428e28189a2035bdd4f43cc
+  - 284
+  - 290
+  blob: c2376300ae68670e70a6cf650587fa7d50421535
   snippet_sha1: 8d7aa3de63ced0667e657ecb3b92ab4ff66ca116
-  note: drift-projected L256-L262@bc899494 -> L279-L285 (similarity 1.00)
+  note: drift-projected L279-L285@4600a9da -> L284-L290 (similarity 1.00)
 - path: crates/loredex-engine/src/lib.rs
   lines:
-  - 339
-  - 353
-  blob: 4600a9da494272e7d428e28189a2035bdd4f43cc
+  - 344
+  - 358
+  blob: c2376300ae68670e70a6cf650587fa7d50421535
   snippet_sha1: 58819359d859568299c50d43a98675ffd8e53d9c
-  note: drift-projected L316-L330@bc899494 -> L339-L353 (similarity 1.00)
+  note: drift-projected L339-L353@4600a9da -> L344-L358 (similarity 1.00)
 - path: crates/loredex-engine/src/drift.rs
   lines:
   - 32

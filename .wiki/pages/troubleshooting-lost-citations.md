@@ -2,8 +2,8 @@
 id: troubleshooting-lost-citations
 title: '"citation content lost" flips pages to draft'
 status: verified
-generated_at: 2026-11-03T13:20:21Z
-commit: 67da1675a709e5972e22a3f53797fe275070907e
+generated_at: 2026-11-08T15:19:47Z
+commit: 6218b0933acfd281aa30842652167f82a491d069
 evidence:
 - path: crates/loredex-engine/src/drift.rs
   lines:
@@ -41,11 +41,11 @@ evidence:
   note: drift-projected L163-L192@a9842770 -> L197-L237 (similarity 0.93)
 - path: crates/loredex-engine/src/lib.rs
   lines:
-  - 339
-  - 353
-  blob: 4600a9da494272e7d428e28189a2035bdd4f43cc
+  - 344
+  - 358
+  blob: c2376300ae68670e70a6cf650587fa7d50421535
   snippet_sha1: 58819359d859568299c50d43a98675ffd8e53d9c
-  note: drift-projected L316-L330@bc899494 -> L339-L353 (similarity 1.00)
+  note: drift-projected L339-L353@4600a9da -> L344-L358 (similarity 1.00)
 tags:
 - policy
 type: troubleshooting

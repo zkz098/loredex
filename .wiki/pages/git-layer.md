@@ -1,52 +1,59 @@
 ---
 id: git-layer
 title: 'loredex-git: read-only git wrapper'
-status: verified
-generated_at: 2026-11-01T03:02:46Z
-commit: 5fe6004cfe49890d5d14150d96e7200277613764
+status: draft
+generated_at: 2026-11-08T15:19:47Z
+commit: 6218b0933acfd281aa30842652167f82a491d069
 evidence:
 - path: crates/loredex-git/src/lib.rs
   lines:
   - 23
   - 34
-  blob: e093b50dbe48d34aa53eeea8a451bb79555b58e7
-  snippet_sha1: 9c0be376e17c1621cd64d3e4886785fe8cd72034
+  blob: e4ba64b2462a23c737ddc98d65349f9e0b66b7cc
+  snippet_sha1: 2329e1ff614c18c94955bfe55bda582529aac8da
+  note: drift-projected L23-L34@e093b50d -> L23-L34 (similarity 0.92)
 - path: crates/loredex-git/src/lib.rs
   lines:
   - 69
   - 85
-  blob: e093b50dbe48d34aa53eeea8a451bb79555b58e7
-  snippet_sha1: 40fed49ef13297375ba972ef14f2357b752bcad4
+  blob: e4ba64b2462a23c737ddc98d65349f9e0b66b7cc
+  snippet_sha1: 8f5d28518426d2754f84a4c37a62bf924db6b1e7
+  note: content lost at HEAD; re-pinned at recorded range (draft)
 - path: crates/loredex-git/src/lib.rs
   lines:
   - 99
   - 105
-  blob: e093b50dbe48d34aa53eeea8a451bb79555b58e7
-  snippet_sha1: 250e9dfe04fc8add367927d76cda669943f9a7a4
+  blob: e4ba64b2462a23c737ddc98d65349f9e0b66b7cc
+  snippet_sha1: 4b843c1347bfce05e06a9aa26d4044423f43413b
+  note: content lost at HEAD; re-pinned at recorded range (draft)
 - path: crates/loredex-git/src/lib.rs
   lines:
-  - 416
-  - 424
-  blob: e093b50dbe48d34aa53eeea8a451bb79555b58e7
+  - 391
+  - 399
+  blob: e4ba64b2462a23c737ddc98d65349f9e0b66b7cc
   snippet_sha1: 8f749694fee40b81410069b456bf73f57948f6e2
+  note: drift-projected L416-L424@e093b50d -> L391-L399 (similarity 1.00)
 - path: crates/loredex-git/src/lib.rs
   lines:
   - 112
   - 119
-  blob: e093b50dbe48d34aa53eeea8a451bb79555b58e7
-  snippet_sha1: 98e16ca62a408b78cfe9069791e02497d04a1591
+  blob: e4ba64b2462a23c737ddc98d65349f9e0b66b7cc
+  snippet_sha1: f90187d7ab7fd6b567c33b35a9a3f126c81be62f
+  note: content lost at HEAD; re-pinned at recorded range (draft)
 - path: crates/loredex-git/src/lib.rs
   lines:
-  - 121
-  - 124
-  blob: e093b50dbe48d34aa53eeea8a451bb79555b58e7
+  - 98
+  - 101
+  blob: e4ba64b2462a23c737ddc98d65349f9e0b66b7cc
   snippet_sha1: 119edcf75aaa5d353174659486d6c77d3d3fa7a7
+  note: drift-projected L121-L124@e093b50d -> L98-L101 (similarity 1.00)
 - path: crates/loredex-git/src/lib.rs
   lines:
-  - 426
-  - 435
-  blob: e093b50dbe48d34aa53eeea8a451bb79555b58e7
-  snippet_sha1: e4d93b726f189ca7ac21f83b00ef3cba62b28a3e
+  - 401
+  - 408
+  blob: e4ba64b2462a23c737ddc98d65349f9e0b66b7cc
+  snippet_sha1: d6c71d19049d56e78fe3a9b64243c2241cd6d9dc
+  note: drift-projected L426-L435@e093b50d -> L401-L408 (similarity 0.70)
 type: system
 ---
 # loredex-git: read-only git wrapper
