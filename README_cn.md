@@ -63,6 +63,8 @@ loredex refresh core          # 漂移投影刷新
 loredex config --language zh  # 工具生成骨架文本的语言（index/quickstart、playbook 指南、AGENTS.md 块）；agent 撰写的正文不会被翻译
 loredex agents-md             # 在 AGENTS.md 写入托管发现块（--check 供 CI、--remove、--file CLAUDE.md）
 loredex import ./openwiki     # 导入 openwiki / Google OKF 包；无可解析引用的正文落为 draft 交由 plan 补引用（--dry-run / --force / --prefix）
+loredex html [--out dir]      # 导出静态 HTML 预览站点（可交互源码证据卡片、新鲜度徽章、反向链接、全文搜索）
+loredex serve [--bind 127.0.0.1:3000]  # 启动本地实时 HTTP 预览服务
 ```
 
 `--body -` 从 stdin 读取。页面正文示例：

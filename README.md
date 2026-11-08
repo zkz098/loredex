@@ -63,6 +63,8 @@ loredex refresh core           # drift projection refresh
 loredex config --language zh   # locale for tool-generated skeleton text (index/quickstart, playbook instructions, AGENTS.md block); agent-authored bodies are never translated
 loredex agents-md              # write the managed discovery block into AGENTS.md (`--check` for CI, `--remove`, `--file CLAUDE.md`)
 loredex import ./openwiki      # migrate an openwiki / Google OKF bundle; bodies without resolvable citations land as draft for `plan` to backfill (`--dry-run` / `--force` / `--prefix`)
+loredex html [--out dir]       # build a static HTML preview site (interactive HEAD citations, freshness badges, backlinks, search)
+loredex serve [--bind 127.0.0.1:3000]  # live local HTTP preview of the wiki
 ```
 
 `--body -` reads from stdin. A page body looks like:

@@ -243,6 +243,20 @@ enum Command {
         #[arg(long)]
         force: bool,
     },
+    /// Build a human-readable static HTML preview site with interactive source evidence
+    Html {
+        /// Output directory (defaults to .wiki/.cache/html)
+        #[arg(long)]
+        out: Option<PathBuf>,
+        #[arg(long)]
+        json: bool,
+    },
+    /// Serve a live human-readable HTML preview of the wiki over HTTP
+    Serve {
+        /// Address to bind (e.g. 127.0.0.1:3000)
+        #[arg(long, default_value = "127.0.0.1:3000")]
+        bind: String,
+    },
 }
 
 fn open_repo(cli: &Cli) -> anyhow::Result<GitRepo> {
@@ -1003,6 +1017,32 @@ fn main() -> anyhow::Result<()> {
             if report.imported.iter().any(|p| p.status == Status::Draft) && !dry_run {
                 println!("draft pages await citation backfill — see `loredex plan`");
             }
+        }
+        Command::Html { out, json } => {
+            let out_dir = out.unwrap_or_else(|| wiki_dir.join(".cache").join("html"));
+            let report = engine::build_html_with(&repo.view(), &wiki_dir, &out_dir)?;
+            if json {
+                println!(
+                    "{}",
+                    serde_json::to_string_pretty(&report).map_err(|e| anyhow::anyhow!(e))?
+                );
+            } else {
+                println!(
+                    "built HTML preview ({} page(s), {} stale) -> {}",
+                    report.pages_written,
+                    report.stale_pages,
+                    report.index_file.display()
+                );
+            }
+        }
+        Command::Serve { bind } => {
+            let listener = std::net::TcpListener::bind(&bind)?;
+            let local = listener.local_addr()?;
+            println!(
+                "serving live wiki preview for {} at http://{local} (Ctrl+C to stop)",
+                repo.workdir().display()
+            );
+            engine::serve_http(listener, repo.workdir(), None)?;
         }
     }
     Ok(())

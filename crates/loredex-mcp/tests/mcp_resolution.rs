@@ -755,13 +755,27 @@ async fn test_resources_lifecycle_over_protocol() {
 
     // 1. Initial list: should have loredex://modules
     let initial_res = client.list_resources(None).await.unwrap();
-    let uris: Vec<&str> = initial_res.resources.iter().map(|r| r.uri.as_str()).collect();
-    assert!(uris.contains(&"loredex://modules"), "must expose modules resource");
+    let uris: Vec<&str> = initial_res
+        .resources
+        .iter()
+        .map(|r| r.uri.as_str())
+        .collect();
+    assert!(
+        uris.contains(&"loredex://modules"),
+        "must expose modules resource"
+    );
 
     // 2. Resource templates
     let templates = client.list_resource_templates(None).await.unwrap();
-    let tmpl_uris: Vec<&str> = templates.resource_templates.iter().map(|t| t.uri_template.as_str()).collect();
-    assert!(tmpl_uris.contains(&"loredex://pages/{id}"), "must advertise pages template");
+    let tmpl_uris: Vec<&str> = templates
+        .resource_templates
+        .iter()
+        .map(|t| t.uri_template.as_str())
+        .collect();
+    assert!(
+        tmpl_uris.contains(&"loredex://pages/{id}"),
+        "must advertise pages template"
+    );
 
     // 3. Put a verified page via tool call
     let put_res = call(
@@ -778,16 +792,27 @@ async fn test_resources_lifecycle_over_protocol() {
 
     // 4. List resources again: should now include loredex://pages/intro
     let updated_res = client.list_resources(None).await.unwrap();
-    let updated_uris: Vec<&str> = updated_res.resources.iter().map(|r| r.uri.as_str()).collect();
-    assert!(updated_uris.contains(&"loredex://pages/intro"), "must list created page resource");
+    let updated_uris: Vec<&str> = updated_res
+        .resources
+        .iter()
+        .map(|r| r.uri.as_str())
+        .collect();
+    assert!(
+        updated_uris.contains(&"loredex://pages/intro"),
+        "must list created page resource"
+    );
 
     // 5. Read resource: loredex://pages/intro
     let page_content = client
-        .read_resource(rmcp::model::ReadResourceRequestParams::new("loredex://pages/intro"))
+        .read_resource(rmcp::model::ReadResourceRequestParams::new(
+            "loredex://pages/intro",
+        ))
         .await
         .unwrap();
     match &page_content.contents[0] {
-        rmcp::model::ResourceContents::TextResourceContents { text, mime_type, .. } => {
+        rmcp::model::ResourceContents::TextResourceContents {
+            text, mime_type, ..
+        } => {
             assert!(text.contains("id: intro"));
             assert!(text.contains("Intro [[cite:lib.rs:L1-L1]]"));
             assert_eq!(mime_type.as_deref(), Some("text/markdown"));
@@ -797,11 +822,15 @@ async fn test_resources_lifecycle_over_protocol() {
 
     // 6. Read resource: loredex://modules
     let modules_content = client
-        .read_resource(rmcp::model::ReadResourceRequestParams::new("loredex://modules"))
+        .read_resource(rmcp::model::ReadResourceRequestParams::new(
+            "loredex://modules",
+        ))
         .await
         .unwrap();
     match &modules_content.contents[0] {
-        rmcp::model::ResourceContents::TextResourceContents { text, mime_type, .. } => {
+        rmcp::model::ResourceContents::TextResourceContents {
+            text, mime_type, ..
+        } => {
             assert_eq!(mime_type.as_deref(), Some("application/json"));
             assert!(text.contains("lib.rs"));
         }
@@ -810,7 +839,9 @@ async fn test_resources_lifecycle_over_protocol() {
 
     // 7. Non-existent resource returns error
     let err = client
-        .read_resource(rmcp::model::ReadResourceRequestParams::new("loredex://pages/nonexistent"))
+        .read_resource(rmcp::model::ReadResourceRequestParams::new(
+            "loredex://pages/nonexistent",
+        ))
         .await
         .expect_err("nonexistent resource must return error");
     assert!(format!("{err}").contains("not found"), "{err}");
@@ -830,18 +861,36 @@ async fn test_prompts_lifecycle_over_protocol() {
     assert!(names.contains(&"heal_wiki"));
 
     // Check argument schema of author_wiki_page
-    let author_prompt = list.prompts.iter().find(|p| p.name == "author_wiki_page").unwrap();
+    let author_prompt = list
+        .prompts
+        .iter()
+        .find(|p| p.name == "author_wiki_page")
+        .unwrap();
     let args = author_prompt.arguments.as_ref().unwrap();
-    assert!(args.iter().any(|a| a.name == "module" && a.required == Some(true)));
+    assert!(args
+        .iter()
+        .any(|a| a.name == "module" && a.required == Some(true)));
 
     // 2. Get prompt: author_wiki_page with arguments
     let mut author_args = serde_json::Map::new();
-    author_args.insert("module".to_string(), serde_json::Value::String("crates/foo".to_string()));
-    author_args.insert("page_type".to_string(), serde_json::Value::String("architecture".to_string()));
-    author_args.insert("keywords".to_string(), serde_json::Value::String("engine,parse".to_string()));
+    author_args.insert(
+        "module".to_string(),
+        serde_json::Value::String("crates/foo".to_string()),
+    );
+    author_args.insert(
+        "page_type".to_string(),
+        serde_json::Value::String("architecture".to_string()),
+    );
+    author_args.insert(
+        "keywords".to_string(),
+        serde_json::Value::String("engine,parse".to_string()),
+    );
 
     let res = client
-        .get_prompt(rmcp::model::GetPromptRequestParams::new("author_wiki_page").with_arguments(author_args))
+        .get_prompt(
+            rmcp::model::GetPromptRequestParams::new("author_wiki_page")
+                .with_arguments(author_args),
+        )
         .await
         .unwrap();
     assert_eq!(res.messages.len(), 1);
@@ -865,9 +914,15 @@ async fn test_prompts_lifecycle_over_protocol() {
 
     // 3. Get prompt: audit_pr_freshness
     let mut audit_args = serde_json::Map::new();
-    audit_args.insert("base_ref".to_string(), serde_json::Value::String("main".to_string()));
+    audit_args.insert(
+        "base_ref".to_string(),
+        serde_json::Value::String("main".to_string()),
+    );
     let res = client
-        .get_prompt(rmcp::model::GetPromptRequestParams::new("audit_pr_freshness").with_arguments(audit_args))
+        .get_prompt(
+            rmcp::model::GetPromptRequestParams::new("audit_pr_freshness")
+                .with_arguments(audit_args),
+        )
         .await
         .unwrap();
     match &res.messages[0].content {

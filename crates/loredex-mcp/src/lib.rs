@@ -1467,7 +1467,9 @@ impl rmcp::ServerHandler for WikiServer {
             items.push(
                 Resource::new("loredex://modules", "Modules")
                     .with_title("Codebase Modules")
-                    .with_description("List of discoverable modules in the repository with tracked files")
+                    .with_description(
+                        "List of discoverable modules in the repository with tracked files",
+                    )
                     .with_mime_type("application/json"),
             );
 
@@ -1519,35 +1521,44 @@ impl rmcp::ServerHandler for WikiServer {
         let _gate = self.gate.read().await;
         let resolved = self.ensure_repo(&context.peer).await?;
         let target = parse_resource_uri(&request.uri).ok_or_else(|| {
-            ErrorData::invalid_params(format!("Invalid resource URI format: {}", request.uri), None)
+            ErrorData::invalid_params(
+                format!("Invalid resource URI format: {}", request.uri),
+                None,
+            )
         })?;
         let uri = request.uri.clone();
         let path = resolved.path;
 
-        let content = tokio::task::spawn_blocking(move || -> Result<ResourceContents, ErrorData> {
-            let repo = GitRepo::discover(&path).map_err(Self::err)?;
-            match target {
-                ResourceTarget::Modules => {
-                    let view = repo.view();
-                    let modules = engine::discover_with(&view).map_err(Self::err)?;
-                    let json = serde_json::to_string_pretty(&modules).map_err(|e| Self::err(e.to_string()))?;
-                    Ok(ResourceContents::text(json, uri).with_mime_type("application/json"))
+        let content =
+            tokio::task::spawn_blocking(move || -> Result<ResourceContents, ErrorData> {
+                let repo = GitRepo::discover(&path).map_err(Self::err)?;
+                match target {
+                    ResourceTarget::Modules => {
+                        let view = repo.view();
+                        let modules = engine::discover_with(&view).map_err(Self::err)?;
+                        let json = serde_json::to_string_pretty(&modules)
+                            .map_err(|e| Self::err(e.to_string()))?;
+                        Ok(ResourceContents::text(json, uri).with_mime_type("application/json"))
+                    }
+                    ResourceTarget::Page(id) => {
+                        let page = engine::find_page(&repo.wiki_dir(), &id).map_err(|e| {
+                            ErrorData::resource_not_found(
+                                format!("Resource '{id}' not found: {e}"),
+                                None,
+                            )
+                        })?;
+                        let text = if let Some(source_path) = &page.source_path {
+                            std::fs::read_to_string(source_path)
+                                .unwrap_or_else(|_| page.to_markdown().unwrap_or_default())
+                        } else {
+                            page.to_markdown().map_err(Self::err)?
+                        };
+                        Ok(ResourceContents::text(text, uri).with_mime_type("text/markdown"))
+                    }
                 }
-                ResourceTarget::Page(id) => {
-                    let page = engine::find_page(&repo.wiki_dir(), &id)
-                        .map_err(|e| ErrorData::resource_not_found(format!("Resource '{id}' not found: {e}"), None))?;
-                    let text = if let Some(source_path) = &page.source_path {
-                        std::fs::read_to_string(source_path)
-                            .unwrap_or_else(|_| page.to_markdown().unwrap_or_default())
-                    } else {
-                        page.to_markdown().map_err(Self::err)?
-                    };
-                    Ok(ResourceContents::text(text, uri).with_mime_type("text/markdown"))
-                }
-            }
-        })
-        .await
-        .map_err(|e| ErrorData::internal_error(e.to_string(), None))??;
+            })
+            .await
+            .map_err(|e| ErrorData::internal_error(e.to_string(), None))??;
 
         let result = ReadResourceResult::new(vec![content]);
         Ok(result.into())

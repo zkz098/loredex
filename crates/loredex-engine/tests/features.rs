@@ -4,8 +4,9 @@
 use git2::{Repository, Signature};
 use loredex_core::Status;
 use loredex_engine::{
-    agents_block_check, agents_block_remove, agents_block_upsert, compute_tasks, generate_index,
-    import_openwiki, load_pages, playbook_registry, set_language, wiki_locale, AgentsMdStatus,
+    agents_block_check, agents_block_remove, agents_block_upsert, build_html, compute_tasks,
+    generate_index, handle_http_path, import_openwiki, load_pages, note_page, playbook_registry,
+    put_page, refresh_page_with_drift, serve_http, set_language, wiki_locale, AgentsMdStatus,
     UpsertAction,
 };
 use loredex_git::GitRepo;
@@ -233,4 +234,104 @@ fn import_prefix_and_dry_run() {
         false,
     );
     assert!(err.is_err());
+}
+
+// ---------- HTML preview & HTTP server ----------
+
+#[test]
+fn html_preview_exports_site_with_citations_backlinks_and_http_routes() {
+    let fx = Fixture::new(&[(
+        "src/api.rs",
+        "pub fn serve() {\n    let sample_id = \"a1b2c3d4e5f6g7h8i9j0\";\n    handle(sample_id);\n}\n",
+    )]);
+
+    put_page(
+        &fx.repo,
+        &fx.wiki(),
+        "api/overview",
+        "API Overview",
+        "# API Layer\n\nEntry point is `serve` [[cite:src/api.rs:L1-L4]].\n",
+        vec!["backend".into()],
+        Some("system".into()),
+    )
+    .unwrap();
+
+    note_page(
+        &fx.repo,
+        &fx.wiki(),
+        "caller",
+        "Caller notes",
+        "Calls into [[wiki:api/overview]] during startup.\n",
+        vec![],
+        Some("workflow".into()),
+    )
+    .unwrap();
+
+    generate_index(&fx.repo, &fx.wiki()).unwrap();
+
+    let out_dir = fx.tmp.path().join("site");
+    let report = build_html(&fx.repo, &fx.wiki(), &out_dir).unwrap();
+    assert_eq!(report.pages_written, 4); // api/overview, caller, index, quickstart
+    assert_eq!(report.stale_pages, 0);
+    assert!(report.index_file.is_file());
+
+    // Hierarchical page sits at pages/api/overview.html with `../../` relative root prefix
+    let api_html =
+        std::fs::read_to_string(out_dir.join("pages/api/overview.html")).expect("page html");
+    assert!(api_html.contains("API Overview"));
+    assert!(api_html.contains("href=\"#ev-1\""));
+    assert!(api_html.contains("src/api.rs:L1-L4"));
+    // Secret-shaped mixed-class token in source is masked in the HTML snippet
+    assert!(api_html.contains("a1b2…[masked]"));
+    assert!(!api_html.contains("a1b2c3d4e5f6g7h8i9j0"));
+    // Backlink from `caller` is rendered on `api/overview`
+    assert!(api_html.contains("pages/caller.html"));
+
+    // Modify source file to trigger drift & staleness
+    std::fs::write(
+        fx.tmp.path().join("src/api.rs"),
+        "// header1\n// header2\npub fn serve() {\n    let sample_id = \"a1b2c3d4e5f6g7h8i9j0\";\n    handle(sample_id);\n}\n",
+    )
+    .unwrap();
+    commit_all(fx.tmp.path());
+
+    // Live HTTP handler reflects staleness immediately
+    let stale_resp = handle_http_path(fx.tmp.path(), "/pages/api/overview.html").unwrap();
+    assert_eq!(stale_resp.status, 200);
+    assert!(stale_resp.body.contains("stale-banner"));
+
+    // Refresh projects L1-L4 -> L3-L6, and HTTP handler shows the projected range + ↻
+    let mut page = loredex_engine::find_page(&fx.wiki(), "api/overview").unwrap();
+    refresh_page_with_drift(&mut page, &fx.repo, &fx.wiki()).unwrap();
+
+    let fresh_resp = handle_http_path(fx.tmp.path(), "/api/overview").unwrap();
+    assert_eq!(fresh_resp.status, 200);
+    assert!(fresh_resp.body.contains("src/api.rs:L3-L6 ↻"));
+
+    // Search API endpoint works over HTTP
+    let search_resp = handle_http_path(fx.tmp.path(), "/api/search?q=Entry+point").unwrap();
+    assert_eq!(search_resp.status, 200);
+    assert!(search_resp.body.contains("api/overview"));
+
+    // 404 on unknown route
+    let not_found = handle_http_path(fx.tmp.path(), "/no-such-page").unwrap();
+    assert_eq!(not_found.status, 404);
+
+    // Exercise TcpListener loop for 1 request
+    let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+    let addr = listener.local_addr().unwrap();
+    let root = fx.tmp.path().to_path_buf();
+    let handle = std::thread::spawn(move || {
+        serve_http(listener, &root, Some(1)).unwrap();
+    });
+    let mut client = std::net::TcpStream::connect(addr).unwrap();
+    use std::io::{Read, Write};
+    client
+        .write_all(b"GET / HTTP/1.1\r\nHost: localhost\r\n\r\n")
+        .unwrap();
+    let mut buf = String::new();
+    client.read_to_string(&mut buf).unwrap();
+    assert!(buf.starts_with("HTTP/1.1 200 OK"));
+    assert!(buf.contains("API Overview"));
+    handle.join().unwrap();
 }

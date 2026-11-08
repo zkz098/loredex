@@ -114,7 +114,9 @@ impl GitRepo {
 
     /// True if tracked files have uncommitted changes (ignores untracked files).
     pub fn is_dirty(&self) -> Result<bool> {
-        self.repo.is_dirty().map_err(|e| WikiError::Git(e.to_string()))
+        self.repo
+            .is_dirty()
+            .map_err(|e| WikiError::Git(e.to_string()))
     }
 
     /// Structured change set between any resolvable ref and HEAD (see `GitView::path_deltas`).
@@ -206,7 +208,10 @@ impl TreeIndex {
                 index.files.push(full.clone());
                 if entry.mode().is_blob() {
                     let oid = entry.oid().to_string();
-                    index.blobs.entry(oid.clone()).or_insert_with(|| full.clone());
+                    index
+                        .blobs
+                        .entry(oid.clone())
+                        .or_insert_with(|| full.clone());
                     index.paths.insert(full, PathKind::Blob(oid));
                 } else {
                     index.paths.insert(full, PathKind::Other);
@@ -417,13 +422,31 @@ impl<'a> GitView<'a> {
 
         for change in diff {
             let (old, new, path_change, mode) = match change {
-                gix::object::tree::diff::ChangeDetached::Addition { location, entry_mode, .. } => {
-                    (None, Some(location.to_string()), PathChange::Added, entry_mode)
-                }
-                gix::object::tree::diff::ChangeDetached::Deletion { location, entry_mode, .. } => {
-                    (Some(location.to_string()), None, PathChange::Deleted, entry_mode)
-                }
-                gix::object::tree::diff::ChangeDetached::Modification { location, entry_mode, .. } => (
+                gix::object::tree::diff::ChangeDetached::Addition {
+                    location,
+                    entry_mode,
+                    ..
+                } => (
+                    None,
+                    Some(location.to_string()),
+                    PathChange::Added,
+                    entry_mode,
+                ),
+                gix::object::tree::diff::ChangeDetached::Deletion {
+                    location,
+                    entry_mode,
+                    ..
+                } => (
+                    Some(location.to_string()),
+                    None,
+                    PathChange::Deleted,
+                    entry_mode,
+                ),
+                gix::object::tree::diff::ChangeDetached::Modification {
+                    location,
+                    entry_mode,
+                    ..
+                } => (
                     Some(location.to_string()),
                     Some(location.to_string()),
                     PathChange::Modified,
@@ -565,7 +588,13 @@ impl<'a> GitView<'a> {
     fn tree_of(&self, commit_or_ref: &str) -> Option<gix::Tree<'_>> {
         let sha = self.resolve_ref_commit(commit_or_ref).ok()?;
         let id = gix::ObjectId::from_hex(sha.as_bytes()).ok()?;
-        let commit = self.repo.repo.find_object(id).ok()?.try_into_commit().ok()?;
+        let commit = self
+            .repo
+            .repo
+            .find_object(id)
+            .ok()?
+            .try_into_commit()
+            .ok()?;
         commit.tree().ok()
     }
 
@@ -590,10 +619,10 @@ impl<'a> GitView<'a> {
         if a_sha == b_sha {
             return Ok(true);
         }
-        let a_id = gix::ObjectId::from_hex(a_sha.as_bytes())
-            .map_err(|e| WikiError::Git(e.to_string()))?;
-        let b_id = gix::ObjectId::from_hex(b_sha.as_bytes())
-            .map_err(|e| WikiError::Git(e.to_string()))?;
+        let a_id =
+            gix::ObjectId::from_hex(a_sha.as_bytes()).map_err(|e| WikiError::Git(e.to_string()))?;
+        let b_id =
+            gix::ObjectId::from_hex(b_sha.as_bytes()).map_err(|e| WikiError::Git(e.to_string()))?;
         let walk = self
             .repo
             .repo
@@ -627,10 +656,10 @@ impl<'a> GitView<'a> {
         let mut out = BTreeMap::new();
         if let Some(old_tree) = self.tree_of(from_commit) {
             if let Ok(head_tree) = self.head_tree() {
-                if let Ok(diff) = self
-                    .repo
-                    .repo
-                    .diff_tree_to_tree(Some(&old_tree), Some(&head_tree), None)
+                if let Ok(diff) =
+                    self.repo
+                        .repo
+                        .diff_tree_to_tree(Some(&old_tree), Some(&head_tree), None)
                 {
                     for change in diff {
                         if let gix::object::tree::diff::ChangeDetached::Rewrite {
@@ -819,23 +848,51 @@ mod tests {
         std::fs::write(path.join("modify.txt"), "v1\n").unwrap();
         std::fs::write(path.join("delete.txt"), "v1\n").unwrap();
         std::fs::write(path.join("mv_clean.txt"), "identical body\n").unwrap();
-        std::fs::write(path.join("mv_edit.txt"), "long body line 1\nline 2\nline 3\nline 4\n").unwrap();
+        std::fs::write(
+            path.join("mv_edit.txt"),
+            "long body line 1\nline 2\nline 3\nline 4\n",
+        )
+        .unwrap();
         let mut idx = g2.index().unwrap();
-        idx.add_all(["*"].iter(), git2::IndexAddOption::DEFAULT, None).unwrap();
+        idx.add_all(["*"].iter(), git2::IndexAddOption::DEFAULT, None)
+            .unwrap();
         let t1 = idx.write_tree().unwrap();
-        let c1 = g2.commit(Some("HEAD"), &sig, &sig, "c1", &g2.find_tree(t1).unwrap(), &[]).unwrap();
+        let c1 = g2
+            .commit(
+                Some("HEAD"),
+                &sig,
+                &sig,
+                "c1",
+                &g2.find_tree(t1).unwrap(),
+                &[],
+            )
+            .unwrap();
 
         std::fs::write(path.join("modify.txt"), "v2 modified\n").unwrap();
         std::fs::remove_file(path.join("delete.txt")).unwrap();
         std::fs::rename(path.join("mv_clean.txt"), path.join("renamed_clean.txt")).unwrap();
-        std::fs::write(path.join("renamed_edit.txt"), "long body line 1\nline 2 edited\nline 3\nline 4\n").unwrap();
+        std::fs::write(
+            path.join("renamed_edit.txt"),
+            "long body line 1\nline 2 edited\nline 3\nline 4\n",
+        )
+        .unwrap();
         std::fs::remove_file(path.join("mv_edit.txt")).unwrap();
         std::fs::write(path.join("added.txt"), "brand new\n").unwrap();
         let mut idx = g2.index().unwrap();
-        idx.add_all(["*"].iter(), git2::IndexAddOption::DEFAULT, None).unwrap();
+        idx.add_all(["*"].iter(), git2::IndexAddOption::DEFAULT, None)
+            .unwrap();
         let t2 = idx.write_tree().unwrap();
         let c1_obj = g2.find_commit(c1).unwrap();
-        let _c2 = g2.commit(Some("HEAD"), &sig, &sig, "c2", &g2.find_tree(t2).unwrap(), &[&c1_obj]).unwrap();
+        let _c2 = g2
+            .commit(
+                Some("HEAD"),
+                &sig,
+                &sig,
+                "c2",
+                &g2.find_tree(t2).unwrap(),
+                &[&c1_obj],
+            )
+            .unwrap();
 
         let lrepo = GitRepo::discover(path).unwrap();
         let deltas = lrepo.path_deltas(&c1.to_string()).unwrap();
@@ -845,10 +902,21 @@ mod tests {
             .filter_map(|d| d.new.as_ref().map(|n| (n.clone(), d)))
             .collect();
 
-        assert_eq!(by_new.get("modify.txt").unwrap().change, PathChange::Modified);
+        assert_eq!(
+            by_new.get("modify.txt").unwrap().change,
+            PathChange::Modified
+        );
         assert_eq!(by_new.get("added.txt").unwrap().change, PathChange::Added);
-        assert!(deltas.iter().any(|d| d.old.as_deref() == Some("delete.txt") && d.change == PathChange::Deleted));
-        assert_eq!(by_new.get("renamed_clean.txt").unwrap().change, PathChange::Renamed);
-        assert_eq!(by_new.get("renamed_clean.txt").unwrap().old.as_deref(), Some("mv_clean.txt"));
+        assert!(deltas
+            .iter()
+            .any(|d| d.old.as_deref() == Some("delete.txt") && d.change == PathChange::Deleted));
+        assert_eq!(
+            by_new.get("renamed_clean.txt").unwrap().change,
+            PathChange::Renamed
+        );
+        assert_eq!(
+            by_new.get("renamed_clean.txt").unwrap().old.as_deref(),
+            Some("mv_clean.txt")
+        );
     }
 }

@@ -12,6 +12,7 @@ pub mod config;
 pub mod diff_since;
 pub mod drift;
 pub mod evidence;
+pub mod html;
 pub mod import;
 pub mod index;
 pub mod links;
@@ -38,6 +39,10 @@ pub use drift::{
     refresh_page_with_drift_view, DriftOutcome,
 };
 pub use evidence::{candidates as evidence_candidates, EvidenceCandidates, Window};
+pub use html::{
+    build_html, build_html_with, handle_http_path, render_site, serve_http, HtmlReport,
+    HttpResponse, RenderedSite,
+};
 pub use import::{import_dir, import_openwiki, ImportFormat, ImportReport};
 pub use index::{
     all_wiki_links, generate_index, generate_index_with, is_generated, INDEX_ID, QUICKSTART_ID,
