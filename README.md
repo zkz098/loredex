@@ -11,10 +11,10 @@ A **trustworthy repository wiki for AI coding agents**: plain-Markdown storage, 
 
 Agents reading a repository face two costs: expensive context and misleading stale docs. Loredex answers with:
 
-- **Pinned evidence** — every claim in a page body carries a `[[cite:path:Lx-Ly]]` marker, resolved at write time into a `(path, line range, git blob sha, snippet content sha1)` tuple. Bodies without citations are rejected.
+- **Pinned evidence** — every claim in a page body carries a `[[cite:path:Lx-Ly]]` marker (or a Rust AST symbol marker `[[cite:path#symbol]]`, experimentally resolved via `tree-sitter-rust`), resolved at write time into a `(path, line range, git blob sha, snippet content sha1)` tuple. Bodies without citations are rejected.
 - **Secret gate** — citations whose line range matches secret patterns (cloud/vendor keys and tokens, credentials in URLs, private-key blocks) are rejected at write time and re-flagged by `lint`; the scan sees the whole file, so a range inside a PEM key body is caught even without its `-----BEGIN` line. Snippet plaintext is never persisted or echoed, only masked previews are.
 - **Git-driven staleness** — commit ids are never trusted alone: HEAD blob comparison cross-checked against a tree diff, and verification recomputes the content hash of the cited lines. Change the code and the citing pages go stale.
-- **Line drift projection** — after insertions/deletions, citations are remapped onto the new revision via line-level diff; accepted above a similarity threshold with an audit note, keeping the page `verified`. Only genuinely lost content is downgraded to `draft` for rewrite.
+- **Line drift projection + Rust AST relocation** — after insertions/deletions, citations are remapped onto the new revision via line-level diff (with a `tree-sitter-rust` AST symbol fallback when functions or `impl` methods are reordered within a `.rs` file); accepted above a similarity threshold with an audit note, keeping the page `verified`. Only genuinely lost content is downgraded to `draft` for rewrite.
 - **Rename recovery** — a plain `git mv` keeps the same blob oid, so the new path is found by content-addressed lookup (more precise than rename heuristics); mv + small edits use git similarity detection plus line projection; everything else falls back to a rewrite.
 - **No database** — the frontmatter *is* the database. `.wiki/pages/*.md` is committed to git, reviewable, hand-editable; there is no authoritative index that can corrupt, and the search index rebuilds from files in milliseconds.
 

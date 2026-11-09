@@ -101,6 +101,7 @@ fn build(scenario: Scenario) -> Fixture {
                     .expect("snippet");
                 evidence.push(Evidence {
                     path: rel.clone(),
+                    symbol: None,
                     lines: Some([lo, hi]),
                     blob,
                     snippet_sha1: Some(sha1_hex(snippet.as_bytes())),

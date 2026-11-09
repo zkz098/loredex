@@ -5,9 +5,9 @@ use git2::{Repository, Signature};
 use loredex_core::Status;
 use loredex_engine::{
     agents_block_check, agents_block_remove, agents_block_upsert, build_html, compute_tasks,
-    generate_index, handle_http_path, import_openwiki, load_pages, note_page, playbook_registry,
-    put_page, refresh_page_with_drift, serve_http, set_language, wiki_locale, AgentsMdStatus,
-    UpsertAction,
+    evidence_candidates, generate_index, handle_http_path, import_openwiki, load_pages, note_page,
+    playbook_registry, put_page, refresh_page_with_drift, serve_http, set_language, verify_page,
+    wiki_locale, AgentsMdStatus, DriftOutcome, UpsertAction,
 };
 use loredex_git::GitRepo;
 use std::path::{Path, PathBuf};
@@ -334,4 +334,131 @@ fn html_preview_exports_site_with_citations_backlinks_and_http_routes() {
     assert!(buf.starts_with("HTTP/1.1 200 OK"));
     assert!(buf.contains("API Overview"));
     handle.join().unwrap();
+}
+
+// ---------- Experimental Rust tree-sitter AST citations & relocation ----------
+
+#[test]
+fn rust_tree_sitter_symbol_citations_and_ast_relocation_across_reorder() {
+    let initial_rs = "\
+pub struct Pool {
+    pub cap: usize,
+}
+
+impl Pool {
+    pub fn connect(url: &str) -> Self {
+        let _ = url;
+        Self { cap: 16 }
+    }
+}
+
+pub fn serve_requests(pool: &Pool) -> usize {
+    let mut handled = 0;
+    if pool.cap > 0 {
+        handled += 1;
+    }
+    handled
+}
+";
+    let fx = Fixture::new(&[("src/svc.rs", initial_rs)]);
+
+    // 1. evidence_candidates annotates enclosing Rust AST symbol + symbol_cite
+    let cands = evidence_candidates(&fx.repo.view(), ".", &["handled".into()], 5).unwrap();
+    assert_eq!(cands.windows.len(), 1);
+    assert_eq!(cands.windows[0].symbol.as_deref(), Some("serve_requests"));
+    assert_eq!(
+        cands.windows[0].symbol_cite.as_deref(),
+        Some("[[cite:src/svc.rs#serve_requests]]")
+    );
+
+    // 2. Unknown Rust symbol is rejected at write time with available symbol hints
+    let bad = put_page(
+        &fx.repo,
+        &fx.wiki(),
+        "svc",
+        "Service",
+        "Missing symbol [[cite:src/svc.rs#nonexistent_fn]].\n",
+        vec![],
+        Some("system".into()),
+    );
+    let err_msg = format!("{}", bad.unwrap_err());
+    assert!(err_msg.contains("nonexistent_fn"), "{err_msg}");
+    assert!(err_msg.contains("Pool::connect"), "{err_msg}");
+
+    // 3. Symbol-only citations resolve to exact AST line ranges at write time
+    let outcome = put_page(
+        &fx.repo,
+        &fx.wiki(),
+        "svc",
+        "Service",
+        "Pool connects [[cite:src/svc.rs#Pool::connect]] and serves [[cite:src/svc.rs#serve_requests]].\n",
+        vec![],
+        Some("system".into()),
+    )
+    .unwrap();
+    assert_eq!(outcome.page.meta.status, Status::Verified);
+    assert_eq!(outcome.page.meta.evidence.len(), 2);
+    assert_eq!(
+        outcome.page.meta.evidence[0].symbol.as_deref(),
+        Some("Pool::connect")
+    );
+    assert_eq!(outcome.page.meta.evidence[0].lines, Some([6, 9]));
+    assert_eq!(
+        outcome.page.meta.evidence[1].symbol.as_deref(),
+        Some("serve_requests")
+    );
+    assert_eq!(outcome.page.meta.evidence[1].lines, Some([12, 18]));
+    assert!(verify_page(&outcome.page, &fx.repo).unwrap().all_ok);
+
+    // 4. Reorder the file completely: move `serve_requests` to the top and push
+    //    `impl Pool` below a large new block so line-diff projection fails on
+    //    the moved function, triggering tree-sitter AST relocation.
+    let reordered_rs = "\
+pub fn serve_requests(pool: &Pool) -> usize {
+    let mut handled = 0;
+    if pool.cap > 0 {
+        handled += 1;
+    }
+    handled
+}
+
+pub fn unrelated_alpha() -> u32 {
+    let a = 1;
+    let b = 2;
+    let c = 3;
+    let d = 4;
+    a + b + c + d
+}
+
+pub fn unrelated_beta() -> u32 {
+    let x = 10;
+    let y = 20;
+    let z = 30;
+    x * y * z
+}
+
+pub struct Pool {
+    pub cap: usize,
+}
+
+impl Pool {
+    pub fn connect(url: &str) -> Self {
+        let _ = url;
+        Self { cap: 16 }
+    }
+}
+";
+    std::fs::write(fx.tmp.path().join("src/svc.rs"), reordered_rs).unwrap();
+    commit_all(fx.tmp.path());
+
+    let mut page = loredex_engine::find_page(&fx.wiki(), "svc").unwrap();
+    let outcomes = refresh_page_with_drift(&mut page, &fx.repo, &fx.wiki()).unwrap();
+    assert_eq!(page.meta.status, Status::Verified, "{outcomes:?}");
+    assert!(outcomes
+        .iter()
+        .all(|(_, o)| matches!(o, DriftOutcome::Projected { .. })));
+    // Pool::connect moved down to lines 29-32; serve_requests moved up to lines 1-7
+    assert_eq!(page.meta.evidence[0].lines, Some([29, 32]));
+    assert_eq!(page.meta.evidence[1].lines, Some([1, 7]));
+    assert!(verify_page(&page, &fx.repo).unwrap().all_ok);
 }

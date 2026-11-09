@@ -7,6 +7,7 @@ use loredex_git::{GitRepo, GitView};
 use sha1::{Digest, Sha1};
 
 pub mod agents_md;
+pub mod ast;
 pub mod auto;
 pub mod config;
 pub mod diff_since;
@@ -28,6 +29,10 @@ pub mod redact;
 
 pub use agents_md::{
     agents_block_check, agents_block_remove, agents_block_upsert, AgentsMdStatus, UpsertAction,
+};
+pub use ast::{
+    enclosing_symbol, is_rust_path, parse_rust_symbols, resolve_symbol, symbol_matching_range,
+    AstSymbol,
 };
 pub use auto::{auto_refresh, auto_refresh_with, AutoReport};
 pub use config::{locale as wiki_locale, set_language, Locale};
@@ -177,10 +182,59 @@ pub fn record_evidence_with(
     path: &str,
     lines: Option<[u32; 2]>,
 ) -> Result<Evidence> {
+    record_evidence_symbol_with(view, path, None, lines)
+}
+
+/// Pin a citation (with optional `#symbol` AST anchor) against the content at HEAD.
+///
+/// When `symbol` is supplied without explicit `lines` on a `.rs` file, the symbol
+/// is resolved via `tree-sitter-rust` into its exact 1-based `[lo, hi]` line range
+/// at HEAD and pinned with `snippet_sha1`.
+pub fn record_evidence_symbol_with(
+    view: &GitView,
+    path: &str,
+    symbol: Option<&str>,
+    lines: Option<[u32; 2]>,
+) -> Result<Evidence> {
     let blob = view
         .head_blob_oid(path)?
         .ok_or_else(|| WikiError::Git(format!("{path} is not tracked at HEAD; commit it first")))?;
-    let snippet_sha1 = match lines {
+
+    let (resolved_symbol, resolved_lines) = match (symbol, lines) {
+        (Some(sym), None) => {
+            if !ast::is_rust_path(path) {
+                return Err(WikiError::Git(format!(
+                    "symbol citation [{path}#{sym}] without :Lx-Ly is only supported for Rust (.rs) files"
+                )));
+            }
+            let content = view
+                .head_file_content(path)?
+                .ok_or_else(|| WikiError::Git(format!("{path} content unavailable at HEAD")))?;
+            match ast::resolve_symbol(path, &content, sym) {
+                Some(found) => (Some(found.qualified_name), Some(found.lines)),
+                None => {
+                    let available: Vec<String> = ast::parse_rust_symbols(path, &content)
+                        .into_iter()
+                        .filter(|s| s.kind != "impl")
+                        .take(8)
+                        .map(|s| s.qualified_name)
+                        .collect();
+                    let hint = if available.is_empty() {
+                        String::new()
+                    } else {
+                        format!(" (available symbols: {})", available.join(", "))
+                    };
+                    return Err(WikiError::Git(format!(
+                        "Rust symbol `{sym}` not found in {path} at HEAD{hint}"
+                    )));
+                }
+            }
+        }
+        (Some(sym), Some(r)) => (Some(sym.to_string()), Some(r)),
+        (None, r) => (None, r),
+    };
+
+    let snippet_sha1 = match resolved_lines {
         Some([lo, hi]) => view
             .head_lines(path, lo, hi)?
             .map(|s| sha1_hex(s.as_bytes())),
@@ -188,7 +242,8 @@ pub fn record_evidence_with(
     };
     Ok(Evidence {
         path: path.to_string(),
-        lines,
+        symbol: resolved_symbol,
+        lines: resolved_lines,
         blob,
         snippet_sha1,
         note: None,

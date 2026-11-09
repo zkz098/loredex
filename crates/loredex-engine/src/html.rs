@@ -33,7 +33,7 @@ const MAX_WHOLE_FILE_PREVIEW_LINES: usize = 50;
 
 static INLINE_TOKEN_RE: LazyLock<Regex> = LazyLock::new(|| {
     Regex::new(
-        r"`([^`]+)`|\[\[cite:([^\]\s]+?)(?::L(\d+)-L(\d+))?\]\]|\[\[wiki:([A-Za-z0-9_\-./]+)\]\]|\[([^\]]+)\]\(([^)\s]+)\)|\*\*([^*]+)\*\*|\*([^*\n]+)\*",
+        r"`([^`]+)`|\[\[cite:([^\]\s#]+?)(?:#([^\]\s]+?))?(?::L(\d+)-L(\d+))?\]\]|\[\[wiki:([A-Za-z0-9_\-./]+)\]\]|\[([^\]]+)\]\(([^)\s]+)\)|\*\*([^*]+)\*\*|\*([^*\n]+)\*",
     )
     .expect("static inline markdown regex")
 });
@@ -82,6 +82,7 @@ impl EffectiveStatus {
 struct ResolvedEvidence {
     index: usize, // 1-based
     path: String,
+    symbol: Option<String>,
     lines: Option<[u32; 2]>,
     blob: String,
     snippet_sha1: Option<String>,
@@ -257,6 +258,7 @@ pub fn render_site(view: &GitView, wiki_dir: &Path) -> Result<RenderedSite> {
             evidences.push(ResolvedEvidence {
                 index: idx + 1,
                 path: ev.path.clone(),
+                symbol: ev.symbol.clone(),
                 lines: ev.lines,
                 blob: ev.blob.clone(),
                 snippet_sha1: ev.snippet_sha1.clone(),
@@ -775,6 +777,10 @@ fn render_page_main(
             entry.evidences.len()
         ));
         for ev in &entry.evidences {
+            let sym_label = match &ev.symbol {
+                Some(s) => format!("#{s}"),
+                None => String::new(),
+            };
             let range_label = match ev.lines {
                 Some([lo, hi]) => format!(":L{lo}-L{hi}"),
                 None => String::new(),
@@ -814,7 +820,7 @@ fn render_page_main(
                 r#"<details id="ev-{idx}" class="ev-card {ok_class}" open>
                   <summary class="ev-summary">
                     <span class="ev-idx">#{idx}</span>
-                    <code class="ev-path">{path}{range}</code>
+                    <code class="ev-path">{path}{sym}{range}</code>
                     <span class="ev-verdict">{detail}</span>
                     <span class="ev-hashes">blob <code>{blob_short}</code> · sha1 <code>{sha_short}</code></span>
                   </summary>
@@ -824,6 +830,7 @@ fn render_page_main(
                 idx = ev.index,
                 ok_class = ok_class,
                 path = escape_html(&ev.path),
+                sym = escape_html(&sym_label),
                 range = escape_html(&range_label),
                 detail = escape_html(&ev.detail),
                 blob_short = escape_html(&blob_short),
@@ -915,12 +922,24 @@ fn match_citation<'a>(
     ordinal: Option<usize>,
     evidences: &'a [ResolvedEvidence],
 ) -> Option<&'a ResolvedEvidence> {
-    // 1. Exact path + line range match
+    // 1. Exact path + symbol + line range match
     if let Some(ev) = evidences
         .iter()
-        .find(|e| e.path == cite.path && e.lines == cite.lines)
+        .find(|e| e.path == cite.path && e.symbol == cite.symbol && e.lines == cite.lines)
     {
         return Some(ev);
+    }
+    // 1b. Symbol match on the same path (e.g. [[cite:path#symbol]] resolved to lines at write time)
+    if let Some(sym) = &cite.symbol {
+        if let Some(ev) = evidences.iter().find(|e| {
+            e.path == cite.path
+                && e.symbol
+                    .as_deref()
+                    .map(|es| es == sym || es.ends_with(&format!("::{sym}")))
+                    .unwrap_or(false)
+        }) {
+            return Some(ev);
+        }
     }
     // 2. Same path, note records drift projection from original L{lo}-L{hi}
     if let Some([lo, hi]) = cite.lines {
@@ -965,11 +984,12 @@ fn render_markdown(
     let deduped = parse_citations(body)
         .map(dedup_citations)
         .unwrap_or_default();
-    let cite_ordinal = |path: &str, lines: Option<[u32; 2]>| -> Option<usize> {
-        deduped
-            .iter()
-            .position(|c| c.path == path && c.lines == lines)
-    };
+    let cite_ordinal =
+        |path: &str, symbol: Option<&str>, lines: Option<[u32; 2]>| -> Option<usize> {
+            deduped
+                .iter()
+                .position(|c| c.path == path && c.symbol.as_deref() == symbol && c.lines == lines)
+        };
 
     let lines: Vec<&str> = body.lines().collect();
     let mut out = String::new();
@@ -1256,7 +1276,7 @@ fn render_inline<F>(
     root_prefix: &str,
 ) -> String
 where
-    F: Fn(&str, Option<[u32; 2]>) -> Option<usize>,
+    F: Fn(&str, Option<&str>, Option<[u32; 2]>) -> Option<usize>,
 {
     let mut out = String::with_capacity(text.len() + 32);
     let mut last = 0;
@@ -1269,7 +1289,8 @@ where
             out.push_str(&format!("<code>{}</code>", escape_html(code.as_str())));
         } else if let Some(cite_path) = caps.get(2) {
             let path = cite_path.as_str().to_string();
-            let lines = match (caps.get(3), caps.get(4)) {
+            let symbol = caps.get(3).map(|s| s.as_str().to_string());
+            let lines = match (caps.get(4), caps.get(5)) {
                 (Some(lo), Some(hi)) => {
                     let lo = lo.as_str().parse::<u32>().unwrap_or(1);
                     let hi = hi.as_str().parse::<u32>().unwrap_or(lo);
@@ -1279,16 +1300,21 @@ where
             };
             let c = Citation {
                 path: path.clone(),
+                symbol: symbol.clone(),
                 lines,
                 span: (m.start(), m.end()),
             };
-            let ord = cite_ordinal(&path, lines);
+            let ord = cite_ordinal(&path, symbol.as_deref(), lines);
             if let Some(ev) = match_citation(&c, ord, evidences) {
+                let effective_sym = match &ev.symbol {
+                    Some(s) => format!("#{s}"),
+                    None => String::new(),
+                };
                 let effective_range = match ev.lines {
                     Some([lo, hi]) => format!(":L{lo}-L{hi}"),
                     None => String::new(),
                 };
-                let drifted = ev.lines != lines || ev.path != path;
+                let drifted = (lines.is_some() && ev.lines != lines) || ev.path != path;
                 let drift_mark = if drifted { " ↻" } else { "" };
                 let ok_cls = if ev.ok { "cite-ok" } else { "cite-stale" };
                 let tooltip = match &ev.note {
@@ -1296,26 +1322,32 @@ where
                     None => ev.detail.clone(),
                 };
                 out.push_str(&format!(
-                    r##"<a class="cite-chip {ok_cls}" href="#ev-{idx}" data-ev="ev-{idx}" title="{tooltip}">⟦#{idx} {ev_path}{effective_range}{drift_mark}⟧</a>"##,
+                    r##"<a class="cite-chip {ok_cls}" href="#ev-{idx}" data-ev="ev-{idx}" title="{tooltip}">⟦#{idx} {ev_path}{effective_sym}{effective_range}{drift_mark}⟧</a>"##,
                     ok_cls = ok_cls,
                     idx = ev.index,
                     tooltip = escape_html(&tooltip),
                     ev_path = escape_html(&ev.path),
+                    effective_sym = escape_html(&effective_sym),
                     effective_range = escape_html(&effective_range),
                     drift_mark = drift_mark,
                 ));
             } else {
+                let raw_sym = match &symbol {
+                    Some(s) => format!("#{s}"),
+                    None => String::new(),
+                };
                 let raw_range = match lines {
                     Some([lo, hi]) => format!(":L{lo}-L{hi}"),
                     None => String::new(),
                 };
                 out.push_str(&format!(
-                    r#"<span class="cite-chip cite-unpinned" title="Unpinned citation">⟦{}{}⟧</span>"#,
+                    r#"<span class="cite-chip cite-unpinned" title="Unpinned citation">⟦{}{}{}⟧</span>"#,
                     escape_html(&path),
+                    escape_html(&raw_sym),
                     escape_html(&raw_range),
                 ));
             }
-        } else if let Some(wiki_id) = caps.get(5) {
+        } else if let Some(wiki_id) = caps.get(6) {
             let target = wiki_id.as_str();
             if !target.contains("..") && title_by_id.contains_key(target) {
                 let st = status_by_id
@@ -1340,7 +1372,7 @@ where
                     target = escape_html(target)
                 ));
             }
-        } else if let (Some(label), Some(url)) = (caps.get(6), caps.get(7)) {
+        } else if let (Some(label), Some(url)) = (caps.get(7), caps.get(8)) {
             let u = url.as_str();
             if u.to_ascii_lowercase().starts_with("javascript:") {
                 out.push_str(&escape_html(label.as_str()));
@@ -1351,9 +1383,9 @@ where
                     escape_html(label.as_str())
                 ));
             }
-        } else if let Some(bold) = caps.get(8) {
+        } else if let Some(bold) = caps.get(9) {
             out.push_str(&format!("<strong>{}</strong>", escape_html(bold.as_str())));
-        } else if let Some(italic) = caps.get(9) {
+        } else if let Some(italic) = caps.get(10) {
             out.push_str(&format!("<em>{}</em>", escape_html(italic.as_str())));
         }
 
@@ -2019,6 +2051,7 @@ mod tests {
         let ev = vec![ResolvedEvidence {
             index: 1,
             path: "src/lib.rs".into(),
+            symbol: None,
             lines: Some([10, 20]),
             blob: "abcdef1234567890".into(),
             snippet_sha1: Some("1122334455667788".into()),

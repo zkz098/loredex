@@ -665,7 +665,10 @@ fn main() -> anyhow::Result<()> {
                     view.head_short()?
                 );
                 for w in &out.windows {
-                    println!("  {}", w.cite);
+                    match &w.symbol_cite {
+                        Some(sc) => println!("  {}  (or {})", w.cite, sc),
+                        None => println!("  {}", w.cite),
+                    }
                     for p in &w.masked_preview {
                         println!("     | {p}");
                     }

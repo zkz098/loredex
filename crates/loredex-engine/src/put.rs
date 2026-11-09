@@ -3,7 +3,7 @@ use loredex_core::{
 };
 use loredex_git::{GitRepo, GitView};
 
-use crate::{now_iso, record_evidence_with, redact, Result};
+use crate::{now_iso, record_evidence_symbol_with, redact, Result};
 
 #[derive(Debug)]
 pub struct PutOutcome {
@@ -154,12 +154,14 @@ pub fn put_page_with(
 
     let mut evidence: Vec<Evidence> = Vec::new();
     for c in &cites {
-        let ev = record_evidence_with(view, &c.path, c.lines).map_err(|e| {
-            WikiError::Git(format!(
-                "citation [{}] cannot be pinned to HEAD: {e}",
-                c.path
-            ))
-        })?;
+        let ev = record_evidence_symbol_with(view, &c.path, c.symbol.as_deref(), c.lines).map_err(
+            |e| {
+                WikiError::Git(format!(
+                    "citation [{}] cannot be pinned to HEAD: {e}",
+                    c.path
+                ))
+            },
+        )?;
         evidence.push(ev);
     }
 

@@ -7,7 +7,8 @@ use regex::Regex;
 use crate::error::{Result, WikiError};
 
 static CITE_RE: LazyLock<Regex> = LazyLock::new(|| {
-    Regex::new(r"\[\[cite:([^\]\s]+?)(?::L(\d+)-L(\d+))?\]\]").expect("static cite regex")
+    Regex::new(r"\[\[cite:([^\]\s#]+?)(?:#([^\]\s]+?))?(?::L(\d+)-L(\d+))?\]\]")
+        .expect("static cite regex")
 });
 
 static WIKI_LINK_RE: LazyLock<Regex> = LazyLock::new(|| {
@@ -15,10 +16,12 @@ static WIKI_LINK_RE: LazyLock<Regex> = LazyLock::new(|| {
 });
 
 /// A citation marker parsed out of wiki body text:
-/// `[[cite:src/db.rs:L10-L88]]` or `[[cite:src/db.rs]]`.
+/// `[[cite:src/db.rs:L10-L88]]`, `[[cite:src/db.rs#connect]]`,
+/// `[[cite:src/db.rs#Pool::connect:L10-L88]]`, or `[[cite:src/db.rs]]`.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Citation {
     pub path: String,
+    pub symbol: Option<String>,
     pub lines: Option<[u32; 2]>,
     /// byte range of the full marker within the body, for diagnostics
     pub span: (usize, usize),
@@ -29,7 +32,8 @@ pub fn parse_citations(body: &str) -> Result<Vec<Citation>> {
     for caps in CITE_RE.captures_iter(body) {
         let m = caps.get(0).unwrap();
         let path = caps[1].to_string();
-        let lines = match (caps.get(2), caps.get(3)) {
+        let symbol = caps.get(2).map(|s| s.as_str().to_string());
+        let lines = match (caps.get(3), caps.get(4)) {
             (Some(lo), Some(hi)) => {
                 let (lo, hi) = (
                     lo.as_str().parse::<u32>().unwrap(),
@@ -47,6 +51,7 @@ pub fn parse_citations(body: &str) -> Result<Vec<Citation>> {
         };
         out.push(Citation {
             path,
+            symbol,
             lines,
             span: (m.start(), m.end()),
         });
@@ -54,12 +59,12 @@ pub fn parse_citations(body: &str) -> Result<Vec<Citation>> {
     Ok(out)
 }
 
-/// Validate parsed citations and return them deduplicated by (path, lines).
+/// Validate parsed citations and return them deduplicated by (path, symbol, lines).
 pub fn dedup_citations(cites: Vec<Citation>) -> Vec<Citation> {
     let mut seen = std::collections::BTreeSet::new();
     cites
         .into_iter()
-        .filter(|c| seen.insert((c.path.clone(), c.lines)))
+        .filter(|c| seen.insert((c.path.clone(), c.symbol.clone(), c.lines)))
         .collect()
 }
 
@@ -89,6 +94,20 @@ mod tests {
         let body = "[[cite:a.rs:L1-L2]] x [[cite:a.rs:L1-L2]] y [[cite:a.rs]]";
         let cites = dedup_citations(parse_citations(body).unwrap());
         assert_eq!(cites.len(), 2);
+    }
+
+    #[test]
+    fn parses_symbol_and_qualified_symbol() {
+        let body =
+            "[[cite:src/lib.rs#serve]] and [[cite:src/page.rs#WikiPage::from_markdown:L71-L97]]";
+        let cites = parse_citations(body).unwrap();
+        assert_eq!(cites.len(), 2);
+        assert_eq!(cites[0].path, "src/lib.rs");
+        assert_eq!(cites[0].symbol.as_deref(), Some("serve"));
+        assert_eq!(cites[0].lines, None);
+        assert_eq!(cites[1].path, "src/page.rs");
+        assert_eq!(cites[1].symbol.as_deref(), Some("WikiPage::from_markdown"));
+        assert_eq!(cites[1].lines, Some([71, 97]));
     }
 }
 

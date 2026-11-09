@@ -30,6 +30,8 @@ impl Status {
 pub struct Evidence {
     pub path: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub symbol: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub lines: Option<[u32; 2]>,
     pub blob: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -202,6 +204,7 @@ mod tests {
                 commit: "abc123".into(),
                 evidence: vec![Evidence {
                     path: "src/db.rs".into(),
+                    symbol: None,
                     lines: Some([10, 88]),
                     blob: "deadbeef".into(),
                     snippet_sha1: Some("cafe".into()),

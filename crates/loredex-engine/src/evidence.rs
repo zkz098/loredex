@@ -29,8 +29,14 @@ static NOISE: LazyLock<Regex> = LazyLock::new(|| {
 pub struct Window {
     pub path: String,
     pub lines: [u32; 2],
-    /// pasteable marker for the body
+    /// pasteable line-range marker for the body
     pub cite: String,
+    /// Enclosing Rust AST symbol (if the window lies inside a `.rs` item)
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub symbol: Option<String>,
+    /// Pasteable symbol-anchored marker (`[[cite:path#symbol]]`) for `.rs` items
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub symbol_cite: Option<String>,
     pub matched_lines: usize,
     pub masked_preview: Vec<String>,
 }
@@ -88,10 +94,19 @@ pub fn candidates(
             continue;
         }
         matched_files += 1;
+        let rust_syms = crate::ast::parse_rust_symbols(path, &content);
         let ranges = merge_hits(&hits);
         let file_windows: Vec<Window> = ranges
             .into_iter()
             .map(|(lo, hi)| {
+                let first_hit = hits
+                    .iter()
+                    .copied()
+                    .find(|&h| h >= lo && h <= hi)
+                    .unwrap_or(lo);
+                let sym = crate::ast::enclosing_from_list(&rust_syms, first_hit)
+                    .map(|s| s.cite_name().to_string());
+                let sym_cite = sym.as_ref().map(|s| format!("[[cite:{path}#{s}]]"));
                 let lines: Vec<&str> = content
                     .lines()
                     .take(hi as usize)
@@ -107,6 +122,8 @@ pub fn candidates(
                     path: path.clone(),
                     lines: [lo, hi],
                     cite: format!("[[cite:{path}:L{lo}-L{hi}]]"),
+                    symbol: sym,
+                    symbol_cite: sym_cite,
                     matched_lines: matched,
                     masked_preview: preview,
                 }

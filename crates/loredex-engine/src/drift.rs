@@ -120,12 +120,39 @@ fn recover_renamed(
                     let snippet = head_lines_string(view, new_path, range[0], range[1])?;
                     let adopted = Evidence {
                         path: new_path.clone(),
+                        symbol: ev.symbol.clone(),
                         lines: Some(range),
                         blob,
                         snippet_sha1: Some(sha1_hex(snippet.as_bytes())),
                         note: Some(format!(
                             "renamed {} -> {}, drift-projected L{lo}-L{hi} -> L{}-L{} (similarity {score:.2})",
                             ev.path, new_path, range[0], range[1]
+                        )),
+                    };
+                    return Ok((
+                        DriftOutcome::Renamed {
+                            new_path: new_path.clone(),
+                            exact: false,
+                        },
+                        Some(adopted),
+                    ));
+                }
+                if let Some((sym, ast_range, ast_score)) =
+                    try_ast_relocate(new_path, ev.symbol.as_deref(), &o, &n, lo, hi)
+                {
+                    let blob = view
+                        .head_blob_oid(new_path)?
+                        .ok_or_else(|| WikiError::Git(format!("{new_path} vanished")))?;
+                    let snippet = head_lines_string(view, new_path, ast_range[0], ast_range[1])?;
+                    let adopted = Evidence {
+                        path: new_path.clone(),
+                        symbol: Some(sym.clone()),
+                        lines: Some(ast_range),
+                        blob,
+                        snippet_sha1: Some(sha1_hex(snippet.as_bytes())),
+                        note: Some(format!(
+                            "renamed {} -> {}, ast-relocated #{sym} L{lo}-L{hi} -> L{}-L{} (similarity {ast_score:.2})",
+                            ev.path, new_path, ast_range[0], ast_range[1]
                         )),
                     };
                     return Ok((
@@ -246,11 +273,42 @@ pub fn project_evidence_with(
         None => project_range(&old_content, &new_content, lo, hi),
     };
     if score < DRIFT_THRESHOLD {
+        if let Some((sym, ast_range, ast_score)) = try_ast_relocate(
+            &ev.path,
+            ev.symbol.as_deref(),
+            &old_content,
+            &new_content,
+            lo,
+            hi,
+        ) {
+            let snippet = head_lines_string(view, &ev.path, ast_range[0], ast_range[1])?;
+            let adopted = Evidence {
+                path: ev.path.clone(),
+                symbol: Some(sym.clone()),
+                lines: Some(ast_range),
+                blob: current.clone(),
+                snippet_sha1: Some(sha1_hex(snippet.as_bytes())),
+                note: Some(format!(
+                    "ast-relocated #{sym} L{lo}-L{hi}@{} -> L{}-L{} (similarity {ast_score:.2})",
+                    &ev.blob[..8.min(ev.blob.len())],
+                    ast_range[0],
+                    ast_range[1]
+                )),
+            };
+            return Ok((
+                DriftOutcome::Projected {
+                    lines: ast_range,
+                    score: ast_score,
+                },
+                Some(adopted),
+            ));
+        }
         return Ok((DriftOutcome::Lost, None));
     }
     let snippet = head_lines_string(view, &ev.path, new_range[0], new_range[1])?;
     let adopted = Evidence {
         path: ev.path.clone(),
+        symbol: ev.symbol.clone(),
         lines: Some(new_range),
         blob: current.clone(),
         snippet_sha1: Some(sha1_hex(snippet.as_bytes())),
@@ -268,6 +326,47 @@ pub fn project_evidence_with(
         },
         Some(adopted),
     ))
+}
+
+/// Fallback when monotonic line-diff projection fails on a `.rs` file (e.g.
+/// functions or `impl` blocks were reordered within the file): use
+/// `tree-sitter-rust` to locate the cited symbol in `new_content` and adopt its
+/// new span if snippet similarity still passes [`DRIFT_THRESHOLD`].
+fn try_ast_relocate(
+    path: &str,
+    explicit_symbol: Option<&str>,
+    old_content: &str,
+    new_content: &str,
+    lo: u32,
+    hi: u32,
+) -> Option<(String, [u32; 2], f64)> {
+    if !crate::ast::is_rust_path(path) {
+        return None;
+    }
+    let sym_name = match explicit_symbol {
+        Some(s) => s.to_string(),
+        None => crate::ast::symbol_matching_range(path, old_content, lo, hi)?.qualified_name,
+    };
+    let found = crate::ast::resolve_symbol(path, new_content, &sym_name)?;
+    let old_lines: Vec<&str> = old_content.split('\n').collect();
+    let new_lines: Vec<&str> = new_content.split('\n').collect();
+    if old_lines.is_empty() || new_lines.is_empty() {
+        return None;
+    }
+    let lo0 = (lo.max(1) as usize - 1).min(old_lines.len() - 1);
+    let hi0 = (hi as usize).saturating_sub(1).min(old_lines.len() - 1);
+    let nlo0 = (found.lines[0].max(1) as usize - 1).min(new_lines.len() - 1);
+    let nhi0 = (found.lines[1] as usize)
+        .saturating_sub(1)
+        .min(new_lines.len() - 1);
+    let old_snippet = old_lines[lo0..=hi0].join("\n");
+    let new_snippet = new_lines[nlo0..=nhi0].join("\n");
+    let score = similarity(&old_snippet, &new_snippet);
+    if score >= DRIFT_THRESHOLD {
+        Some((found.qualified_name, found.lines, score))
+    } else {
+        None
+    }
 }
 
 fn head_lines_string(view: &GitView, path: &str, lo: u32, hi: u32) -> Result<String> {
