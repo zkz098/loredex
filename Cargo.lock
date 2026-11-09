@@ -1954,7 +1954,7 @@ checksum = "5d15f86d12da44cd8d4ec3c73984537eb7f4cadcb9776a575a0a8a05ca11005c"
 
 [[package]]
 name = "loredex-cli"
-version = "0.1.6"
+version = "0.2.0"
 dependencies = [
  "anyhow",
  "clap",
@@ -1967,7 +1967,7 @@ dependencies = [
 
 [[package]]
 name = "loredex-core"
-version = "0.1.6"
+version = "0.2.0"
 dependencies = [
  "foldhash",
  "regex",
@@ -1978,7 +1978,7 @@ dependencies = [
 
 [[package]]
 name = "loredex-engine"
-version = "0.1.6"
+version = "0.2.0"
 dependencies = [
  "criterion",
  "git2",
@@ -1999,7 +1999,7 @@ dependencies = [
 
 [[package]]
 name = "loredex-git"
-version = "0.1.6"
+version = "0.2.0"
 dependencies = [
  "foldhash",
  "git2",
@@ -2011,7 +2011,7 @@ dependencies = [
 
 [[package]]
 name = "loredex-mcp"
-version = "0.1.6"
+version = "0.2.0"
 dependencies = [
  "anyhow",
  "clap",
