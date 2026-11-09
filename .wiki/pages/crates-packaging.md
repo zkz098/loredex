@@ -2,16 +2,16 @@
 id: crates-packaging
 title: 'Crate packaging: one release train, five units'
 status: verified
-generated_at: 2026-11-09T14:37:56Z
-commit: 8ce30c67ff3080a3c5cde0325e337dee4b5b2056
+generated_at: 2026-11-09T14:40:08Z
+commit: f82b577df69ff89b2c7b5e761cd18f494f9e9ee2
 evidence:
 - path: Cargo.toml
   lines:
   - 1
   - 15
-  blob: d1eb7392ec4b86d978166cdb464a9bc0fba4b654
-  snippet_sha1: 7d4a53ab9963c550f24a0f7a78ddb2fcef24fbf3
-  note: drift-projected L1-L15@a731b14a -> L1-L15 (similarity 1.00)
+  blob: f574dd736a0aad20cf05d0482d309a3c87920a9d
+  snippet_sha1: 5a04ddf24098b477716b6dc90b4fa8afc171b4c1
+  note: drift-projected L1-L15@d1eb7392 -> L1-L15 (similarity 0.93)
 - path: crates/loredex-core/Cargo.toml
   lines:
   - 1

@@ -2,8 +2,8 @@
 id: testing-gates
 title: Test and CI layers
 status: verified
-generated_at: 2026-11-09T14:37:56Z
-commit: 8ce30c67ff3080a3c5cde0325e337dee4b5b2056
+generated_at: 2026-11-09T14:40:08Z
+commit: f82b577df69ff89b2c7b5e761cd18f494f9e9ee2
 evidence:
 - path: crates/loredex-engine/tests/e2e.rs
   lines:
@@ -151,9 +151,9 @@ evidence:
   lines:
   - 1
   - 16
-  blob: d1eb7392ec4b86d978166cdb464a9bc0fba4b654
-  snippet_sha1: 6821e548993b2da2e219527d38c2ca100cc1461e
-  note: drift-projected L1-L16@a731b14a -> L1-L16 (similarity 1.00)
+  blob: f574dd736a0aad20cf05d0482d309a3c87920a9d
+  snippet_sha1: 7aef540d24e63ecf16163ba291d9940a9e417f89
+  note: drift-projected L1-L16@d1eb7392 -> L1-L16 (similarity 0.94)
 - path: .cargo/config.toml
   lines:
   - 1
