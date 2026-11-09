@@ -15,10 +15,13 @@
 # via CARGO_REGISTRY_TOKEN. crates.io validates it against the trusted-publisher
 # config (repo + workflow filename + environment) you added on the crate pages.
 #
-# Then bump [workspace.package].version, tag, and dispatch this workflow
-# (or let a future release-plz automation call it).
+# Then bump [workspace.package].version and push a `vX.Y.Z` tag to trigger
+# automatic publishing (or dispatch this workflow manually).
 name: publish to crates.io
 on:
+  push:
+    tags:
+      - 'v[0-9]+.[0-9]+.[0-9]+*'
   workflow_dispatch:
 
 permissions:

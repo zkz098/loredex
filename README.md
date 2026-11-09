@@ -20,7 +20,7 @@ Agents reading a repository face two costs: expensive context and misleading sta
 
 ## Install
 
-**From crates.io (cargo)** — requires Rust 1.89+ (git2 vendors and compiles libgit2; takes a few minutes):
+**From crates.io (cargo)** — requires Rust 1.90+ (git2 vendors and compiles libgit2; takes a few minutes):
 
 ```bash
 cargo install loredex-cli loredex-mcp

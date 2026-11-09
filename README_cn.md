@@ -20,7 +20,7 @@ Agent 读仓库的痛点：上下文贵、过期文档误导。Loredex 的答案
 
 ## 安装
 
-**从 crates.io（cargo）**，需要 Rust 1.89+（git2 会 vendored 编译 libgit2，几分钟）：
+**从 crates.io（cargo）**，需要 Rust 1.90+（git2 会 vendored 编译 libgit2，几分钟）：
 
 ```bash
 cargo install loredex-cli loredex-mcp

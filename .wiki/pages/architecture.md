@@ -2,16 +2,16 @@
 id: architecture
 title: Architecture
 status: verified
-generated_at: 2026-11-09T14:40:08Z
-commit: f82b577df69ff89b2c7b5e761cd18f494f9e9ee2
+generated_at: 2026-11-09T15:05:20Z
+commit: 5c923ecdc98d8724b5f72b6eebd7be857ca0f336
 evidence:
 - path: Cargo.toml
   lines:
   - 2
   - 9
-  blob: f574dd736a0aad20cf05d0482d309a3c87920a9d
+  blob: 7d094478474dc090a6ae2236019b200073f2f3ed
   snippet_sha1: cdb93553223a82b1c268fcf7d31a0b5c0dd928c0
-  note: drift-projected L2-L9@d1eb7392 -> L2-L9 (similarity 1.00)
+  note: drift-projected L2-L9@f574dd73 -> L2-L9 (similarity 1.00)
 - path: crates/loredex-engine/src/lib.rs
   lines:
   - 439

@@ -69,11 +69,11 @@ jobs:
         run: cargo llvm-cov nextest --workspace --fail-under-lines 70
 
   msrv:
-    # rust-version in Cargo.toml is a promise (std::fs::File::try_lock needs 1.89)
+    # rust-version in Cargo.toml is a promise (tree-sitter-language needs 1.90)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: dtolnay/rust-toolchain@1.89
+      - uses: dtolnay/rust-toolchain@1.90
       - uses: Swatinem/rust-cache@v2
       - name: workspace check at the declared MSRV
         run: cargo check --workspace --all-targets --locked

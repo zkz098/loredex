@@ -2,8 +2,8 @@
 id: testing-gates
 title: Test and CI layers
 status: verified
-generated_at: 2026-11-09T14:40:08Z
-commit: f82b577df69ff89b2c7b5e761cd18f494f9e9ee2
+generated_at: 2026-11-09T15:05:20Z
+commit: 5c923ecdc98d8724b5f72b6eebd7be857ca0f336
 evidence:
 - path: crates/loredex-engine/tests/e2e.rs
   lines:
@@ -53,32 +53,37 @@ evidence:
   lines:
   - 19
   - 22
-  blob: 75c94256eca27ddfbceab1aad35e6f5bdad72305
+  blob: e2446f46ac72bdcbec248d94e4f3106233c8e627
   snippet_sha1: 5edf5908f6af0b86bf40171a278baa6cb7c5319b
+  note: drift-projected L19-L22@75c94256 -> L19-L22 (similarity 1.00)
 - path: .github/workflows/ci.yml
   lines:
   - 27
   - 28
-  blob: 75c94256eca27ddfbceab1aad35e6f5bdad72305
+  blob: e2446f46ac72bdcbec248d94e4f3106233c8e627
   snippet_sha1: 121304982946f9a55c391d324d91bc89b82ea3c5
+  note: drift-projected L27-L28@75c94256 -> L27-L28 (similarity 1.00)
 - path: .github/workflows/ci.yml
   lines:
   - 40
   - 41
-  blob: 75c94256eca27ddfbceab1aad35e6f5bdad72305
+  blob: e2446f46ac72bdcbec248d94e4f3106233c8e627
   snippet_sha1: 9802eeb2ed9062715ecb3df1ec2c7659b679dc8f
+  note: drift-projected L40-L41@75c94256 -> L40-L41 (similarity 1.00)
 - path: .github/workflows/ci.yml
   lines:
   - 29
   - 30
-  blob: 75c94256eca27ddfbceab1aad35e6f5bdad72305
+  blob: e2446f46ac72bdcbec248d94e4f3106233c8e627
   snippet_sha1: 9f1711e607aa0650f2c3c2e1057db344aebc44ab
+  note: drift-projected L29-L30@75c94256 -> L29-L30 (similarity 1.00)
 - path: .github/workflows/ci.yml
   lines:
   - 49
   - 50
-  blob: 75c94256eca27ddfbceab1aad35e6f5bdad72305
+  blob: e2446f46ac72bdcbec248d94e4f3106233c8e627
   snippet_sha1: 4485bd35e473ae9e143f85e37494d2f348e44f17
+  note: drift-projected L49-L50@75c94256 -> L49-L50 (similarity 1.00)
 - path: crates/loredex-engine/benches/scan.rs
   lines:
   - 1
@@ -90,14 +95,16 @@ evidence:
   lines:
   - 68
   - 70
-  blob: 75c94256eca27ddfbceab1aad35e6f5bdad72305
+  blob: e2446f46ac72bdcbec248d94e4f3106233c8e627
   snippet_sha1: a257e989009413de9728abc2726e44ed13113b63
+  note: drift-projected L68-L70@75c94256 -> L68-L70 (similarity 1.00)
 - path: .github/workflows/ci.yml
   lines:
   - 71
   - 79
-  blob: 75c94256eca27ddfbceab1aad35e6f5bdad72305
-  snippet_sha1: fe85178b4c542c0491172f651161fc0d82967f50
+  blob: e2446f46ac72bdcbec248d94e4f3106233c8e627
+  snippet_sha1: 7427dacd01228b5d3e0857664cfdd5a58960887a
+  note: drift-projected L71-L79@75c94256 -> L71-L79 (similarity 0.78)
 - path: crates/loredex-engine/tests/knowledge.rs
   lines:
   - 37
@@ -150,10 +157,10 @@ evidence:
 - path: Cargo.toml
   lines:
   - 1
-  - 16
-  blob: f574dd736a0aad20cf05d0482d309a3c87920a9d
-  snippet_sha1: 7aef540d24e63ecf16163ba291d9940a9e417f89
-  note: drift-projected L1-L16@d1eb7392 -> L1-L16 (similarity 0.94)
+  - 15
+  blob: 7d094478474dc090a6ae2236019b200073f2f3ed
+  snippet_sha1: 5a04ddf24098b477716b6dc90b4fa8afc171b4c1
+  note: drift-projected L1-L16@f574dd73 -> L1-L15 (similarity 0.88)
 - path: .cargo/config.toml
   lines:
   - 1
@@ -174,7 +181,7 @@ cargo clippy --workspace --all-targets -- -D warnings
 cargo nextest run --workspace
 ```
 
-clippy runs with warnings denied [[cite:.github/workflows/ci.yml:L19-L22]] and an unused-dependency sweep gates the same job [[cite:.github/workflows/ci.yml:L27-L28]]; the test job is plain nextest over the workspace [[cite:.github/workflows/ci.yml:L40-L41]], and a step refuses a stale AGENTS.md managed block [[cite:.github/workflows/ci.yml:L29-L30]]. Extra gates exist because this is a whole-repo scanner: a hard regression budget on the page-scan benchmark [[cite:.github/workflows/ci.yml:L49-L50]], which builds a fresh view per iteration over a synthetic 2000-page wiki so the number includes per-command git cache setup [[cite:crates/loredex-engine/benches/scan.rs:L1-L5]], a coverage baseline of 70% lines [[cite:.github/workflows/ci.yml:L68-L70]], and an MSRV gate ensuring all workspace targets build at the declared 1.89 floor [[cite:.github/workflows/ci.yml:L71-L79]]. While iterating, run one suite: `cargo nextest run -p loredex-engine --test knowledge`.
+clippy runs with warnings denied [[cite:.github/workflows/ci.yml:L19-L22]] and an unused-dependency sweep gates the same job [[cite:.github/workflows/ci.yml:L27-L28]]; the test job is plain nextest over the workspace [[cite:.github/workflows/ci.yml:L40-L41]], and a step refuses a stale AGENTS.md managed block [[cite:.github/workflows/ci.yml:L29-L30]]. Extra gates exist because this is a whole-repo scanner: a hard regression budget on the page-scan benchmark [[cite:.github/workflows/ci.yml:L49-L50]], which builds a fresh view per iteration over a synthetic 2000-page wiki so the number includes per-command git cache setup [[cite:crates/loredex-engine/benches/scan.rs:L1-L5]], a coverage baseline of 70% lines [[cite:.github/workflows/ci.yml:L68-L70]], and an MSRV gate ensuring all workspace targets build at the declared 1.90 floor [[cite:.github/workflows/ci.yml:L71-L79]]. While iterating, run one suite: `cargo nextest run -p loredex-engine --test knowledge`.
 
 **Fixtures and harness.** Integration suites build a throwaway git repository in a tempdir, commit the fixture files, then drive the engine against real blobs — freshness and drift projection cannot be rehearsed against a mock [[cite:crates/loredex-engine/tests/knowledge.rs:L37-L45]]. Tests that touch `LOREDEX_REPO` share a serialization lock: nextest isolates every test in its own process, plain `cargo test` threads them [[cite:crates/loredex-mcp/tests/mcp_resolution.rs:L8-L12]].
 
@@ -187,6 +194,6 @@ clippy runs with warnings denied [[cite:.github/workflows/ci.yml:L19-L22]] and a
 
 Wiki maintenance is exercised too: this repository's own `.wiki/` is refreshed on a schedule, committing what projection recovers and opening an issue only for genuine re-authoring [[cite:.github/workflows/loredex-refresh.yml:L1-L8]].
 
-**Workspace facts.** Five crates under `crates/` (core / git / engine / cli / mcp), edition 2021, Rust 1.89 [[cite:Cargo.toml:L1-L16]]. Release builds default to an `x86-64-v3` CPU baseline, so the CPU you test on is not necessarily the one a user has — cross-platform CI jobs matter more here than for a portable CLI [[cite:.cargo/config.toml:L1-L6]].
+**Workspace facts.** Five crates under `crates/` (core / git / engine / cli / mcp), edition 2021, Rust 1.90 [[cite:Cargo.toml:L1-L16]]. Release builds default to an `x86-64-v3` CPU baseline, so the CPU you test on is not necessarily the one a user has — cross-platform CI jobs matter more here than for a portable CLI [[cite:.cargo/config.toml:L1-L6]].
 
 Related: [[wiki:rule-advisory-never-fails-ci]], [[wiki:entry-mcp-cli]], [[wiki:repo-root]].
