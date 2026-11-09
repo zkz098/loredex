@@ -2,39 +2,44 @@
 id: core-model
 title: 'loredex-core: data model and parsing'
 status: verified
-generated_at: 2026-11-03T14:39:34Z
-commit: f82c02925e72f87f7286b6f35a14c829fbe60a74
+generated_at: 2026-11-09T14:37:56Z
+commit: 8ce30c67ff3080a3c5cde0325e337dee4b5b2056
 evidence:
 - path: crates/loredex-core/src/page.rs
   lines:
   - 8
   - 25
-  blob: 04a91928fedae8fe609044e59cbd6ec4a564cdc9
+  blob: 0827a471fbe63039bf1155430c66e0c168085ccf
   snippet_sha1: 75a6d6537d642a933867315487a89e909474298f
+  note: drift-projected L8-L25@04a91928 -> L8-L25 (similarity 1.00)
 - path: crates/loredex-core/src/page.rs
   lines:
-  - 71
-  - 97
-  blob: 04a91928fedae8fe609044e59cbd6ec4a564cdc9
+  - 73
+  - 99
+  blob: 0827a471fbe63039bf1155430c66e0c168085ccf
   snippet_sha1: 798aedcddab6ba41b856879b0f7ec746cacc7be7
+  note: drift-projected L71-L97@04a91928 -> L73-L99 (similarity 1.00)
 - path: crates/loredex-core/src/page.rs
   lines:
-  - 115
-  - 135
-  blob: 04a91928fedae8fe609044e59cbd6ec4a564cdc9
+  - 117
+  - 137
+  blob: 0827a471fbe63039bf1155430c66e0c168085ccf
   snippet_sha1: ef6249dddeca4ce47c183c6d5fdb8d56f37698f3
+  note: drift-projected L115-L135@04a91928 -> L117-L137 (similarity 1.00)
 - path: crates/loredex-core/src/cite.rs
   lines:
-  - 27
-  - 56
-  blob: d34aacbf434a2801d21e2ef956f22ba442b29d2b
-  snippet_sha1: f2ed3fe3000d1e17a032f489c5758b820cb64f71
+  - 30
+  - 61
+  blob: 670c12d1f22e8f4f552f4321b8c0ca250d539263
+  snippet_sha1: fe36178d028fca7c4915c39e63aa0b3a09245058
+  note: drift-projected L27-L56@d34aacbf -> L30-L61 (similarity 0.97)
 - path: crates/loredex-core/src/cite.rs
   lines:
-  - 58
-  - 64
-  blob: d34aacbf434a2801d21e2ef956f22ba442b29d2b
-  snippet_sha1: f1a8cf598d322be8c0fe85f4a03dc1dcfee6ea38
+  - 63
+  - 69
+  blob: 670c12d1f22e8f4f552f4321b8c0ca250d539263
+  snippet_sha1: 2b3f7a770bac7e83908d84968117aa382f574b63
+  note: drift-projected L58-L64@d34aacbf -> L63-L69 (similarity 0.86)
 - path: crates/loredex-core/src/search.rs
   lines:
   - 23

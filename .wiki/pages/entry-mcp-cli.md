@@ -2,8 +2,8 @@
 id: entry-mcp-cli
 title: 'Entry layer: MCP server and CLI'
 status: verified
-generated_at: 2026-11-08T15:19:47Z
-commit: 6218b0933acfd281aa30842652167f82a491d069
+generated_at: 2026-11-09T14:37:56Z
+commit: 8ce30c67ff3080a3c5cde0325e337dee4b5b2056
 evidence:
 - path: crates/loredex-mcp/src/lib.rs
   lines:
@@ -72,16 +72,16 @@ evidence:
   lines:
   - 29
   - 82
-  blob: 5da7033ed58277192e958178bd6824cd1b588300
+  blob: 94f2e96933ee17b58a472f7c0bbb45341b978cf9
   snippet_sha1: a41816cfce0b7a74bceeac51aa3d220d111fa0b5
-  note: drift-projected L29-L82@39e2b9b1 -> L29-L82 (similarity 1.00)
+  note: drift-projected L29-L82@5da7033e -> L29-L82 (similarity 1.00)
 - path: crates/loredex-cli/src/main.rs
   lines:
-  - 891
-  - 893
-  blob: 5da7033ed58277192e958178bd6824cd1b588300
+  - 894
+  - 896
+  blob: 94f2e96933ee17b58a472f7c0bbb45341b978cf9
   snippet_sha1: 98567e54d7ba82b1d391c916db0d975894787331
-  note: drift-projected L877-L879@39e2b9b1 -> L891-L893 (similarity 1.00)
+  note: drift-projected L891-L893@5da7033e -> L894-L896 (similarity 1.00)
 type: system
 ---
 # Entry layer: MCP server and CLI

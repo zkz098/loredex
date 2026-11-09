@@ -2,30 +2,30 @@
 id: architecture
 title: Architecture
 status: verified
-generated_at: 2026-11-08T15:19:47Z
-commit: 6218b0933acfd281aa30842652167f82a491d069
+generated_at: 2026-11-09T14:37:56Z
+commit: 8ce30c67ff3080a3c5cde0325e337dee4b5b2056
 evidence:
 - path: Cargo.toml
   lines:
   - 2
   - 9
-  blob: a731b14a83819e681bdb8da6a4daa4fd4f62f934
+  blob: d1eb7392ec4b86d978166cdb464a9bc0fba4b654
   snippet_sha1: cdb93553223a82b1c268fcf7d31a0b5c0dd928c0
-  note: drift-projected L2-L9@5c79748e -> L2-L9 (similarity 1.00)
+  note: drift-projected L2-L9@a731b14a -> L2-L9 (similarity 1.00)
 - path: crates/loredex-engine/src/lib.rs
   lines:
-  - 384
-  - 396
-  blob: c2376300ae68670e70a6cf650587fa7d50421535
+  - 439
+  - 451
+  blob: f53a1400b4d740442891fa8c0e1bed0a433ba83f
   snippet_sha1: 02ad668b7bdf2cb5db082b398c984b1233f151ee
-  note: drift-projected L379-L391@4600a9da -> L384-L396 (similarity 1.00)
+  note: drift-projected L384-L396@c2376300 -> L439-L451 (similarity 1.00)
 - path: crates/loredex-core/src/page.rs
   lines:
   - 30
-  - 41
-  blob: 04a91928fedae8fe609044e59cbd6ec4a564cdc9
-  snippet_sha1: c29606ed08aec635918031cfd27810613803de0c
-  note: drift-projected L30-L41@0a536572 -> L30-L41 (similarity 1.00)
+  - 43
+  blob: 0827a471fbe63039bf1155430c66e0c168085ccf
+  snippet_sha1: 7e692f17d14072f8df6a7c414f18fe92498379c1
+  note: drift-projected L30-L41@04a91928 -> L30-L43 (similarity 1.00)
 type: architecture
 ---
 # Architecture

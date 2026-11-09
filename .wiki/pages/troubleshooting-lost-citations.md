@@ -2,23 +2,23 @@
 id: troubleshooting-lost-citations
 title: '"citation content lost" flips pages to draft'
 status: verified
-generated_at: 2026-11-08T15:19:47Z
-commit: 6218b0933acfd281aa30842652167f82a491d069
+generated_at: 2026-11-09T14:37:56Z
+commit: 8ce30c67ff3080a3c5cde0325e337dee4b5b2056
 evidence:
 - path: crates/loredex-engine/src/drift.rs
   lines:
   - 28
   - 30
-  blob: f40c756f8c4738472d9f66c9c24f81fbc8f2ff79
+  blob: 9062b2d49788c15508c3e148f71423fe07df4fe5
   snippet_sha1: 4ca069b9ca1c9df03f402f88117ac2bebaa11fd7
-  note: drift-projected L28-L30@81c113ab -> L28-L30 (similarity 1.00)
+  note: drift-projected L28-L30@f40c756f -> L28-L30 (similarity 1.00)
 - path: crates/loredex-engine/src/drift.rs
   lines:
-  - 406
-  - 417
-  blob: f40c756f8c4738472d9f66c9c24f81fbc8f2ff79
+  - 505
+  - 516
+  blob: 9062b2d49788c15508c3e148f71423fe07df4fe5
   snippet_sha1: 53e778d40b1e2e279e316a500be9f11f5696d899
-  note: drift-projected L399-L411@81c113ab -> L406-L417 (similarity 0.85)
+  note: drift-projected L406-L417@f40c756f -> L505-L516 (similarity 1.00)
 - path: crates/loredex-engine/src/auto.rs
   lines:
   - 64
@@ -29,23 +29,23 @@ evidence:
   lines:
   - 85
   - 96
-  blob: f40c756f8c4738472d9f66c9c24f81fbc8f2ff79
+  blob: 9062b2d49788c15508c3e148f71423fe07df4fe5
   snippet_sha1: a01e6c0297db68a7399add05bf04847673acf2d8
-  note: drift-projected L85-L96@81c113ab -> L85-L96 (similarity 1.00)
+  note: drift-projected L85-L96@f40c756f -> L85-L96 (similarity 1.00)
 - path: crates/loredex-engine/src/put.rs
   lines:
-  - 197
-  - 237
-  blob: 53f8b6e86e53d713a66c0bf4102f750cbdb0fba5
+  - 199
+  - 239
+  blob: a19f4d1d27850d30359e72caa2dfc38033b53398
   snippet_sha1: 692fa1cfb1dc8b0f15e9db2f0dbc3ac9767f4437
-  note: drift-projected L163-L192@a9842770 -> L197-L237 (similarity 0.93)
+  note: drift-projected L197-L237@53f8b6e8 -> L199-L239 (similarity 1.00)
 - path: crates/loredex-engine/src/lib.rs
   lines:
-  - 344
-  - 358
-  blob: c2376300ae68670e70a6cf650587fa7d50421535
+  - 399
+  - 413
+  blob: f53a1400b4d740442891fa8c0e1bed0a433ba83f
   snippet_sha1: 58819359d859568299c50d43a98675ffd8e53d9c
-  note: drift-projected L339-L353@4600a9da -> L344-L358 (similarity 1.00)
+  note: drift-projected L344-L358@c2376300 -> L399-L413 (similarity 1.00)
 tags:
 - policy
 type: troubleshooting

@@ -2,23 +2,23 @@
 id: rule-evidence-contract
 title: Every verified claim cites resolvable evidence
 status: verified
-generated_at: 2026-11-03T13:20:21Z
-commit: 67da1675a709e5972e22a3f53797fe275070907e
+generated_at: 2026-11-09T14:37:56Z
+commit: 8ce30c67ff3080a3c5cde0325e337dee4b5b2056
 evidence:
 - path: crates/loredex-engine/src/put.rs
   lines:
   - 123
   - 153
-  blob: 53f8b6e86e53d713a66c0bf4102f750cbdb0fba5
+  blob: a19f4d1d27850d30359e72caa2dfc38033b53398
   snippet_sha1: ea7190bfa177bcdb5afdc9d6fe6bb1aa8764805a
-  note: drift-projected L90-L120@a9842770 -> L123-L153 (similarity 1.00)
+  note: drift-projected L123-L153@53f8b6e8 -> L123-L153 (similarity 1.00)
 - path: crates/loredex-engine/src/put.rs
   lines:
   - 53
   - 95
-  blob: 53f8b6e86e53d713a66c0bf4102f750cbdb0fba5
+  blob: a19f4d1d27850d30359e72caa2dfc38033b53398
   snippet_sha1: a513c03b85b8d58947168a8f631e92c33c87f24a
-  note: drift-projected L36-L62@a9842770 -> L53-L95 (similarity 1.00)
+  note: drift-projected L53-L95@53f8b6e8 -> L53-L95 (similarity 1.00)
 - path: crates/loredex-engine/src/auto.rs
   lines:
   - 113

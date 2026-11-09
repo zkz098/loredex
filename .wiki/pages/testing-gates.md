@@ -2,8 +2,8 @@
 id: testing-gates
 title: Test and CI layers
 status: verified
-generated_at: 2026-11-08T15:19:47Z
-commit: 6218b0933acfd281aa30842652167f82a491d069
+generated_at: 2026-11-09T14:37:56Z
+commit: 8ce30c67ff3080a3c5cde0325e337dee4b5b2056
 evidence:
 - path: crates/loredex-engine/tests/e2e.rs
   lines:
@@ -27,9 +27,9 @@ evidence:
   lines:
   - 1
   - 6
-  blob: 48fcf9e2dcc14bf430aade27be775c4f2e7f7eb8
+  blob: 37881a1de4ec9ada9caa1bcdb0c0413bd08ce22f
   snippet_sha1: 37fc883df601500cdfc8672d80877de2091d8e8a
-  note: drift-projected L1-L8@ce6a0e49 -> L1-L6 (similarity 0.62)
+  note: drift-projected L1-L6@48fcf9e2 -> L1-L6 (similarity 1.00)
 - path: crates/loredex-engine/tests/knowledge.rs
   lines:
   - 1
@@ -83,8 +83,9 @@ evidence:
   lines:
   - 1
   - 5
-  blob: 085c227950f762d22d4e0898859b4d309259555c
+  blob: d5bb817bd38bddcb0808b43eceeb0d9e22f6d76f
   snippet_sha1: 962520a22f808ff93a4239e341ce8625971ac5b4
+  note: drift-projected L1-L5@085c2279 -> L1-L5 (similarity 1.00)
 - path: .github/workflows/ci.yml
   lines:
   - 68
@@ -150,9 +151,9 @@ evidence:
   lines:
   - 1
   - 16
-  blob: a731b14a83819e681bdb8da6a4daa4fd4f62f934
+  blob: d1eb7392ec4b86d978166cdb464a9bc0fba4b654
   snippet_sha1: 6821e548993b2da2e219527d38c2ca100cc1461e
-  note: drift-projected L1-L16@5c79748e -> L1-L16 (similarity 1.00)
+  note: drift-projected L1-L16@a731b14a -> L1-L16 (similarity 1.00)
 - path: .cargo/config.toml
   lines:
   - 1

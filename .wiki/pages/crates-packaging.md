@@ -2,16 +2,16 @@
 id: crates-packaging
 title: 'Crate packaging: one release train, five units'
 status: verified
-generated_at: 2026-11-08T15:19:47Z
-commit: 6218b0933acfd281aa30842652167f82a491d069
+generated_at: 2026-11-09T14:37:56Z
+commit: 8ce30c67ff3080a3c5cde0325e337dee4b5b2056
 evidence:
 - path: Cargo.toml
   lines:
   - 1
   - 15
-  blob: a731b14a83819e681bdb8da6a4daa4fd4f62f934
+  blob: d1eb7392ec4b86d978166cdb464a9bc0fba4b654
   snippet_sha1: 7d4a53ab9963c550f24a0f7a78ddb2fcef24fbf3
-  note: drift-projected L1-L15@5c79748e -> L1-L15 (similarity 1.00)
+  note: drift-projected L1-L15@a731b14a -> L1-L15 (similarity 1.00)
 - path: crates/loredex-core/Cargo.toml
   lines:
   - 1
@@ -29,8 +29,9 @@ evidence:
   lines:
   - 1
   - 20
-  blob: c1808bc2a1d03998bbed1aaf4e14f168201b1e24
+  blob: 0332f4fba89aa022387036067e693b9cc3fc0132
   snippet_sha1: e5d719801c8c972d24b1268927854a25ff529d92
+  note: drift-projected L1-L20@c1808bc2 -> L1-L20 (similarity 1.00)
 - path: crates/loredex-cli/Cargo.toml
   lines:
   - 1
@@ -85,17 +86,18 @@ evidence:
   note: drift-projected L1-L4@5ed44870 -> L1-L4 (similarity 1.00)
 - path: crates/loredex-engine/Cargo.toml
   lines:
-  - 22
-  - 29
-  blob: c1808bc2a1d03998bbed1aaf4e14f168201b1e24
+  - 24
+  - 31
+  blob: 0332f4fba89aa022387036067e693b9cc3fc0132
   snippet_sha1: 95a2a02e460b7e837c08703daf6661517e9a8ed5
+  note: drift-projected L22-L29@c1808bc2 -> L24-L31 (similarity 1.00)
 - path: crates/loredex-cli/src/main.rs
   lines:
-  - 838
-  - 842
-  blob: 5da7033ed58277192e958178bd6824cd1b588300
+  - 841
+  - 845
+  blob: 94f2e96933ee17b58a472f7c0bbb45341b978cf9
   snippet_sha1: e187a2a82afad82d21785360a8b1bbc44abc69f6
-  note: drift-projected L824-L828@39e2b9b1 -> L838-L842 (similarity 1.00)
+  note: drift-projected L838-L842@5da7033e -> L841-L845 (similarity 1.00)
 - path: crates/loredex-cli/templates/loredex-refresh.yml
   lines:
   - 1

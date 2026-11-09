@@ -2,23 +2,23 @@
 id: decision-no-database
 title: The frontmatter is the database
 status: verified
-generated_at: 2026-11-08T15:19:47Z
-commit: 6218b0933acfd281aa30842652167f82a491d069
+generated_at: 2026-11-09T14:37:56Z
+commit: 8ce30c67ff3080a3c5cde0325e337dee4b5b2056
 evidence:
 - path: crates/loredex-core/src/page.rs
   lines:
-  - 41
-  - 57
-  blob: 04a91928fedae8fe609044e59cbd6ec4a564cdc9
+  - 43
+  - 59
+  blob: 0827a471fbe63039bf1155430c66e0c168085ccf
   snippet_sha1: e6114a75be2ac5ef7cda901c36235c68c522d569
-  note: drift-projected L41-L57@0a536572 -> L41-L57 (similarity 1.00)
+  note: drift-projected L41-L57@04a91928 -> L43-L59 (similarity 1.00)
 - path: crates/loredex-core/src/page.rs
   lines:
-  - 143
-  - 153
-  blob: 04a91928fedae8fe609044e59cbd6ec4a564cdc9
+  - 145
+  - 155
+  blob: 0827a471fbe63039bf1155430c66e0c168085ccf
   snippet_sha1: 669c21e454c64c95a15afd1bf13e20b4b0e2d76c
-  note: drift-projected L135-L145@0a536572 -> L143-L153 (similarity 1.00)
+  note: drift-projected L143-L153@04a91928 -> L145-L155 (similarity 1.00)
 - path: crates/loredex-core/src/search.rs
   lines:
   - 138
@@ -48,11 +48,11 @@ evidence:
   note: drift-projected L538-L546@d220dafd -> L538-L546 (similarity 1.00)
 - path: crates/loredex-engine/src/lib.rs
   lines:
-  - 117
-  - 126
-  blob: c2376300ae68670e70a6cf650587fa7d50421535
+  - 122
+  - 131
+  blob: f53a1400b4d740442891fa8c0e1bed0a433ba83f
   snippet_sha1: 283e5dc1033a8132bdfc3741c781d364cf63ca80
-  note: drift-projected L112-L121@4600a9da -> L117-L126 (similarity 1.00)
+  note: drift-projected L117-L126@c2376300 -> L122-L131 (similarity 1.00)
 tags:
 - policy
 type: decision
