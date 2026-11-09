@@ -2,8 +2,8 @@
 id: rule-evidence-contract
 title: Every verified claim cites resolvable evidence
 status: verified
-generated_at: 2026-11-03T13:20:21Z
-commit: 67da1675a709e5972e22a3f53797fe275070907e
+generated_at: 2026-11-09T11:46:50Z
+commit: d9e2dbdd9a229e90e1611b012914a6c2e20bf824
 evidence:
 - path: crates/loredex-engine/src/put.rs
   lines:
