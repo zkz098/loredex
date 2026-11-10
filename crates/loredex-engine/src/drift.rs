@@ -33,9 +33,14 @@ const DRIFT_THRESHOLD: f64 = 0.6;
 /// `old_content` onto `new_content` via a line diff, then score how well
 /// the projected snippet matches the old one.
 pub fn project_range(old_content: &str, new_content: &str, lo: u32, hi: u32) -> ([u32; 2], f64) {
-    let old_lines: Vec<&str> = old_content.split('\n').collect();
-    let new_lines: Vec<&str> = new_content.split('\n').collect();
-    if old_lines.is_empty() || new_lines.is_empty() {
+    let old_lines: Vec<&str> = old_content.lines().collect();
+    let new_lines: Vec<&str> = new_content.lines().collect();
+    if old_lines.is_empty()
+        || new_lines.is_empty()
+        || lo == 0
+        || hi < lo
+        || (lo as usize) > old_lines.len()
+    {
         return ([lo, hi], 0.0);
     }
     let mut map = vec![0usize; old_lines.len()];
@@ -45,7 +50,7 @@ pub fn project_range(old_content: &str, new_content: &str, lo: u32, hi: u32) -> 
         match change.tag() {
             ChangeTag::Equal => {
                 if oi < old_lines.len() {
-                    map[oi] = ni;
+                    map[oi] = ni.min(new_lines.len() - 1);
                 }
                 oi += 1;
                 ni += 1;
@@ -53,7 +58,7 @@ pub fn project_range(old_content: &str, new_content: &str, lo: u32, hi: u32) -> 
             ChangeTag::Delete => {
                 // deleted old line: anchor it to the last surviving new line
                 if oi < old_lines.len() {
-                    map[oi] = ni.saturating_sub(1);
+                    map[oi] = ni.saturating_sub(1).min(new_lines.len() - 1);
                 }
                 oi += 1;
             }
@@ -65,8 +70,8 @@ pub fn project_range(old_content: &str, new_content: &str, lo: u32, hi: u32) -> 
 
     let lo = lo.max(1) as usize - 1;
     let hi = (hi as usize).saturating_sub(1).min(old_lines.len() - 1);
-    let mut nlo = map[lo];
-    let mut nhi = map[hi];
+    let mut nlo = map[lo].min(new_lines.len() - 1);
+    let mut nhi = map[hi].min(new_lines.len() - 1);
     if nhi < nlo {
         std::mem::swap(&mut nlo, &mut nhi);
     }
@@ -188,9 +193,14 @@ fn project_with_map(
     lo: u32,
     hi: u32,
 ) -> ([u32; 2], f64) {
-    let old_lines: Vec<&str> = old_content.split('\n').collect();
-    let new_lines: Vec<&str> = new_content.split('\n').collect();
-    if old_lines.is_empty() || new_lines.is_empty() {
+    let old_lines: Vec<&str> = old_content.lines().collect();
+    let new_lines: Vec<&str> = new_content.lines().collect();
+    if old_lines.is_empty()
+        || new_lines.is_empty()
+        || lo == 0
+        || hi < lo
+        || (lo as usize) > old_lines.len()
+    {
         return ([lo, hi], 0.0);
     }
     let lo0 = (lo.max(1) as usize - 1).min(old_lines.len() - 1);
@@ -205,6 +215,9 @@ fn project_with_map(
 }
 
 fn similarity(a: &str, b: &str) -> f64 {
+    if a.trim().is_empty() || b.trim().is_empty() {
+        return 0.0;
+    }
     if a == b {
         return 1.0;
     }
@@ -421,7 +434,21 @@ pub fn refresh_page_with_drift_view(
     view: &GitView,
     wiki_dir: &std::path::Path,
 ) -> Result<Vec<(String, DriftOutcome)>> {
-    refresh_page_with_drift_view_inner(page, view, wiki_dir, true)
+    refresh_page_with_drift_view_inner(page, view, wiki_dir, true, false)
+}
+
+/// Refresh a page's evidence with drift projection and optional inline body
+/// line-range synchronization (`sync_lines`). Renamed citation paths are
+/// always synchronized into `page.body` so body markers and frontmatter never
+/// split on file moves.
+pub fn refresh_page_with_drift_options(
+    page: &mut WikiPage,
+    view: &GitView,
+    wiki_dir: &std::path::Path,
+    mark_done: bool,
+    sync_lines: bool,
+) -> Result<Vec<(String, DriftOutcome)>> {
+    refresh_page_with_drift_view_inner(page, view, wiki_dir, mark_done, sync_lines)
 }
 
 /// Batch variant for `auto`: the caller resolves every recovered page with a
@@ -430,8 +457,88 @@ pub(crate) fn refresh_page_with_drift_view_deferred(
     page: &mut WikiPage,
     view: &GitView,
     wiki_dir: &std::path::Path,
+    sync_lines: bool,
 ) -> Result<Vec<(String, DriftOutcome)>> {
-    refresh_page_with_drift_view_inner(page, view, wiki_dir, false)
+    refresh_page_with_drift_view_inner(page, view, wiki_dir, false, sync_lines)
+}
+
+/// Synchronize inline `[[cite:...]]` markers in `body` when evidence paths are
+/// renamed (always) or line ranges shift (`sync_lines = true`).
+pub fn sync_body_citations(
+    body: &str,
+    old_evidence: &[Evidence],
+    new_evidence: &[Evidence],
+    outcomes: &[(String, DriftOutcome)],
+    sync_lines: bool,
+) -> String {
+    let Ok(cites) = loredex_core::parse_citations(body) else {
+        return body.to_string();
+    };
+    if cites.is_empty() {
+        return body.to_string();
+    }
+    let triples: Vec<(&Evidence, &Evidence, &DriftOutcome)> = old_evidence
+        .iter()
+        .zip(new_evidence.iter())
+        .zip(outcomes.iter())
+        .map(|((o, n), (_, out))| (o, n, out))
+        .collect();
+
+    let mut out = body.to_string();
+    for c in cites.iter().rev() {
+        let matched = triples
+            .iter()
+            .find(|(o, _, _)| o.path == c.path && o.symbol == c.symbol && o.lines == c.lines)
+            .or_else(|| {
+                triples
+                    .iter()
+                    .find(|(o, _, _)| o.path == c.path && o.lines == c.lines)
+            })
+            .or_else(|| {
+                triples.iter().find(|(o, _, _)| {
+                    o.path == c.path && o.symbol.is_some() && o.symbol == c.symbol
+                })
+            })
+            .or_else(|| {
+                triples
+                    .iter()
+                    .find(|(o, n, _)| o.path == c.path && o.path != n.path)
+            });
+
+        let Some((old_ev, new_ev, outcome)) = matched else {
+            continue;
+        };
+        let target_path = if old_ev.path != new_ev.path {
+            new_ev.path.as_str()
+        } else {
+            c.path.as_str()
+        };
+        let target_lines = if sync_lines
+            && c.lines.is_some()
+            && new_ev.lines.is_some()
+            && matches!(
+                outcome,
+                DriftOutcome::Projected { .. } | DriftOutcome::Renamed { .. }
+            ) {
+            new_ev.lines
+        } else {
+            c.lines
+        };
+        if target_path == c.path && target_lines == c.lines {
+            continue;
+        }
+        let mut marker = format!("[[cite:{target_path}");
+        if let Some(sym) = &c.symbol {
+            marker.push('#');
+            marker.push_str(sym);
+        }
+        if let Some([lo, hi]) = target_lines {
+            marker.push_str(&format!(":L{lo}-L{hi}"));
+        }
+        marker.push_str("]]");
+        out.replace_range(c.span.0..c.span.1, &marker);
+    }
+    out
 }
 
 fn refresh_page_with_drift_view_inner(
@@ -439,6 +546,7 @@ fn refresh_page_with_drift_view_inner(
     view: &GitView,
     wiki_dir: &std::path::Path,
     mark_done: bool,
+    sync_lines: bool,
 ) -> Result<Vec<(String, DriftOutcome)>> {
     // Remember what the file looked like when the caller loaded it: refresh is
     // a read-modify-write too, and another agent may have put a new body while
@@ -506,6 +614,14 @@ fn refresh_page_with_drift_view_inner(
         .iter()
         .any(|(_, o)| matches!(o, DriftOutcome::Lost | DriftOutcome::NoOldBlob));
 
+    page.body = sync_body_citations(
+        &page.body,
+        &page.meta.evidence,
+        &evidence,
+        &outcomes,
+        sync_lines,
+    )
+    .into();
     page.meta.evidence = evidence;
     page.meta.commit = view.head_commit()?.to_string();
     page.meta.generated_at = now_iso();
@@ -562,6 +678,33 @@ mod tests {
         let new = "x\ny\nz\n";
         let (_, score) = project_range(old, new, 1, 3);
         assert!(score < 0.6);
+    }
+
+    #[test]
+    fn out_of_bounds_or_empty_range_never_projects_to_trailing_eof_with_score_one() {
+        let old = (1..=502)
+            .map(|i| format!("line {i}"))
+            .collect::<Vec<_>>()
+            .join("\n")
+            + "\n";
+        let new = (1..=200)
+            .map(|i| format!("replaced {i}"))
+            .collect::<Vec<_>>()
+            .join("\n")
+            + "\n";
+        let (_, score_oob) = project_range(&old, &new, 503, 510);
+        assert_eq!(
+            score_oob, 0.0,
+            "out-of-bounds range must not match trailing newline"
+        );
+
+        let old_blank = "fn a() {}\n\n\nfn b() {}\n";
+        let new_blank = "fn c() {}\n\n\nfn d() {}\n";
+        let (_, score_blank) = project_range(old_blank, new_blank, 2, 3);
+        assert_eq!(
+            score_blank, 0.0,
+            "whitespace-only snippet must not score 1.0"
+        );
     }
 }
 

@@ -2,16 +2,15 @@
 id: crates-packaging
 title: 'Crate packaging: one release train, five units'
 status: verified
-generated_at: 2026-11-09T15:05:20Z
-commit: 5c923ecdc98d8724b5f72b6eebd7be857ca0f336
+generated_at: 2026-11-10T15:16:08Z
+commit: 6802401ccb4cc357a9c5f870b52adaab11715e4b
 evidence:
 - path: Cargo.toml
   lines:
   - 1
-  - 15
+  - 16
   blob: 7d094478474dc090a6ae2236019b200073f2f3ed
-  snippet_sha1: 5a04ddf24098b477716b6dc90b4fa8afc171b4c1
-  note: drift-projected L1-L15@f574dd73 -> L1-L15 (similarity 1.00)
+  snippet_sha1: 72679441ccfc863393da1ef77c6c4dee37489d2b
 - path: crates/loredex-core/Cargo.toml
   lines:
   - 1
@@ -21,17 +20,15 @@ evidence:
 - path: crates/loredex-git/Cargo.toml
   lines:
   - 1
-  - 18
+  - 16
   blob: 57ff03d7870dae66cfd4edf6069353103fc91ac1
-  snippet_sha1: 2e01acbe0d74aee5c872faaa344974154bf6c758
-  note: drift-projected L1-L16@25086f1d -> L1-L18 (similarity 0.88)
+  snippet_sha1: de6d5d46de2a66b4c3fc893e05abf85c8cdf60d6
 - path: crates/loredex-engine/Cargo.toml
   lines:
   - 1
   - 20
   blob: 0332f4fba89aa022387036067e693b9cc3fc0132
   snippet_sha1: e5d719801c8c972d24b1268927854a25ff529d92
-  note: drift-projected L1-L20@c1808bc2 -> L1-L20 (similarity 1.00)
 - path: crates/loredex-cli/Cargo.toml
   lines:
   - 1
@@ -50,14 +47,12 @@ evidence:
   - 4
   blob: 35ee105416941a144bec644f4f8f69782a39e4f9
   snippet_sha1: c748a2d9da8c69403a29f5c2a6587fdfa8300f6a
-  note: drift-projected L1-L4@ec5571df -> L1-L4 (similarity 0.67)
 - path: crates/loredex-engine/README.md
   lines:
   - 1
   - 4
   blob: 4a27934601b8e70385997a2cb7a047aa35e6d577
   snippet_sha1: 4c2958d2ecb57f637d83cba770fedcf0b09a9a0b
-  note: drift-projected L1-L4@7b9bf513 -> L1-L4 (similarity 1.00)
 - path: crates/loredex-cli/Cargo.toml
   lines:
   - 10
@@ -70,7 +65,6 @@ evidence:
   - 4
   blob: 54457721f76de5fc9ed4a85c42ecc3259427bee6
   snippet_sha1: 07fd47f78dbb5191fce67eac53acd4ce6ad9f948
-  note: drift-projected L1-L4@7ba82f3d -> L1-L4 (similarity 1.00)
 - path: crates/loredex-mcp/Cargo.toml
   lines:
   - 10
@@ -83,21 +77,18 @@ evidence:
   - 4
   blob: 7cd90b12d049c15eae51baee4b6f76b7a6836380
   snippet_sha1: a05cf669be8d4f48c71fc4e1e666801541206057
-  note: drift-projected L1-L4@5ed44870 -> L1-L4 (similarity 1.00)
 - path: crates/loredex-engine/Cargo.toml
   lines:
-  - 24
-  - 31
+  - 22
+  - 29
   blob: 0332f4fba89aa022387036067e693b9cc3fc0132
-  snippet_sha1: 95a2a02e460b7e837c08703daf6661517e9a8ed5
-  note: drift-projected L22-L29@c1808bc2 -> L24-L31 (similarity 1.00)
+  snippet_sha1: bcd087564c1bdd7de7077b7b7a26f452aece6181
 - path: crates/loredex-cli/src/main.rs
   lines:
-  - 841
-  - 845
-  blob: 94f2e96933ee17b58a472f7c0bbb45341b978cf9
-  snippet_sha1: e187a2a82afad82d21785360a8b1bbc44abc69f6
-  note: drift-projected L838-L842@5da7033e -> L841-L845 (similarity 1.00)
+  - 671
+  - 675
+  blob: 42b915e5dbe33c3ad32c286d6e4609556b6dcb8e
+  snippet_sha1: 4878360c1d8275f1515db989ccc703027569bce2
 - path: crates/loredex-cli/templates/loredex-refresh.yml
   lines:
   - 1

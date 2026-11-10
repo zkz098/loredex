@@ -2,50 +2,45 @@
 id: troubleshooting-lost-citations
 title: '"citation content lost" flips pages to draft'
 status: verified
-generated_at: 2026-11-09T14:37:56Z
-commit: 8ce30c67ff3080a3c5cde0325e337dee4b5b2056
+generated_at: 2026-11-10T15:16:08Z
+commit: 6802401ccb4cc357a9c5f870b52adaab11715e4b
 evidence:
 - path: crates/loredex-engine/src/drift.rs
   lines:
   - 28
   - 30
-  blob: 9062b2d49788c15508c3e148f71423fe07df4fe5
+  blob: 0d54875ecfa420ea80b08633b8dcd314b3c9c15c
   snippet_sha1: 4ca069b9ca1c9df03f402f88117ac2bebaa11fd7
-  note: drift-projected L28-L30@f40c756f -> L28-L30 (similarity 1.00)
 - path: crates/loredex-engine/src/drift.rs
   lines:
-  - 505
-  - 516
-  blob: 9062b2d49788c15508c3e148f71423fe07df4fe5
-  snippet_sha1: 53e778d40b1e2e279e316a500be9f11f5696d899
-  note: drift-projected L406-L417@f40c756f -> L505-L516 (similarity 1.00)
+  - 399
+  - 411
+  blob: 0d54875ecfa420ea80b08633b8dcd314b3c9c15c
+  snippet_sha1: 327d32745e5c5249b723fa7c232aad13e0f13498
 - path: crates/loredex-engine/src/auto.rs
   lines:
   - 64
   - 99
-  blob: b4a94af752dbaae368c1b4a90f764601191baf18
-  snippet_sha1: bcd733e77b4e4c53e3b5481d62cdcf3370e4e7d7
+  blob: ba5de45fb822b8efb953c1498ce55def0f751063
+  snippet_sha1: 54099b938cc7ebc3cd79999521b24d4e130c2b92
 - path: crates/loredex-engine/src/drift.rs
   lines:
   - 85
   - 96
-  blob: 9062b2d49788c15508c3e148f71423fe07df4fe5
-  snippet_sha1: a01e6c0297db68a7399add05bf04847673acf2d8
-  note: drift-projected L85-L96@f40c756f -> L85-L96 (similarity 1.00)
+  blob: 0d54875ecfa420ea80b08633b8dcd314b3c9c15c
+  snippet_sha1: 58d96aa0f5018ab781dcd053912493423e69500f
 - path: crates/loredex-engine/src/put.rs
   lines:
-  - 199
-  - 239
-  blob: a19f4d1d27850d30359e72caa2dfc38033b53398
-  snippet_sha1: 692fa1cfb1dc8b0f15e9db2f0dbc3ac9767f4437
-  note: drift-projected L197-L237@53f8b6e8 -> L199-L239 (similarity 1.00)
+  - 163
+  - 192
+  blob: 70af27d9389e0533a046d32aa3ab22838f3931ed
+  snippet_sha1: f5eba9af9cd6e28d8e17839599906136c4933dc8
 - path: crates/loredex-engine/src/lib.rs
   lines:
-  - 399
-  - 413
-  blob: f53a1400b4d740442891fa8c0e1bed0a433ba83f
-  snippet_sha1: 58819359d859568299c50d43a98675ffd8e53d9c
-  note: drift-projected L344-L358@c2376300 -> L399-L413 (similarity 1.00)
+  - 316
+  - 330
+  blob: 97ac2a10ec698dc5c7c31964bc053faff69eae61
+  snippet_sha1: 08d9b743e61eb18dcda98fe2e41bb18e6a40dcfe
 tags:
 - policy
 type: troubleshooting

@@ -2,30 +2,27 @@
 id: decision-no-database
 title: The frontmatter is the database
 status: verified
-generated_at: 2026-11-09T14:37:56Z
-commit: 8ce30c67ff3080a3c5cde0325e337dee4b5b2056
+generated_at: 2026-11-10T15:16:08Z
+commit: 6802401ccb4cc357a9c5f870b52adaab11715e4b
 evidence:
 - path: crates/loredex-core/src/page.rs
   lines:
-  - 43
-  - 59
+  - 41
+  - 57
   blob: 0827a471fbe63039bf1155430c66e0c168085ccf
-  snippet_sha1: e6114a75be2ac5ef7cda901c36235c68c522d569
-  note: drift-projected L41-L57@04a91928 -> L43-L59 (similarity 1.00)
+  snippet_sha1: b84591c9fd3689c3149782907fa84cee18978c98
 - path: crates/loredex-core/src/page.rs
   lines:
+  - 135
   - 145
-  - 155
   blob: 0827a471fbe63039bf1155430c66e0c168085ccf
-  snippet_sha1: 669c21e454c64c95a15afd1bf13e20b4b0e2d76c
-  note: drift-projected L143-L153@04a91928 -> L145-L155 (similarity 1.00)
+  snippet_sha1: de1236c41fdb48d4e914ba8836a64b3ed28d6813
 - path: crates/loredex-core/src/search.rs
   lines:
-  - 138
-  - 163
+  - 106
+  - 120
   blob: cd125703ab5b2d5d5abba89b07270a2b279ca8bc
-  snippet_sha1: fecd880252719dbc5cd7ed4eaf69aa62f665d4c0
-  note: drift-projected L116-L130@d761dfe3 -> L138-L163 (similarity 0.73)
+  snippet_sha1: 072592b0c4490633c494519a04515cf0a624158d
 - path: crates/loredex-engine/src/organize.rs
   lines:
   - 54
@@ -38,21 +35,18 @@ evidence:
   - 110
   blob: 4800de5f0cd1b0de76d09014bc25ad4f1d2f1f35
   snippet_sha1: d50881deb99637930250c8faad294ab772f17e9d
-  note: drift-projected L93-L110@f71fc8f0 -> L93-L110 (similarity 1.00)
 - path: crates/loredex-mcp/src/lib.rs
   lines:
-  - 538
-  - 546
-  blob: 6f1ff0c44e3f66f5a16f592dcddc4b54bb61fad1
-  snippet_sha1: 29551fb8394878d8509a005b38db3855fb903a23
-  note: drift-projected L538-L546@d220dafd -> L538-L546 (similarity 1.00)
+  - 462
+  - 470
+  blob: ef81cb0099e3e22883362d265b3cda16e809e506
+  snippet_sha1: 9cdbdc30bf4b9aecc040eceab5a65a0b9492321f
 - path: crates/loredex-engine/src/lib.rs
   lines:
-  - 122
-  - 131
-  blob: f53a1400b4d740442891fa8c0e1bed0a433ba83f
-  snippet_sha1: 283e5dc1033a8132bdfc3741c781d364cf63ca80
-  note: drift-projected L117-L126@c2376300 -> L122-L131 (similarity 1.00)
+  - 99
+  - 108
+  blob: 97ac2a10ec698dc5c7c31964bc053faff69eae61
+  snippet_sha1: 581e4e90dc283b3eaf982d26a223e933c24c5ce8
 tags:
 - policy
 type: decision

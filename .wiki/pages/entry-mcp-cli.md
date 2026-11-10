@@ -2,86 +2,75 @@
 id: entry-mcp-cli
 title: 'Entry layer: MCP server and CLI'
 status: verified
-generated_at: 2026-11-09T14:37:56Z
-commit: 8ce30c67ff3080a3c5cde0325e337dee4b5b2056
+generated_at: 2026-11-10T15:16:08Z
+commit: 6802401ccb4cc357a9c5f870b52adaab11715e4b
 evidence:
 - path: crates/loredex-mcp/src/lib.rs
   lines:
-  - 23
-  - 32
-  blob: 6f1ff0c44e3f66f5a16f592dcddc4b54bb61fad1
-  snippet_sha1: dc10c3a9193f10dc416ed4b9b3131aacb7a45e76
-  note: drift-projected L23-L32@d220dafd -> L23-L32 (similarity 1.00)
+  - 17
+  - 27
+  blob: ef81cb0099e3e22883362d265b3cda16e809e506
+  snippet_sha1: 46189913e01bbbf9f63d23ac1ff4f3e0bc45327f
+- path: crates/loredex-mcp/src/lib.rs
+  lines:
+  - 28
+  - 31
+  blob: ef81cb0099e3e22883362d265b3cda16e809e506
+  snippet_sha1: 9d5857d91e98e8adaf77d8b1838c8908cb831255
 - path: crates/loredex-mcp/src/lib.rs
   lines:
   - 36
-  - 39
-  blob: 6f1ff0c44e3f66f5a16f592dcddc4b54bb61fad1
-  snippet_sha1: 81c5966e09ad7446dd1f3792a23f07cb84f93273
-  note: drift-projected L36-L39@d220dafd -> L36-L39 (similarity 1.00)
+  - 38
+  blob: ef81cb0099e3e22883362d265b3cda16e809e506
+  snippet_sha1: aabba286c4cab5de591ffd4ef97cc7b70b9485a2
 - path: crates/loredex-mcp/src/lib.rs
   lines:
-  - 44
-  - 46
-  blob: 6f1ff0c44e3f66f5a16f592dcddc4b54bb61fad1
-  snippet_sha1: 2824fc12ebf3eafb69b6eea2cbfad7ba61188f84
-  note: drift-projected L44-L46@d220dafd -> L44-L46 (similarity 1.00)
+  - 45
+  - 48
+  blob: ef81cb0099e3e22883362d265b3cda16e809e506
+  snippet_sha1: 30040ffbcd3c1d92fc87484d89161c53a00e0f90
 - path: crates/loredex-mcp/src/lib.rs
   lines:
-  - 61
-  - 64
-  blob: 6f1ff0c44e3f66f5a16f592dcddc4b54bb61fad1
-  snippet_sha1: 840f7780ad60f122d8c3fcf25a33c36896d249ff
-  note: drift-projected L61-L64@d220dafd -> L61-L64 (similarity 1.00)
+  - 1096
+  - 1122
+  blob: ef81cb0099e3e22883362d265b3cda16e809e506
+  snippet_sha1: 293da79ca9111e3cc1290500fd983b23556474ae
 - path: crates/loredex-mcp/src/lib.rs
   lines:
-  - 1237
-  - 1265
-  blob: 6f1ff0c44e3f66f5a16f592dcddc4b54bb61fad1
-  snippet_sha1: 578acf07ed012e9ee1b0bd3afa8295d0fa090e92
-  note: drift-projected L1237-L1265@d220dafd -> L1237-L1265 (similarity 1.00)
+  - 1151
+  - 1172
+  blob: ef81cb0099e3e22883362d265b3cda16e809e506
+  snippet_sha1: 7271b4dcfad5851e2d4b01d1631963c09e9b48f4
 - path: crates/loredex-mcp/src/lib.rs
   lines:
-  - 1295
-  - 1325
-  blob: 6f1ff0c44e3f66f5a16f592dcddc4b54bb61fad1
-  snippet_sha1: 2121dda6cfeb340bd04f4b034e7141e817585c28
-  note: drift-projected L1295-L1325@d220dafd -> L1295-L1325 (similarity 1.00)
+  - 791
+  - 810
+  blob: ef81cb0099e3e22883362d265b3cda16e809e506
+  snippet_sha1: 696aa5c34978d5e236627d380770e727d02676d0
 - path: crates/loredex-mcp/src/lib.rs
   lines:
-  - 932
-  - 951
-  blob: 6f1ff0c44e3f66f5a16f592dcddc4b54bb61fad1
-  snippet_sha1: 2483bbee316979f731c751e7011ff85d7b01f2c4
-  note: drift-projected L932-L951@d220dafd -> L932-L951 (similarity 1.00)
+  - 604
+  - 620
+  blob: ef81cb0099e3e22883362d265b3cda16e809e506
+  snippet_sha1: cee916abfdb1106f04b628eeef4ad2279050d991
 - path: crates/loredex-mcp/src/lib.rs
   lines:
-  - 738
-  - 754
-  blob: 6f1ff0c44e3f66f5a16f592dcddc4b54bb61fad1
-  snippet_sha1: edae31610f1a005652a6f5cd7a29a94e50071ba5
-  note: drift-projected L738-L754@d220dafd -> L738-L754 (similarity 1.00)
-- path: crates/loredex-mcp/src/lib.rs
-  lines:
-  - 1035
-  - 1051
-  blob: 6f1ff0c44e3f66f5a16f592dcddc4b54bb61fad1
-  snippet_sha1: 04e09de6b2cf2b73a5ba4ec4641335f113160d10
-  note: drift-projected L1035-L1051@d220dafd -> L1035-L1051 (similarity 1.00)
+  - 894
+  - 910
+  blob: ef81cb0099e3e22883362d265b3cda16e809e506
+  snippet_sha1: c0c31858a4c001f3321c322ad31813bd054f5b2f
 - path: crates/loredex-cli/src/main.rs
   lines:
   - 29
-  - 82
-  blob: 94f2e96933ee17b58a472f7c0bbb45341b978cf9
-  snippet_sha1: a41816cfce0b7a74bceeac51aa3d220d111fa0b5
-  note: drift-projected L29-L82@5da7033e -> L29-L82 (similarity 1.00)
+  - 70
+  blob: 42b915e5dbe33c3ad32c286d6e4609556b6dcb8e
+  snippet_sha1: 383c48f4d66d06e35e7f7b9a99e717039875971e
 - path: crates/loredex-cli/src/main.rs
   lines:
-  - 894
-  - 896
-  blob: 94f2e96933ee17b58a472f7c0bbb45341b978cf9
-  snippet_sha1: 98567e54d7ba82b1d391c916db0d975894787331
-  note: drift-projected L891-L893@5da7033e -> L894-L896 (similarity 1.00)
+  - 724
+  - 726
+  blob: 42b915e5dbe33c3ad32c286d6e4609556b6dcb8e
+  snippet_sha1: 351d842403979bd7bf0138dc663bf63746804db0
 type: system
 ---
 # Entry layer: MCP server and CLI

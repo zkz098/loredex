@@ -33,16 +33,20 @@ enum Command {
     /// [[cite:path:Lx-Ly]] markers that become git-pinned evidence
     Put {
         id: String,
-        #[arg(long)]
-        title: String,
-        /// Body from a file, or `-` for stdin
-        #[arg(short, long)]
-        body: String,
+        #[arg(long, required_unless_present = "inplace")]
+        title: Option<String>,
+        /// Body from a file, or `-` for stdin (omit with `--inplace` to keep existing body)
+        #[arg(short, long, required_unless_present = "inplace")]
+        body: Option<String>,
         #[arg(long)]
         tag: Vec<String>,
         /// Page kind, e.g. architecture | workflow | system | testing
         #[arg(long = "type")]
         page_type: Option<String>,
+        /// Re-pin an existing `.wiki/pages/<id>.md` in place, keeping its
+        /// existing title/tags/type/body unless overridden
+        #[arg(long, conflicts_with = "if_absent")]
+        inplace: bool,
         /// Store citations even when the cited range matches a secret pattern
         #[arg(long)]
         no_redact: bool,
@@ -52,6 +56,31 @@ enum Command {
         /// Create only: fail when the page already exists
         #[arg(long)]
         if_absent: bool,
+    },
+    /// In-place re-pin: read an existing `.wiki/pages/<id>.md` (or `--all`),
+    /// keep its title/tags/type, re-parse `[[cite:...]]` markers from its body
+    /// against current HEAD, and update its frontmatter as `verified`
+    Repin {
+        #[arg(required_unless_present = "all")]
+        id: Option<String>,
+        /// Re-pin all non-generated pages that carry citations in their bodies
+        #[arg(long)]
+        all: bool,
+        /// Store citations even when the cited range matches a secret pattern
+        #[arg(long)]
+        no_redact: bool,
+        /// Only write if the page still has this content sha1 (from `show`/MCP read)
+        #[arg(long, conflicts_with = "all")]
+        if_match: Option<String>,
+    },
+    /// Verify and promote a `draft` or `stale` page to `status: verified`
+    /// (re-pinning body citations against HEAD and resolving its plan task)
+    #[command(visible_alias = "mark-verified")]
+    Approve {
+        id: String,
+        /// Store citations even when the cited range matches a secret pattern
+        #[arg(long)]
+        no_redact: bool,
     },
     /// Capture an agent finding without citations: stored as an unverified
     /// draft page (with its markers pinned if it happens to carry them),
@@ -120,9 +149,24 @@ enum Command {
         json: bool,
     },
     /// Verify a page's evidence at snippet level (content hashes, not just commits)
-    Verify { id: String },
+    Verify {
+        id: String,
+        /// Promote the page to `status: verified` (and resolve its plan task)
+        /// when all citations verify cleanly against HEAD
+        #[arg(long, visible_alias = "promote")]
+        update_status: bool,
+        /// Allow secret-shaped citations when promoting with `--update-status`
+        #[arg(long)]
+        no_redact: bool,
+    },
     /// Re-point a stale page's evidence at HEAD using line drift projection
-    Refresh { id: String },
+    Refresh {
+        id: String,
+        /// Also rewrite shifted `:Lx-Ly` line numbers inside `[[cite:...]]` body markers
+        /// (renamed file paths are always synchronized automatically)
+        #[arg(long, visible_alias = "fix")]
+        sync_body: bool,
+    },
     /// Tokenized search over wiki pages
     Search { query: String },
     /// List discoverable modules (cargo targets / directory groups) for wiki authoring
@@ -185,10 +229,22 @@ enum Command {
     /// Regenerate the navigation index page (.wiki/pages/index.md)
     Index,
     /// One-call maintenance: project recoverable drifts, lint, open plan for the rest.
-    /// Exit 1 when authoring work remains (CI/hook friendly).
+    /// Exits 1 on lint defects or unrecoverable citation loss (`needs_rewrite`),
+    /// 0 when self-heal and lint succeed (or 2 with `--strict` when plan tasks remain).
     Auto {
         #[arg(long)]
         json: bool,
+        /// Progressive refactoring heal: also rewrite shifted `:Lx-Ly` line ranges
+        /// in page bodies, re-pin hand-edited body citations, and promote repaired
+        /// `draft`/`stale` pages whose citations resolve cleanly at HEAD
+        #[arg(long)]
+        fix: bool,
+        /// Exit non-zero only on lint defects or unrecoverable citation loss (default)
+        #[arg(long)]
+        fail_on_error_only: bool,
+        /// Exit with code 2 when pending plan tasks remain even if lint/self-heal succeeded
+        #[arg(long, conflicts_with = "fail_on_error_only")]
+        strict: bool,
     },
     /// Write automation templates (GitHub Action + post-merge hook) into a directory
     Templates {
@@ -209,11 +265,14 @@ enum Command {
         #[arg(long)]
         json: bool,
     },
-    /// Show or set the skeleton text language for generated pages ([wiki] language in .wiki/wiki.toml)
+    /// Show or set `.wiki/wiki.toml` settings (`language`, `ignore_modules`)
     Config {
-        /// Set the language (en | zh); omit to just show the current one
+        /// Set the language (en | zh); omit to show current configuration
         #[arg(long)]
         language: Option<String>,
+        /// Add one or more directory/module/glob patterns to `[wiki] ignore_modules`
+        #[arg(long = "ignore")]
+        ignore: Vec<String>,
     },
     /// Insert or refresh the loredex managed block in AGENTS.md
     AgentsMd {
@@ -309,32 +368,72 @@ fn main() -> anyhow::Result<()> {
             body,
             tag,
             page_type,
+            inplace,
             no_redact,
             if_match,
             if_absent,
         } => {
-            let body_text = if body == "-" {
-                let mut buf = String::new();
-                std::io::stdin().read_to_string(&mut buf)?;
-                buf
-            } else {
-                std::fs::read_to_string(&body)?
-            };
             let opts = engine::PutOptions {
                 allow_secret_citations: no_redact,
                 expected: expected_page(if_match, if_absent),
                 ..Default::default()
             };
-            let outcome = engine::put_page_with(
-                &repo.view(),
-                &wiki_dir,
-                &id,
-                &title,
-                &body_text,
-                tag,
-                page_type,
-                &opts,
-            )?;
+            let outcome = if inplace
+                && title.is_none()
+                && body.is_none()
+                && tag.is_empty()
+                && page_type.is_none()
+            {
+                engine::repin_page_with(&repo.view(), &wiki_dir, &id, &opts)?
+            } else {
+                let existing = if inplace {
+                    Some(engine::find_page(&wiki_dir, &id)?)
+                } else {
+                    None
+                };
+                let resolved_title = match title {
+                    Some(t) => t,
+                    None => existing
+                        .as_ref()
+                        .map(|p| p.meta.title.clone())
+                        .ok_or_else(|| {
+                            anyhow::anyhow!("--title is required unless --inplace is used")
+                        })?,
+                };
+                let body_text = match body {
+                    Some(b) if b == "-" => {
+                        let mut buf = String::new();
+                        std::io::stdin().read_to_string(&mut buf)?;
+                        buf
+                    }
+                    Some(b) => std::fs::read_to_string(&b)?,
+                    None => existing
+                        .as_ref()
+                        .map(|p| p.body.to_string())
+                        .ok_or_else(|| {
+                            anyhow::anyhow!("--body is required unless --inplace is used")
+                        })?,
+                };
+                let resolved_tags = if tag.is_empty() {
+                    existing
+                        .as_ref()
+                        .map(|p| p.meta.tags.clone())
+                        .unwrap_or_default()
+                } else {
+                    tag
+                };
+                let resolved_type = page_type.or_else(|| existing.and_then(|p| p.meta.page_type));
+                engine::put_page_with(
+                    &repo.view(),
+                    &wiki_dir,
+                    &id,
+                    &resolved_title,
+                    &body_text,
+                    resolved_tags,
+                    resolved_type,
+                    &opts,
+                )?
+            };
             println!(
                 "{} {}: {} evidence citation(s), pinned to HEAD {} (page sha1 {})",
                 if outcome.created {
@@ -346,6 +445,70 @@ fn main() -> anyhow::Result<()> {
                 outcome.citations,
                 repo.head_short()?,
                 outcome.page_sha1
+            );
+        }
+        Command::Repin {
+            id,
+            all,
+            no_redact,
+            if_match,
+        } => {
+            let view = repo.view();
+            let head_short = view.head_short()?;
+            if all {
+                let pages = engine::load_pages(&wiki_dir)?;
+                let mut count = 0usize;
+                for p in pages {
+                    if engine::is_generated(&p.meta.id) {
+                        continue;
+                    }
+                    let cites = loredex_core::parse_citations(&p.body).unwrap_or_default();
+                    if cites.is_empty() {
+                        continue;
+                    }
+                    let opts = engine::PutOptions {
+                        allow_secret_citations: no_redact,
+                        ..Default::default()
+                    };
+                    let outcome = engine::repin_page_with(&view, &wiki_dir, &p.meta.id, &opts)?;
+                    count += 1;
+                    println!(
+                        "repinned {}: {} citation(s) -> '{}' at HEAD {} (page sha1 {})",
+                        outcome.page.meta.id,
+                        outcome.citations,
+                        outcome.page.meta.status.as_str(),
+                        head_short,
+                        outcome.page_sha1
+                    );
+                }
+                println!("repinned {count} page(s)");
+            } else {
+                let page_id = id.expect("required unless --all");
+                let opts = engine::PutOptions {
+                    allow_secret_citations: no_redact,
+                    expected: expected_page(if_match, false),
+                    ..Default::default()
+                };
+                let outcome = engine::repin_page_with(&view, &wiki_dir, &page_id, &opts)?;
+                println!(
+                    "repinned {}: {} evidence citation(s) -> '{}' at HEAD {} (page sha1 {})",
+                    outcome.page.meta.id,
+                    outcome.citations,
+                    outcome.page.meta.status.as_str(),
+                    head_short,
+                    outcome.page_sha1
+                );
+            }
+        }
+        Command::Approve { id, no_redact } => {
+            let view = repo.view();
+            let page = engine::promote_verified_page(&view, &wiki_dir, &id, no_redact)?;
+            println!(
+                "approved {} -> status '{}' ({} evidence citation(s) at HEAD {})",
+                page.meta.id,
+                page.meta.status.as_str(),
+                page.meta.evidence.len(),
+                view.head_short()?
             );
         }
         Command::Note {
@@ -578,9 +741,14 @@ fn main() -> anyhow::Result<()> {
                 println!("hint: {}", report.hint);
             }
         }
-        Command::Verify { id } => {
+        Command::Verify {
+            id,
+            update_status,
+            no_redact,
+        } => {
             let page = engine::find_page(&wiki_dir, &id)?;
-            let report = engine::verify_page(&page, &repo)?;
+            let view = repo.view();
+            let report = engine::verify_page_with(&page, &view)?;
             for r in &report.results {
                 println!(
                     "[{}] {}: {}",
@@ -590,14 +758,43 @@ fn main() -> anyhow::Result<()> {
                 );
             }
             if !report.all_ok {
+                if update_status {
+                    // If the user updated body citations in-place, try promoting via repin
+                    if let Ok(promoted) =
+                        engine::promote_verified_page(&view, &wiki_dir, &id, no_redact)
+                    {
+                        println!(
+                            "\npage `{id}` re-pinned from body and marked '{}' at HEAD {}",
+                            promoted.meta.status.as_str(),
+                            view.head_short()?
+                        );
+                        return Ok(());
+                    }
+                }
                 println!("\npage `{id}` failed snippet verification");
                 std::process::exit(1);
             }
-            println!("\npage `{id}` verified against content hashes");
+            if update_status && page.meta.status != Status::Verified {
+                let promoted = engine::promote_verified_page(&view, &wiki_dir, &id, no_redact)?;
+                println!(
+                    "\npage `{id}` verified against content hashes and promoted to '{}'",
+                    promoted.meta.status.as_str()
+                );
+            } else if page.meta.status != Status::Verified {
+                println!(
+                    "\npage `{id}` verified against content hashes (status is still '{}'; run `loredex verify {id} --update-status` or `loredex approve {id}` to mark verified)",
+                    page.meta.status.as_str()
+                );
+            } else {
+                println!("\npage `{id}` verified against content hashes");
+            }
         }
-        Command::Refresh { id } => {
+        Command::Refresh { id, sync_body } => {
             let mut page = engine::find_page(&wiki_dir, &id)?;
-            let outcomes = engine::refresh_page_with_drift(&mut page, &repo, &wiki_dir)?;
+            let view = repo.view();
+            let outcomes = engine::refresh_page_with_drift_options(
+                &mut page, &view, &wiki_dir, true, sync_body,
+            )?;
             for (path, outcome) in &outcomes {
                 println!("  {path}: {outcome:?}");
             }
@@ -605,7 +802,7 @@ fn main() -> anyhow::Result<()> {
                 "refreshed {} -> status '{}' against HEAD {}",
                 page.meta.id,
                 page.meta.status.as_str(),
-                repo.head_short()?
+                view.head_short()?
             );
         }
         Command::Search { query } => {
@@ -789,8 +986,13 @@ fn main() -> anyhow::Result<()> {
                 println!("wrote {}", page.source_path.unwrap().display());
             }
         }
-        Command::Auto { json } => {
-            let report = engine::auto_refresh_with(&repo.view(), &wiki_dir)?;
+        Command::Auto {
+            json,
+            fix,
+            fail_on_error_only: _,
+            strict,
+        } => {
+            let report = engine::auto_refresh_with_options(&repo.view(), &wiki_dir, fix)?;
             if json {
                 println!(
                     "{}",
@@ -834,8 +1036,11 @@ fn main() -> anyhow::Result<()> {
                     }
                 }
             }
-            if !report.all_clean {
+            if report.has_errors {
                 std::process::exit(1);
+            }
+            if strict && !report.all_clean {
+                std::process::exit(2);
             }
         }
         Command::Templates { out } => {
@@ -907,15 +1112,8 @@ fn main() -> anyhow::Result<()> {
                 }
             }
         }
-        Command::Config { language } => match language {
-            None => {
-                let loc = engine::wiki_locale(&wiki_dir);
-                println!(
-                    "wiki language: {} (set with `loredex config --language en|zh`)",
-                    loc.as_str()
-                );
-            }
-            Some(tag) => {
+        Command::Config { language, ignore } => {
+            if let Some(tag) = &language {
                 let loc = match tag.to_lowercase().as_str() {
                     t if t.starts_with("en") => engine::Locale::En,
                     t if t.starts_with("zh") => engine::Locale::Zh,
@@ -927,7 +1125,26 @@ fn main() -> anyhow::Result<()> {
                     loc.as_str()
                 );
             }
-        },
+            if !ignore.is_empty() {
+                let updated = engine::add_ignore_modules(&wiki_dir, &ignore)?;
+                println!("ignore_modules updated: {:?}", updated);
+            }
+            if language.is_none() && ignore.is_empty() {
+                let loc = engine::wiki_locale(&wiki_dir);
+                let rules = engine::ignore_rules(&wiki_dir, repo.workdir());
+                println!(
+                    "wiki language: {} (set with `loredex config --language en|zh`)",
+                    loc.as_str()
+                );
+                if rules.is_empty() {
+                    println!(
+                        "ignore_modules: (none; add with `loredex config --ignore <pattern>` or in .wiki/wiki.toml)"
+                    );
+                } else {
+                    println!("ignore_modules: {:?}", rules.patterns());
+                }
+            }
+        }
         Command::AgentsMd {
             remove,
             check,

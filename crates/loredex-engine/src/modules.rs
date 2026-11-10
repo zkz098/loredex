@@ -22,7 +22,12 @@ pub fn discover(repo: &GitRepo) -> Result<Vec<ModuleInfo>> {
 }
 
 pub fn discover_with(view: &GitView) -> Result<Vec<ModuleInfo>> {
-    let files: Vec<String> = view.tracked_files()?;
+    let ignore = crate::config::IgnoreRules::load(&view.wiki_dir(), view.workdir());
+    let files: Vec<String> = view
+        .tracked_files()?
+        .into_iter()
+        .filter(|f| !ignore.is_ignored_file(f))
+        .collect();
     let mut modules = Vec::new();
     let mut covered: BTreeMap<String, ()> = BTreeMap::new();
 
@@ -137,6 +142,7 @@ pub fn discover_with(view: &GitView) -> Result<Vec<ModuleInfo>> {
             files: gf,
         });
     }
+    modules.retain(|m| !ignore.is_ignored_module(&m.name));
     Ok(modules)
 }
 

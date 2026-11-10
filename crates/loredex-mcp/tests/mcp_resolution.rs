@@ -476,6 +476,7 @@ async fn initialize_advertises_instructions_and_tools() {
         "wiki_read",
         "wiki_check_freshness",
         "wiki_put_page",
+        "wiki_repin_page",
         "wiki_refresh_page",
         "wiki_get_evidence",
         "wiki_search",
@@ -953,4 +954,58 @@ async fn test_prompts_lifecycle_over_protocol() {
         .await
         .expect_err("unknown prompt must fail");
     assert!(format!("{err}").contains("Unknown prompt"), "{err}");
+}
+
+#[tokio::test]
+async fn wiki_repin_page_over_protocol() {
+    let fx = Fixture::new();
+    std::fs::write(fx.path().join("lib.rs"), "pub fn f() {}\npub fn g() {}\n").unwrap();
+    {
+        let git = git2::Repository::open(fx.path()).unwrap();
+        let sig = git2::Signature::now("t", "t@l").unwrap();
+        let mut idx = git.index().unwrap();
+        idx.add_all(["*"].iter(), git2::IndexAddOption::DEFAULT, None)
+            .unwrap();
+        let tree = git.find_tree(idx.write_tree().unwrap()).unwrap();
+        let parent = git.head().unwrap().peel_to_commit().unwrap();
+        git.commit(Some("HEAD"), &sig, &sig, "two-fns", &tree, &[&parent])
+            .unwrap();
+    }
+    let repo = loredex_git::GitRepo::discover(fx.path()).unwrap();
+    let (client, _s) = pair(WikiServer::pinned(repo), TestClient::no_roots()).await;
+
+    call(
+        &client,
+        "wiki_put_page",
+        serde_json::json!({
+            "id": "lib",
+            "title": "Fixture lib",
+            "body": "f [[cite:lib.rs:L1-L1]]",
+            "tags": ["core"],
+            "type": "system"
+        }),
+    )
+    .await;
+
+    // Edit the page body on disk to cite L2-L2 and set status: draft
+    let md_path = fx.path().join(".wiki/pages/lib.md");
+    let raw = std::fs::read_to_string(&md_path).unwrap();
+    std::fs::write(
+        &md_path,
+        raw.replace("[[cite:lib.rs:L1-L1]]", "[[cite:lib.rs:L2-L2]]")
+            .replace("status: verified", "status: draft"),
+    )
+    .unwrap();
+
+    let repinned = structured(
+        &call(
+            &client,
+            "wiki_repin_page",
+            serde_json::json!({ "id": "lib" }),
+        )
+        .await,
+    );
+    assert_eq!(repinned["status"], serde_json::json!("verified"));
+    assert_eq!(repinned["citations"], serde_json::json!(1));
+    assert_eq!(repinned["evidence"][0]["lines"], serde_json::json!([2, 2]));
 }

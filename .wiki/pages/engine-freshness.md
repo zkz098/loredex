@@ -2,72 +2,63 @@
 id: engine-freshness
 title: 'loredex-engine: staleness, verification, drift projection'
 status: verified
-generated_at: 2026-11-09T14:37:56Z
-commit: 8ce30c67ff3080a3c5cde0325e337dee4b5b2056
+generated_at: 2026-11-10T15:16:08Z
+commit: 6802401ccb4cc357a9c5f870b52adaab11715e4b
 evidence:
 - path: crates/loredex-engine/src/lib.rs
   lines:
-  - 179
-  - 251
-  blob: f53a1400b4d740442891fa8c0e1bed0a433ba83f
-  snippet_sha1: d34bb4484dc69d6f63c9697340a686d222792652
-  note: drift-projected L174-L196@c2376300 -> L179-L251 (similarity 0.91)
+  - 146
+  - 168
+  blob: 97ac2a10ec698dc5c7c31964bc053faff69eae61
+  snippet_sha1: 35a7c0f5ba4eca97860be4cf4a49a1cce4d26bb1
 - path: crates/loredex-engine/src/lib.rs
   lines:
-  - 339
-  - 345
-  blob: f53a1400b4d740442891fa8c0e1bed0a433ba83f
-  snippet_sha1: 8d7aa3de63ced0667e657ecb3b92ab4ff66ca116
-  note: drift-projected L284-L290@c2376300 -> L339-L345 (similarity 1.00)
+  - 256
+  - 262
+  blob: 97ac2a10ec698dc5c7c31964bc053faff69eae61
+  snippet_sha1: 986c45e0fe23222e10896182ce92c4a29865216d
 - path: crates/loredex-engine/src/lib.rs
   lines:
-  - 399
-  - 413
-  blob: f53a1400b4d740442891fa8c0e1bed0a433ba83f
-  snippet_sha1: 58819359d859568299c50d43a98675ffd8e53d9c
-  note: drift-projected L344-L358@c2376300 -> L399-L413 (similarity 1.00)
+  - 316
+  - 330
+  blob: 97ac2a10ec698dc5c7c31964bc053faff69eae61
+  snippet_sha1: 08d9b743e61eb18dcda98fe2e41bb18e6a40dcfe
 - path: crates/loredex-engine/src/drift.rs
   lines:
   - 32
   - 52
-  blob: 9062b2d49788c15508c3e148f71423fe07df4fe5
-  snippet_sha1: ead352d9b8107af3806ed4482344fa7275ec9548
-  note: drift-projected L32-L52@f40c756f -> L32-L52 (similarity 1.00)
+  blob: 0d54875ecfa420ea80b08633b8dcd314b3c9c15c
+  snippet_sha1: edf7813626f991ace596e7844ba169bbad0d4573
 - path: crates/loredex-engine/src/drift.rs
   lines:
   - 28
   - 30
-  blob: 9062b2d49788c15508c3e148f71423fe07df4fe5
+  blob: 0d54875ecfa420ea80b08633b8dcd314b3c9c15c
   snippet_sha1: 4ca069b9ca1c9df03f402f88117ac2bebaa11fd7
-  note: drift-projected L28-L30@f40c756f -> L28-L30 (similarity 1.00)
 - path: crates/loredex-engine/src/drift.rs
   lines:
   - 85
   - 96
-  blob: 9062b2d49788c15508c3e148f71423fe07df4fe5
-  snippet_sha1: a01e6c0297db68a7399add05bf04847673acf2d8
-  note: drift-projected L85-L96@f40c756f -> L85-L96 (similarity 1.00)
+  blob: 0d54875ecfa420ea80b08633b8dcd314b3c9c15c
+  snippet_sha1: 58d96aa0f5018ab781dcd053912493423e69500f
 - path: crates/loredex-engine/src/drift.rs
   lines:
-  - 505
-  - 516
-  blob: 9062b2d49788c15508c3e148f71423fe07df4fe5
-  snippet_sha1: 53e778d40b1e2e279e316a500be9f11f5696d899
-  note: drift-projected L406-L417@f40c756f -> L505-L516 (similarity 1.00)
+  - 399
+  - 411
+  blob: 0d54875ecfa420ea80b08633b8dcd314b3c9c15c
+  snippet_sha1: 327d32745e5c5249b723fa7c232aad13e0f13498
 - path: crates/loredex-engine/src/put.rs
   lines:
-  - 123
-  - 153
-  blob: a19f4d1d27850d30359e72caa2dfc38033b53398
-  snippet_sha1: ea7190bfa177bcdb5afdc9d6fe6bb1aa8764805a
-  note: drift-projected L123-L153@53f8b6e8 -> L123-L153 (similarity 1.00)
+  - 90
+  - 120
+  blob: 70af27d9389e0533a046d32aa3ab22838f3931ed
+  snippet_sha1: 1f3dbd195d2b3741f67e3ac91742ff5a89693481
 - path: crates/loredex-engine/src/put.rs
   lines:
-  - 53
-  - 95
-  blob: a19f4d1d27850d30359e72caa2dfc38033b53398
-  snippet_sha1: a513c03b85b8d58947168a8f631e92c33c87f24a
-  note: drift-projected L53-L95@53f8b6e8 -> L53-L95 (similarity 1.00)
+  - 36
+  - 62
+  blob: 70af27d9389e0533a046d32aa3ab22838f3931ed
+  snippet_sha1: dd2d3d7a19ccbac6aa0715c691db030d1f496987
 type: system
 ---
 # loredex-engine: staleness, verification, drift projection

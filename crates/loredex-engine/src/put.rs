@@ -271,3 +271,93 @@ fn check_expectation(
         }
     }
 }
+
+/// In-place re-pin: read an existing page file, preserve its `title`, `tags`
+/// and `type`, re-parse all `[[cite:...]]` markers from its Markdown body
+/// against current HEAD (healing renamed citation paths if any moved since
+/// `meta.commit`), and write the updated frontmatter + `status: verified`.
+pub fn repin_page(repo: &GitRepo, wiki_dir: &std::path::Path, id: &str) -> Result<PutOutcome> {
+    repin_page_with(&repo.view(), wiki_dir, id, &PutOptions::default())
+}
+
+pub fn repin_page_with(
+    view: &GitView,
+    wiki_dir: &std::path::Path,
+    id: &str,
+    opts: &PutOptions,
+) -> Result<PutOutcome> {
+    let page = crate::find_page(wiki_dir, id)?;
+    let body = rewrite_missing_body_paths(view, &page)?;
+    put_page_with(
+        view,
+        wiki_dir,
+        id,
+        &page.meta.title,
+        &body,
+        page.meta.tags,
+        page.meta.page_type,
+        opts,
+    )
+}
+
+/// When a page's body still cites an `old_path` that vanished from HEAD because
+/// the file was renamed, rewrite the citation path in `body` using either the
+/// already-updated frontmatter evidence or git rename detection since `meta.commit`.
+fn rewrite_missing_body_paths(view: &GitView, page: &WikiPage) -> Result<String> {
+    let Ok(cites) = parse_citations(&page.body) else {
+        return Ok(page.body.to_string());
+    };
+    if cites.is_empty() {
+        return Ok(page.body.to_string());
+    }
+    let renames = if view.commit_exists(&page.meta.commit) {
+        view.rename_map(&page.meta.commit)
+    } else {
+        std::rc::Rc::new(std::collections::BTreeMap::new())
+    };
+    let mut out = page.body.to_string();
+    for c in cites.iter().rev() {
+        if view.head_blob_oid(&c.path)?.is_some() {
+            continue;
+        }
+        let replacement = renames
+            .get(&c.path)
+            .cloned()
+            .or_else(|| {
+                // Check if frontmatter evidence recorded a rename note `old -> new`
+                let prefix1 = format!("rename-detected {} -> ", c.path);
+                let prefix2 = format!("renamed {} -> ", c.path);
+                page.meta.evidence.iter().find_map(|ev| {
+                    let note = ev.note.as_deref()?;
+                    if note.starts_with(&prefix1) || note.starts_with(&prefix2) {
+                        Some(ev.path.clone())
+                    } else {
+                        None
+                    }
+                })
+            })
+            .or_else(|| {
+                // Check if frontmatter has an old blob for `c.path` that moved in HEAD
+                page.meta
+                    .evidence
+                    .iter()
+                    .find(|ev| ev.path == c.path)
+                    .and_then(|ev| view.path_of_blob_in_head(&ev.blob).ok().flatten())
+            });
+        if let Some(new_path) = replacement {
+            if view.head_blob_oid(&new_path)?.is_some() {
+                let mut marker = format!("[[cite:{new_path}");
+                if let Some(sym) = &c.symbol {
+                    marker.push('#');
+                    marker.push_str(sym);
+                }
+                if let Some([lo, hi]) = c.lines {
+                    marker.push_str(&format!(":L{lo}-L{hi}"));
+                }
+                marker.push_str("]]");
+                out.replace_range(c.span.0..c.span.1, &marker);
+            }
+        }
+    }
+    Ok(out)
+}

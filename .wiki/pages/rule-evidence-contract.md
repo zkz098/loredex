@@ -2,43 +2,39 @@
 id: rule-evidence-contract
 title: Every verified claim cites resolvable evidence
 status: verified
-generated_at: 2026-11-09T14:37:56Z
-commit: 8ce30c67ff3080a3c5cde0325e337dee4b5b2056
+generated_at: 2026-11-10T15:16:08Z
+commit: 6802401ccb4cc357a9c5f870b52adaab11715e4b
 evidence:
 - path: crates/loredex-engine/src/put.rs
   lines:
-  - 123
-  - 153
-  blob: a19f4d1d27850d30359e72caa2dfc38033b53398
-  snippet_sha1: ea7190bfa177bcdb5afdc9d6fe6bb1aa8764805a
-  note: drift-projected L123-L153@53f8b6e8 -> L123-L153 (similarity 1.00)
+  - 90
+  - 120
+  blob: 70af27d9389e0533a046d32aa3ab22838f3931ed
+  snippet_sha1: 1f3dbd195d2b3741f67e3ac91742ff5a89693481
 - path: crates/loredex-engine/src/put.rs
   lines:
-  - 53
-  - 95
-  blob: a19f4d1d27850d30359e72caa2dfc38033b53398
-  snippet_sha1: a513c03b85b8d58947168a8f631e92c33c87f24a
-  note: drift-projected L53-L95@53f8b6e8 -> L53-L95 (similarity 1.00)
+  - 36
+  - 62
+  blob: 70af27d9389e0533a046d32aa3ab22838f3931ed
+  snippet_sha1: dd2d3d7a19ccbac6aa0715c691db030d1f496987
 - path: crates/loredex-engine/src/auto.rs
   lines:
   - 113
   - 124
-  blob: b4a94af752dbaae368c1b4a90f764601191baf18
-  snippet_sha1: a5fe4fe2aff3959e61bc519870fbe1b6c9fd0e12
+  blob: ba5de45fb822b8efb953c1498ce55def0f751063
+  snippet_sha1: 92698ffc477dd476b207065ea7b0fca30af76c0e
 - path: crates/loredex-engine/src/lint.rs
   lines:
   - 93
   - 110
   blob: 4800de5f0cd1b0de76d09014bc25ad4f1d2f1f35
   snippet_sha1: d50881deb99637930250c8faad294ab772f17e9d
-  note: drift-projected L93-L110@f71fc8f0 -> L93-L110 (similarity 1.00)
 - path: crates/loredex-engine/tests/knowledge.rs
   lines:
   - 215
   - 232
   blob: 66d62f35f3827e7e03d39b2fe41e542787945024
   snippet_sha1: 26a4b6f62d729ad57f49715531d5bdb6cbaa9cf4
-  note: drift-projected L215-L232@b7b556bf -> L215-L232 (similarity 1.00)
 tags:
 - policy
 type: rule

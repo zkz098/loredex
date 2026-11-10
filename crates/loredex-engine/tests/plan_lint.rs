@@ -610,3 +610,119 @@ fn carried_new_task_retires_on_the_ratio_that_created_it() {
         run2.tasks.iter().map(|t| &t.page_id).collect::<Vec<_>>()
     );
 }
+
+#[test]
+fn auto_separates_has_errors_from_pending_plan_tasks() {
+    let fx = Fx::new(&[("src.rs", SRC), ("uncovered/mod.rs", "pub fn u() {}\n")]);
+    put_page(
+        &fx.repo,
+        &fx.wiki(),
+        "root",
+        "Root",
+        "behavior [[cite:src.rs:L2-L4]]",
+        vec![],
+        Some("system".into()),
+    )
+    .unwrap();
+
+    let report = loredex_engine::auto_refresh(&fx.repo, &fx.wiki()).unwrap();
+    assert!(
+        !report.has_errors,
+        "pending New tasks alone must not flag has_errors: {report:?}"
+    );
+    assert!(
+        !report.all_clean,
+        "uncovered module keeps all_clean false when strict mode checks it"
+    );
+}
+
+#[test]
+fn auto_fix_syncs_shifted_line_numbers_repins_and_promotes_draft() {
+    let fx = Fx::new(&[("src.rs", SRC)]);
+    put_page(
+        &fx.repo,
+        &fx.wiki(),
+        "root",
+        "Root",
+        "behavior [[cite:src.rs:L2-L4]]",
+        vec![],
+        Some("system".into()),
+    )
+    .unwrap();
+    fx.edit("src.rs", &format!("// inserted\n{SRC}"));
+
+    let report =
+        loredex_engine::auto_refresh_with_options(&fx.repo.view(), &fx.wiki(), true).unwrap();
+    assert!(!report.has_errors);
+    assert!(report.all_clean);
+    let page = find_page(&fx.wiki(), "root").unwrap();
+    assert_eq!(page.meta.status, Status::Verified);
+    assert!(
+        page.body.contains("[[cite:src.rs:L3-L5]]"),
+        "auto --fix must rewrite shifted line numbers in body: {}",
+        page.body
+    );
+}
+
+#[test]
+fn ignore_modules_in_wiki_toml_and_wikiignore_suppress_plan_and_retire_carried_tasks() {
+    let fx = Fx::new(&[
+        ("src/lib.rs", SRC),
+        ("fuzz/corpus/seed1.rs", "fn s1() {}\n"),
+        ("website/scripts/gen.rs", "fn gen() {}\n"),
+        (
+            "crates/types/proptest-regressions/reg.txt",
+            "cc 0123456789\n",
+        ),
+    ]);
+
+    // First plan without ignore rules: noise modules are queued as Pending New tasks
+    let run1 = open_plan(&fx.repo, &fx.wiki()).unwrap();
+    assert!(
+        run1.tasks.iter().any(|t| t.page_id.contains("fuzz")),
+        "fuzz/corpus should be planned before ignore config: {:?}",
+        run1.tasks
+    );
+
+    // Configure ignore_modules via config helper + .wikiignore
+    loredex_engine::config::add_ignore_modules(
+        &fx.wiki(),
+        &[
+            "fuzz/corpus".to_string(),
+            "proptest-regressions".to_string(),
+        ],
+    )
+    .unwrap();
+    std::fs::write(fx.wiki().join(".wikiignore"), "website/scripts\n").unwrap();
+
+    // Cover src/lib.rs so only ignored modules remain uncovered
+    put_page(
+        &fx.repo,
+        &fx.wiki(),
+        "src",
+        "Src",
+        "core [[cite:src/lib.rs:L1-L5]]",
+        vec![],
+        Some("system".into()),
+    )
+    .unwrap();
+
+    // Re-plan: carried New tasks for ignored modules must retire automatically
+    let run2 = open_plan(&fx.repo, &fx.wiki()).unwrap();
+    let pending: Vec<_> = run2
+        .tasks
+        .iter()
+        .filter(|t| t.status == TaskStatus::Pending)
+        .collect();
+    assert!(
+        pending.is_empty(),
+        "ignored modules must be filtered and retired from plan: {pending:?}"
+    );
+
+    let report = loredex_engine::auto_refresh(&fx.repo, &fx.wiki()).unwrap();
+    assert!(!report.has_errors);
+    assert!(
+        report.all_clean,
+        "auto must be 100% clean once noise modules are ignored"
+    );
+}

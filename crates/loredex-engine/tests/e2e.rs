@@ -566,10 +566,18 @@ fn plain_git_mv_recovered_by_content_addressing() {
         .evidence
         .iter()
         .all(|e| e.path == "src/store/api.rs"));
+    let reloaded = find_page(&fx.wiki_dir(), "entry").unwrap();
     assert!(
-        verify_page(&find_page(&fx.wiki_dir(), "entry").unwrap(), &fx.repo)
-            .unwrap()
-            .all_ok
+        reloaded.body.contains("[[cite:src/store/api.rs:L1-L5]]")
+            && !reloaded.body.contains("[[cite:src/api.rs:"),
+        "rename must rewrite body [[cite:...]] paths: {}",
+        reloaded.body
+    );
+    assert!(verify_page(&reloaded, &fx.repo).unwrap().all_ok);
+    let lint_issues = loredex_engine::lint(&fx.repo, &fx.wiki_dir()).unwrap();
+    assert!(
+        !lint_issues.iter().any(|i| i.kind == "evidence-drift"),
+        "rename must leave zero evidence-drift lint issues: {lint_issues:?}"
     );
 }
 
@@ -600,10 +608,17 @@ fn mv_with_minor_edit_renamed_and_projected() {
     assert!(page.meta.evidence.iter().all(|e| e.path == "moved_api.rs"));
     // first citation shifted down by the inserted header line
     assert_eq!(page.meta.evidence[0].lines, Some([2, 6]));
+    let reloaded = find_page(&fx.wiki_dir(), "entry").unwrap();
     assert!(
-        verify_page(&find_page(&fx.wiki_dir(), "entry").unwrap(), &fx.repo)
-            .unwrap()
-            .all_ok
+        reloaded.body.contains("[[cite:moved_api.rs:") && !reloaded.body.contains("src/api.rs"),
+        "rename + projection must rewrite body path: {}",
+        reloaded.body
+    );
+    assert!(verify_page(&reloaded, &fx.repo).unwrap().all_ok);
+    let lint_issues = loredex_engine::lint(&fx.repo, &fx.wiki_dir()).unwrap();
+    assert!(
+        !lint_issues.iter().any(|i| i.kind == "evidence-drift"),
+        "rename + projection must leave zero evidence-drift lint issues: {lint_issues:?}"
     );
 }
 
@@ -765,4 +780,63 @@ fn put_updates_existing_page_and_dedups_citations() {
     assert_eq!(page.meta.title, "Entry v2");
     assert_eq!(page.meta.evidence.len(), 1);
     assert_eq!(page.meta.status, Status::Verified);
+}
+
+#[test]
+fn repin_page_recomputes_frontmatter_in_place_and_preserves_metadata() {
+    let fx = Fixture::new(&[("src/api.rs", API_RS)]);
+    put_page(
+        &fx.repo,
+        &fx.wiki_dir(),
+        "entry",
+        "Custom Title",
+        "# Entry\n\ninitial [[cite:src/api.rs:L1-L5]]\n",
+        vec!["net".into(), "rate".into()],
+        Some("system".into()),
+    )
+    .unwrap();
+
+    // Agent edits the markdown body directly on disk (changing cited range to L7-L9)
+    let md_path = fx.wiki_dir().join("pages/entry.md");
+    let raw = std::fs::read_to_string(&md_path).unwrap();
+    std::fs::write(
+        &md_path,
+        raw.replace("[[cite:src/api.rs:L1-L5]]", "[[cite:src/api.rs:L7-L9]]")
+            .replace("status: verified", "status: draft"),
+    )
+    .unwrap();
+
+    let out = loredex_engine::repin_page(&fx.repo, &fx.wiki_dir(), "entry").unwrap();
+    assert!(!out.created);
+    assert_eq!(out.citations, 1);
+
+    let reloaded = find_page(&fx.wiki_dir(), "entry").unwrap();
+    assert_eq!(reloaded.meta.title, "Custom Title");
+    assert_eq!(
+        reloaded.meta.tags,
+        vec!["net".to_string(), "rate".to_string()]
+    );
+    assert_eq!(reloaded.meta.page_type.as_deref(), Some("system"));
+    assert_eq!(reloaded.meta.status, Status::Verified);
+    assert_eq!(reloaded.meta.evidence.len(), 1);
+    assert_eq!(reloaded.meta.evidence[0].lines, Some([7, 9]));
+    assert!(verify_page(&reloaded, &fx.repo).unwrap().all_ok);
+}
+
+#[test]
+fn promote_verified_page_transitions_clean_draft_to_verified() {
+    let fx = Fixture::new(&[("src/api.rs", API_RS)]);
+    make_page(&fx);
+
+    // Manually set status to draft while hashes remain valid at HEAD
+    let md_path = fx.wiki_dir().join("pages/entry.md");
+    let raw = std::fs::read_to_string(&md_path).unwrap();
+    std::fs::write(&md_path, raw.replace("status: verified", "status: draft")).unwrap();
+
+    let promoted =
+        loredex_engine::promote_verified_page(&fx.repo.view(), &fx.wiki_dir(), "entry", true)
+            .unwrap();
+    assert_eq!(promoted.meta.status, Status::Verified);
+    let reloaded = find_page(&fx.wiki_dir(), "entry").unwrap();
+    assert_eq!(reloaded.meta.status, Status::Verified);
 }

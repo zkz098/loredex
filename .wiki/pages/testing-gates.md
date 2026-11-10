@@ -2,20 +2,20 @@
 id: testing-gates
 title: Test and CI layers
 status: verified
-generated_at: 2026-11-09T15:05:20Z
-commit: 5c923ecdc98d8724b5f72b6eebd7be857ca0f336
+generated_at: 2026-11-10T15:16:08Z
+commit: 6802401ccb4cc357a9c5f870b52adaab11715e4b
 evidence:
 - path: crates/loredex-engine/tests/e2e.rs
   lines:
   - 4
   - 10
-  blob: 11473bb6ce1bdf5665a481090a10e499072973a1
+  blob: 55f62524e41806149086d399443211c2a154ecba
   snippet_sha1: 54bcf652e7b432d702ccd72191bb97ca3be6bf40
 - path: crates/loredex-engine/tests/plan_lint.rs
   lines:
   - 1
   - 3
-  blob: be53af8325165c51e9900c87a518e4ac5bafeb84
+  blob: 2cee350d78c14282af9c308df1bad9e86241d224
   snippet_sha1: 9d40188363a01c1ea72d41df7d34f9f2e5f6fd29
 - path: crates/loredex-engine/tests/diff_links.rs
   lines:
@@ -26,10 +26,9 @@ evidence:
 - path: crates/loredex-engine/tests/features.rs
   lines:
   - 1
-  - 6
+  - 8
   blob: 37881a1de4ec9ada9caa1bcdb0c0413bd08ce22f
-  snippet_sha1: 37fc883df601500cdfc8672d80877de2091d8e8a
-  note: drift-projected L1-L6@48fcf9e2 -> L1-L6 (similarity 1.00)
+  snippet_sha1: 08f92e06de5c690a45990d9916ef4d1b5ac4bc7b
 - path: crates/loredex-engine/tests/knowledge.rs
   lines:
   - 1
@@ -46,65 +45,56 @@ evidence:
   lines:
   - 1
   - 6
-  blob: 277d0902242145b4509652e53b94cd9d2b32f231
+  blob: 3641a62a9d390dfedf37cec0d8963f0c7c2520a5
   snippet_sha1: 0c87247e0a7694c9e7857121a373cd081db676fb
-  note: drift-projected L1-L6@08b31e66 -> L1-L6 (similarity 1.00)
 - path: .github/workflows/ci.yml
   lines:
   - 19
   - 22
   blob: e2446f46ac72bdcbec248d94e4f3106233c8e627
   snippet_sha1: 5edf5908f6af0b86bf40171a278baa6cb7c5319b
-  note: drift-projected L19-L22@75c94256 -> L19-L22 (similarity 1.00)
 - path: .github/workflows/ci.yml
   lines:
   - 27
   - 28
   blob: e2446f46ac72bdcbec248d94e4f3106233c8e627
   snippet_sha1: 121304982946f9a55c391d324d91bc89b82ea3c5
-  note: drift-projected L27-L28@75c94256 -> L27-L28 (similarity 1.00)
 - path: .github/workflows/ci.yml
   lines:
   - 40
   - 41
   blob: e2446f46ac72bdcbec248d94e4f3106233c8e627
   snippet_sha1: 9802eeb2ed9062715ecb3df1ec2c7659b679dc8f
-  note: drift-projected L40-L41@75c94256 -> L40-L41 (similarity 1.00)
 - path: .github/workflows/ci.yml
   lines:
   - 29
   - 30
   blob: e2446f46ac72bdcbec248d94e4f3106233c8e627
   snippet_sha1: 9f1711e607aa0650f2c3c2e1057db344aebc44ab
-  note: drift-projected L29-L30@75c94256 -> L29-L30 (similarity 1.00)
 - path: .github/workflows/ci.yml
   lines:
   - 49
   - 50
   blob: e2446f46ac72bdcbec248d94e4f3106233c8e627
   snippet_sha1: 4485bd35e473ae9e143f85e37494d2f348e44f17
-  note: drift-projected L49-L50@75c94256 -> L49-L50 (similarity 1.00)
 - path: crates/loredex-engine/benches/scan.rs
   lines:
   - 1
   - 5
   blob: d5bb817bd38bddcb0808b43eceeb0d9e22f6d76f
   snippet_sha1: 962520a22f808ff93a4239e341ce8625971ac5b4
-  note: drift-projected L1-L5@085c2279 -> L1-L5 (similarity 1.00)
 - path: .github/workflows/ci.yml
   lines:
   - 68
   - 70
   blob: e2446f46ac72bdcbec248d94e4f3106233c8e627
   snippet_sha1: a257e989009413de9728abc2726e44ed13113b63
-  note: drift-projected L68-L70@75c94256 -> L68-L70 (similarity 1.00)
 - path: .github/workflows/ci.yml
   lines:
   - 71
   - 79
   blob: e2446f46ac72bdcbec248d94e4f3106233c8e627
   snippet_sha1: 7427dacd01228b5d3e0857664cfdd5a58960887a
-  note: drift-projected L71-L79@75c94256 -> L71-L79 (similarity 0.78)
 - path: crates/loredex-engine/tests/knowledge.rs
   lines:
   - 37
@@ -115,9 +105,8 @@ evidence:
   lines:
   - 8
   - 12
-  blob: 277d0902242145b4509652e53b94cd9d2b32f231
+  blob: 3641a62a9d390dfedf37cec0d8963f0c7c2520a5
   snippet_sha1: 6c63d4529ab644a369bfaeb78dd4c6f3cd19d28c
-  note: drift-projected L8-L12@08b31e66 -> L8-L12 (similarity 1.00)
 - path: crates/loredex-engine/tests/knowledge.rs
   lines:
   - 215
@@ -157,10 +146,9 @@ evidence:
 - path: Cargo.toml
   lines:
   - 1
-  - 15
+  - 16
   blob: 7d094478474dc090a6ae2236019b200073f2f3ed
-  snippet_sha1: 5a04ddf24098b477716b6dc90b4fa8afc171b4c1
-  note: drift-projected L1-L16@f574dd73 -> L1-L15 (similarity 0.88)
+  snippet_sha1: 72679441ccfc863393da1ef77c6c4dee37489d2b
 - path: .cargo/config.toml
   lines:
   - 1

@@ -155,6 +155,7 @@ fn compute_tasks_detail(
     let mut tasks = Vec::new();
     let reg = playbook::registry(wiki_dir);
     let locale = crate::config::locale(wiki_dir);
+    let ignore = crate::config::IgnoreRules::load(wiki_dir, view.workdir());
     let pages = load_pages(wiki_dir)?;
     crate::prime_view(view, &pages)?;
     let mut cited: BTreeSet<String> = BTreeSet::new();
@@ -220,18 +221,28 @@ fn compute_tasks_detail(
     }
 
     for m in discover_with(view)? {
-        if m.name.starts_with(".wiki") || (m.name != "." && m.name.starts_with('.')) {
-            continue; // dot-directories are tooling config, not doc subjects
+        if m.name.starts_with(".wiki")
+            || (m.name != "." && m.name.starts_with('.'))
+            || ignore.is_ignored_module(&m.name)
+        {
+            continue; // dot-directories and configured ignore_modules are not doc subjects
         }
         let pid_check = suggest_page_id(&m.name);
         if pages.iter().any(|p| p.meta.id == pid_check) {
             continue; // root/uncertainty pages already authored
         }
-        let uncovered: Vec<String> = m
+        let active_files: Vec<&String> = m
             .files
             .iter()
-            .filter(|f| !cited.contains(*f) && !f.starts_with(".wiki/"))
-            .cloned()
+            .filter(|f| !ignore.is_ignored_file(f))
+            .collect();
+        if active_files.is_empty() {
+            continue;
+        }
+        let uncovered: Vec<String> = active_files
+            .iter()
+            .filter(|f| !cited.contains(f.as_str()) && !f.starts_with(".wiki/"))
+            .map(|f| (*f).clone())
             .collect();
         let config_only = uncovered.iter().all(|f| {
             matches!(
@@ -244,7 +255,7 @@ fn compute_tasks_detail(
             )
         });
         if !config_only
-            && uncovered.len() as f64 >= m.files.len() as f64 * 0.5
+            && uncovered.len() as f64 >= active_files.len() as f64 * 0.5
             && !uncovered.is_empty()
         {
             let mut seeds = uncovered;
@@ -259,7 +270,7 @@ fn compute_tasks_detail(
                 purpose: format!(
                     "module `{}` ({} files) has no wiki coverage",
                     m.name,
-                    m.files.len()
+                    active_files.len()
                 ),
                 seeds,
                 status: TaskStatus::Pending,
@@ -308,6 +319,7 @@ pub fn plan_with(repo: &GitRepo, wiki_dir: &Path, reset: bool) -> Result<RunReco
 
 pub fn plan_with_view(view: &GitView, wiki_dir: &Path, reset: bool) -> Result<RunRecord> {
     let (fresh, cited) = compute_tasks_detail(view, wiki_dir)?;
+    let ignore = crate::config::IgnoreRules::load(wiki_dir, view.workdir());
     // Planning is a read-modify-write over the shared ledger. The scan above is
     // the slow part, so take the lock only for the load/merge/save section.
     let _lock = crate::lock::FileLock::ledger(wiki_dir)?;
@@ -328,19 +340,37 @@ pub fn plan_with_view(view: &GitView, wiki_dir: &Path, reset: bool) -> Result<Ru
     };
     // A pending New task is *interrupted work*, so it survives a run boundary —
     // but it is a claim about coverage, not about a page id. Once the module it
-    // named is mostly documented the claim is false, and carrying it on would
-    // make the worklist resurrect forever (the suggested id and the id actually
-    // authored rarely agree). Retire it with the same ratio that created it.
+    // named is mostly documented (or ignored via ignore_modules/.wikiignore) the
+    // claim is false, and carrying it on would make the worklist resurrect
+    // forever. Retire it with the same ratio that created it.
     let carried: Vec<PlanTask> = prev
         .map(|r| {
             r.tasks
                 .iter()
                 .filter(|t| t.status == TaskStatus::Pending)
                 .filter(|t| {
-                    t.kind != TaskKind::New
-                        || t.seeds.is_empty()
-                        || t.seeds.iter().filter(|s| !cited.contains(*s)).count() as f64
-                            >= t.seeds.len() as f64 * 0.5
+                    if t.kind != TaskKind::New {
+                        return true;
+                    }
+                    if ignore.is_ignored_module(&t.page_id) {
+                        return false;
+                    }
+                    if t.seeds.is_empty() {
+                        return true;
+                    }
+                    let active_seeds: Vec<&String> = t
+                        .seeds
+                        .iter()
+                        .filter(|s| !ignore.is_ignored_file(s))
+                        .collect();
+                    if active_seeds.is_empty() {
+                        return false;
+                    }
+                    active_seeds
+                        .iter()
+                        .filter(|s| !cited.contains(s.as_str()))
+                        .count() as f64
+                        >= active_seeds.len() as f64 * 0.5
                 })
                 .cloned()
                 .collect()

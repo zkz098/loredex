@@ -1,9 +1,9 @@
 ---
 id: git-layer
 title: 'loredex-git: read-only git wrapper'
-status: draft
-generated_at: 2026-11-08T15:19:47Z
-commit: 6218b0933acfd281aa30842652167f82a491d069
+status: verified
+generated_at: 2026-11-10T15:16:08Z
+commit: 6802401ccb4cc357a9c5f870b52adaab11715e4b
 evidence:
 - path: crates/loredex-git/src/lib.rs
   lines:
@@ -11,49 +11,42 @@ evidence:
   - 34
   blob: e4ba64b2462a23c737ddc98d65349f9e0b66b7cc
   snippet_sha1: 2329e1ff614c18c94955bfe55bda582529aac8da
-  note: drift-projected L23-L34@e093b50d -> L23-L34 (similarity 0.92)
 - path: crates/loredex-git/src/lib.rs
   lines:
   - 69
   - 85
   blob: e4ba64b2462a23c737ddc98d65349f9e0b66b7cc
   snippet_sha1: 8f5d28518426d2754f84a4c37a62bf924db6b1e7
-  note: content lost at HEAD; re-pinned at recorded range (draft)
 - path: crates/loredex-git/src/lib.rs
   lines:
   - 99
   - 105
   blob: e4ba64b2462a23c737ddc98d65349f9e0b66b7cc
   snippet_sha1: 4b843c1347bfce05e06a9aa26d4044423f43413b
-  note: content lost at HEAD; re-pinned at recorded range (draft)
 - path: crates/loredex-git/src/lib.rs
   lines:
-  - 391
-  - 399
+  - 416
+  - 424
   blob: e4ba64b2462a23c737ddc98d65349f9e0b66b7cc
-  snippet_sha1: 8f749694fee40b81410069b456bf73f57948f6e2
-  note: drift-projected L416-L424@e093b50d -> L391-L399 (similarity 1.00)
+  snippet_sha1: 2266bac86260abf2010c60e01ee91f7ed0d16302
 - path: crates/loredex-git/src/lib.rs
   lines:
   - 112
   - 119
   blob: e4ba64b2462a23c737ddc98d65349f9e0b66b7cc
   snippet_sha1: f90187d7ab7fd6b567c33b35a9a3f126c81be62f
-  note: content lost at HEAD; re-pinned at recorded range (draft)
 - path: crates/loredex-git/src/lib.rs
   lines:
-  - 98
-  - 101
+  - 121
+  - 124
   blob: e4ba64b2462a23c737ddc98d65349f9e0b66b7cc
-  snippet_sha1: 119edcf75aaa5d353174659486d6c77d3d3fa7a7
-  note: drift-projected L121-L124@e093b50d -> L98-L101 (similarity 1.00)
+  snippet_sha1: f8405b5eff56c528565d92f26519a45a24d76a7a
 - path: crates/loredex-git/src/lib.rs
   lines:
-  - 401
-  - 408
+  - 426
+  - 435
   blob: e4ba64b2462a23c737ddc98d65349f9e0b66b7cc
-  snippet_sha1: d6c71d19049d56e78fe3a9b64243c2241cd6d9dc
-  note: drift-projected L426-L435@e093b50d -> L401-L408 (similarity 0.70)
+  snippet_sha1: defb81be681b5c12dbeb4c5a5ca54cdb0b38b6f0
 type: system
 ---
 # loredex-git: read-only git wrapper

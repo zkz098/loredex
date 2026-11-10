@@ -1404,6 +1404,49 @@ impl WikiServer {
             .await?;
         Ok(Json(out))
     }
+
+    #[tool(
+        name = "wiki_repin_page",
+        description = "In-place re-pin an existing page: reads `.wiki/pages/<id>.md`, preserves its title/tags/type, re-parses all `[[cite:...]]` markers from its Markdown body against current HEAD (resolving renamed paths if needed), and updates frontmatter as `status: verified`."
+    )]
+    async fn wiki_repin_page(
+        &self,
+        Parameters(p): Parameters<IdParam>,
+        peer: Peer<RoleServer>,
+    ) -> Result<Json<PutOut>, ErrorData> {
+        let _gate = self.gate.write().await;
+        let cache = self.pages.clone();
+        let id = p.id;
+        let out = self
+            .with_repo(&peer, move |repo| {
+                let view = repo.view();
+                let result = engine::repin_page_with(
+                    &view,
+                    &repo.wiki_dir(),
+                    &id,
+                    &engine::PutOptions::default(),
+                );
+                *cache.lock().unwrap() = PageCache::default();
+                let outcome =
+                    result.map_err(|e| ErrorData::invalid_request(e.to_string(), None))?;
+                Ok(PutOut {
+                    id: outcome.page.meta.id.clone(),
+                    created: outcome.created,
+                    status: outcome.page.meta.status.as_str().to_string(),
+                    citations: outcome.citations,
+                    evidence: outcome
+                        .page
+                        .meta
+                        .evidence
+                        .iter()
+                        .map(|e| WikiServer::evidence_out(&view, e))
+                        .collect(),
+                    page_sha1: outcome.page_sha1,
+                })
+            })
+            .await?;
+        Ok(Json(out))
+    }
 }
 
 #[derive(Debug, PartialEq, Eq)]

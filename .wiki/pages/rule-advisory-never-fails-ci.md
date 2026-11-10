@@ -2,8 +2,8 @@
 id: rule-advisory-never-fails-ci
 title: Curation hints are advisory and never break CI
 status: verified
-generated_at: 2026-11-09T14:37:56Z
-commit: 8ce30c67ff3080a3c5cde0325e337dee4b5b2056
+generated_at: 2026-11-10T15:16:08Z
+commit: 6802401ccb4cc357a9c5f870b52adaab11715e4b
 evidence:
 - path: crates/loredex-engine/src/organize.rs
   lines:
@@ -29,27 +29,24 @@ evidence:
   - 26
   blob: 4800de5f0cd1b0de76d09014bc25ad4f1d2f1f35
   snippet_sha1: da600c830af88a1a362d701e28653e394a051891
-  note: drift-projected L17-L26@f71fc8f0 -> L17-L26 (similarity 1.00)
 - path: crates/loredex-engine/src/lint.rs
   lines:
-  - 151
-  - 161
+  - 152
+  - 162
   blob: 4800de5f0cd1b0de76d09014bc25ad4f1d2f1f35
-  snippet_sha1: a0b584142e3f263cf4341f4fd28366363438fd71
-  note: drift-projected L152-L162@f71fc8f0 -> L151-L161 (similarity 1.00)
+  snippet_sha1: ffb3ae5b9e3342dca59582393c59ebca70c65430
 - path: crates/loredex-cli/src/main.rs
   lines:
-  - 875
-  - 896
-  blob: 94f2e96933ee17b58a472f7c0bbb45341b978cf9
-  snippet_sha1: b8545f73e379d3dac9a07fb8969e138fdba41e8e
-  note: drift-projected L872-L893@5da7033e -> L875-L896 (similarity 1.00)
+  - 705
+  - 726
+  blob: 42b915e5dbe33c3ad32c286d6e4609556b6dcb8e
+  snippet_sha1: 3fc7fc74995d00b631bb0e33aed6f3d2d64d7bd3
 - path: crates/loredex-engine/src/auto.rs
   lines:
   - 113
   - 124
-  blob: b4a94af752dbaae368c1b4a90f764601191baf18
-  snippet_sha1: a5fe4fe2aff3959e61bc519870fbe1b6c9fd0e12
+  blob: ba5de45fb822b8efb953c1498ce55def0f751063
+  snippet_sha1: 92698ffc477dd476b207065ea7b0fca30af76c0e
 - path: crates/loredex-engine/src/organize.rs
   lines:
   - 92
@@ -62,14 +59,12 @@ evidence:
   - 250
   blob: 66d62f35f3827e7e03d39b2fe41e542787945024
   snippet_sha1: 5602dd8de02da6b264dff2fb5792b7de75b564bd
-  note: drift-projected L232-L250@b7b556bf -> L232-L250 (similarity 1.00)
 - path: crates/loredex-engine/tests/knowledge.rs
   lines:
   - 380
   - 398
   blob: 66d62f35f3827e7e03d39b2fe41e542787945024
   snippet_sha1: f8577e806cff6c8a0cfc7f93bbcc4778d5fef3e0
-  note: drift-projected L380-L398@b7b556bf -> L380-L398 (similarity 1.00)
 tags:
 - policy
 type: rule

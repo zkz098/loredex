@@ -34,14 +34,17 @@ pub use ast::{
     enclosing_symbol, is_rust_path, parse_rust_symbols, resolve_symbol, symbol_matching_range,
     AstSymbol,
 };
-pub use auto::{auto_refresh, auto_refresh_with, AutoReport};
-pub use config::{locale as wiki_locale, set_language, Locale};
+pub use auto::{auto_refresh, auto_refresh_with, auto_refresh_with_options, AutoReport};
+pub use config::{
+    add_ignore_modules, ignore_rules, locale as wiki_locale, set_language, IgnoreRules, Locale,
+};
 pub use diff_since::{
     diff_since, diff_since_with, DiffPageHit, DiffReport, EvidenceHit as DiffEvidenceHit,
 };
 pub use drift::{
     project_evidence, project_evidence_with, project_range, refresh_page_with_drift,
-    refresh_page_with_drift_view, DriftOutcome,
+    refresh_page_with_drift_options, refresh_page_with_drift_view, sync_body_citations,
+    DriftOutcome,
 };
 pub use evidence::{candidates as evidence_candidates, EvidenceCandidates, Window};
 pub use html::{
@@ -66,7 +69,8 @@ pub use plan::{
 };
 pub use playbook::{registry as playbook_registry, TypePlaybook};
 pub use put::{
-    note_page, note_page_with, put_page, put_page_with, PageExpectation, PutOptions, PutOutcome,
+    note_page, note_page_with, put_page, put_page_with, repin_page, repin_page_with,
+    PageExpectation, PutOptions, PutOutcome,
 };
 pub use redact::{mask_line, scan_lines, scan_range, Finding as SecretFinding};
 
@@ -471,13 +475,97 @@ pub fn refresh_page(page: &mut WikiPage, repo: &GitRepo) -> Result<()> {
     page.save_in_place()
 }
 
+/// Verify a page's citations against HEAD and promote its status to `verified`
+/// (resolving any pending plan task). If the body's `[[cite:...]]` markers
+/// were edited relative to frontmatter, re-pins frontmatter from the body first.
+pub fn promote_verified_page(
+    view: &GitView,
+    wiki_dir: &Path,
+    id: &str,
+    allow_secret_citations: bool,
+) -> Result<WikiPage> {
+    let mut page = find_page(wiki_dir, id)?;
+    let cites = loredex_core::parse_citations(&page.body).map_err(|e| {
+        WikiError::FrontmatterParse(id.into(), format!("citation parse error: {e}"))
+    })?;
+    if cites.is_empty() {
+        return Err(WikiError::FrontmatterParse(
+            id.into(),
+            "cannot mark uncited page as verified; add [[cite:path:Lx-Ly]] markers first".into(),
+        ));
+    }
+    let fm_paths: BTreeSet<&str> = page.meta.evidence.iter().map(|e| e.path.as_str()).collect();
+    let body_drifted = page.meta.evidence.is_empty()
+        || cites.iter().any(|c| !fm_paths.contains(c.path.as_str()))
+        || !verify_page_with(&page, view)?.all_ok;
+
+    if body_drifted {
+        let out = repin_page_with(
+            view,
+            wiki_dir,
+            id,
+            &PutOptions {
+                allow_secret_citations,
+                ..Default::default()
+            },
+        )?;
+        return Ok(out.page);
+    }
+
+    if !allow_secret_citations {
+        let mut hits: Vec<String> = Vec::new();
+        for e in &page.meta.evidence {
+            if let Some([lo, hi]) = e.lines {
+                if let Some(content) = view.head_file_content(&e.path)? {
+                    hits.extend(redact::scan_range(&content, lo, hi).into_iter().map(|f| {
+                        format!(
+                            "{}:L{} [{rule}]",
+                            e.path,
+                            lo + f.line as u32 - 1,
+                            rule = f.rule
+                        )
+                    }));
+                }
+            }
+        }
+        if !hits.is_empty() {
+            return Err(WikiError::FrontmatterParse(
+                id.into(),
+                format!(
+                    "citations point at secret-shaped content: {}; cite different lines or pass --no-redact to override",
+                    hits.join(", ")
+                ),
+            ));
+        }
+    }
+
+    for ev in &mut page.meta.evidence {
+        if ev
+            .note
+            .as_deref()
+            .is_some_and(|n| n.contains("(draft)") || n.contains("content lost"))
+        {
+            ev.note = None;
+        }
+    }
+    page.meta.status = Status::Verified;
+    page.meta.commit = view.head_commit()?.to_string();
+    page.meta.generated_at = now_iso();
+    {
+        let _lock = lock::FileLock::page(wiki_dir, id)?;
+        page.save_in_place()?;
+    }
+    let _ = plan::mark_task(wiki_dir, id, plan::TaskStatus::Done);
+    Ok(page)
+}
+
 pub fn init_wiki_layout(wiki_dir: &Path) -> Result<()> {
     std::fs::create_dir_all(pages_dir(wiki_dir))?;
     let config = wiki_dir.join("wiki.toml");
     if !config.exists() {
         std::fs::write(
             &config,
-            "# loredex configuration\n[wiki]\npages = \"pages\"\n# skeleton text locale for generated pages/playbooks: \"en\" | \"zh\"\nlanguage = \"en\"\n# cache directory is gitignored; rebuildable, never committed\n",
+            "# loredex configuration\n[wiki]\npages = \"pages\"\n# skeleton text locale for generated pages/playbooks: \"en\" | \"zh\"\nlanguage = \"en\"\n# exclude non-doc directories/targets from `loredex modules` and `loredex plan`:\n# ignore_modules = [\"fuzz/corpus\", \"scripts\"]\n# cache directory is gitignored; rebuildable, never committed\n",
         )?;
     }
     std::fs::create_dir_all(wiki_dir.join(".cache"))?;
