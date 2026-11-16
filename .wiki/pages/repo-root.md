@@ -2,16 +2,16 @@
 id: repo-root
 title: Repository root and engineering
 status: verified
-generated_at: 2026-11-09T15:05:20Z
-commit: 5c923ecdc98d8724b5f72b6eebd7be857ca0f336
+generated_at: 2026-11-16T11:40:24Z
+commit: 6aa0c0c82b2e5edbf551321b1c26add6f8d9f63a
 evidence:
 - path: Cargo.toml
   lines:
   - 1
   - 9
-  blob: 7d094478474dc090a6ae2236019b200073f2f3ed
+  blob: fe252926d15f1d8a894c2bc8f41ed2223b7efafa
   snippet_sha1: 5313a611bf4562bc9dd637aa2e8cfecb6eed6074
-  note: drift-projected L1-L9@f574dd73 -> L1-L9 (similarity 1.00)
+  note: drift-projected L1-L9@7d094478 -> L1-L9 (similarity 1.00)
 - path: README.md
   lines:
   - 1
